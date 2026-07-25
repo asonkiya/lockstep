@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.venv/
+*.o
+*.o_shipped
+target/
+.DS_Store
+/scratch/
