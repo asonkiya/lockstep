@@ -1,0 +1,103 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aryaman Sonkiya <asonkiya@unc.edu>
+Date: Sat, 26 Jul 2026 12:00:00 +0900
+Subject: [RFC PATCH 2/3] ptp: ptp_mock: call the Rust regions from the ops
+
+Replace the bodies of the four ops with calls to the Rust regions.
+This exact topology (C shell + Rust critical sections on one shared
+lock) is what the in-kernel gate verified: FUNC_PASS with a clock-
+monotonicity oracle under 4-CPU contention, zero KCSAN reports,
+lockdep silent; the dropped-lock negative control is rejected by
+KCSAN by name. The container_of and timespec64 glue stays in C.
+
+Signed-off-by: Aryaman Sonkiya <asonkiya@unc.edu>
+---
+
+diff --git a/drivers/ptp/ptp_mock.c b/drivers/ptp/ptp_mock.c
+--- a/drivers/ptp/ptp_mock.c
++++ b/drivers/ptp/ptp_mock.c
+@@ -11,6 +11,18 @@
+ #include <linux/ptp_clock_kernel.h>
+ #include <linux/ptp_mock.h>
+ #include <linux/timecounter.h>
++
++/*
++ * Region implementations in Rust (ptp_mock_regions.rs): the four critical
++ * sections of this driver, boot-verified under KCSAN + lockdep against this
++ * exact call topology — see the series cover letter for the evidence.
++ */
++int lockstep_phc_adjfine(struct timecounter *tc, struct cyclecounter *cc,
++			 void *lock, long scaled_ppm);
++int lockstep_phc_adjtime(struct timecounter *tc, void *lock, s64 delta);
++int lockstep_phc_settime64(struct timecounter *tc, struct cyclecounter *cc,
++			   void *lock, u64 ns);
++u64 lockstep_phc_gettime64(struct timecounter *tc, void *lock);
+ 
+ /* Clamp scaled_ppm between -2,097,152,000 and 2,097,152,000,
+  * and thus "adj" between -68,719,476 and 68,719,476
+@@ -45,57 +57,31 @@
+ {
+ 	return ktime_get_raw_ns();
+ }
+-
+ static int mock_phc_adjfine(struct ptp_clock_info *info, long scaled_ppm)
+ {
+ 	struct mock_phc *phc = info_to_phc(info);
+-	s64 adj;
+ 
+-	adj = (s64)scaled_ppm << MOCK_PHC_FADJ_SHIFT;
+-	adj = div_s64(adj, MOCK_PHC_FADJ_DENOMINATOR);
+-
+-	spin_lock(&phc->lock);
+-	timecounter_read(&phc->tc);
+-	phc->cc.mult = MOCK_PHC_CC_MULT + adj;
+-	spin_unlock(&phc->lock);
+-
+-	return 0;
++	return lockstep_phc_adjfine(&phc->tc, &phc->cc, &phc->lock, scaled_ppm);
+ }
+-
+ static int mock_phc_adjtime(struct ptp_clock_info *info, s64 delta)
+ {
+ 	struct mock_phc *phc = info_to_phc(info);
+ 
+-	spin_lock(&phc->lock);
+-	timecounter_adjtime(&phc->tc, delta);
+-	spin_unlock(&phc->lock);
+-
+-	return 0;
++	return lockstep_phc_adjtime(&phc->tc, &phc->lock, delta);
+ }
+-
+ static int mock_phc_settime64(struct ptp_clock_info *info,
+ 			      const struct timespec64 *ts)
+ {
+ 	struct mock_phc *phc = info_to_phc(info);
+-	u64 ns = timespec64_to_ns(ts);
+ 
+-	spin_lock(&phc->lock);
+-	timecounter_init(&phc->tc, &phc->cc, ns);
+-	spin_unlock(&phc->lock);
+-
+-	return 0;
++	return lockstep_phc_settime64(&phc->tc, &phc->cc, &phc->lock,
++				      timespec64_to_ns(ts));
+ }
+-
+ static int mock_phc_gettime64(struct ptp_clock_info *info, struct timespec64 *ts)
+ {
+ 	struct mock_phc *phc = info_to_phc(info);
+-	u64 ns;
+ 
+-	spin_lock(&phc->lock);
+-	ns = timecounter_read(&phc->tc);
+-	spin_unlock(&phc->lock);
+-
+-	*ts = ns_to_timespec64(ns);
++	*ts = ns_to_timespec64(lockstep_phc_gettime64(&phc->tc, &phc->lock));
+ 
+ 	return 0;
+ }
+
+-- 
+2.39.0

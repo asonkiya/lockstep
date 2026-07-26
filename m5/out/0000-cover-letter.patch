@@ -1,0 +1,75 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Aryaman Sonkiya <asonkiya@unc.edu>
+Date: Sat, 26 Jul 2026 12:00:00 +0900
+Subject: [RFC PATCH 0/3] ptp: ptp_mock: machine-transplanted Rust regions, sanitizer-verified in-kernel
+
+This RFC converts the four spinlock-protected regions of the mock PTP
+clock driver (adjfine / adjtime / settime64 / gettime64 — one lock,
+shared timecounter/cyclecounter state) to Rust. It is not proposed for
+merging as-is; it exists to demonstrate a verification methodology in
+which every claim below is machine-checked, and to solicit comments on
+the destination form (patch 3).
+
+== How the Rust was produced and verified ==
+
+* A static extractor derived the concurrency contract from this driver:
+  protects = {"mock_phc": {"lock": ["cc", "clock", "info", "tc"]}}
+* Each region was rewritten into Rust by a language model from its C
+  body plus that contract (all four accepted on first attempt; total
+  model cost $0.0084). The Rust holds the driver's real spinlock via
+  the kernel's out-of-line _raw_spin_lock (lockdep-visible) and calls
+  the exported timecounter_read()/timecounter_init().
+* The exact topology of patch 2 (C shell, Rust regions, one shared
+  lock) was booted on arm64 SMP under CONFIG_KCSAN + CONFIG_PROVE_LOCKING
+  and hammered by 5 kthreads driving all four regions concurrently plus
+  a lock-holding C reader, with a clock-monotonicity functional oracle:
+
+      stock verdict=FUNC_PASS 0
+      rewrite verdict=FUNC_PASS 0
+      sabotaged verdict=FUNC_FAIL 24
+
+  (stock = this driver's C; rewrite = the Rust in this series; the
+  third column is KCSAN report frames naming probe/transplant symbols.)
+
+* Negative control: the same Rust with the lock acquisition removed is
+  REJECTED by KCSAN — which names the transplanted function itself in
+  the racing stack — and the clock runs backwards 98 times:
+
+      BUG: KCSAN: data-race in timecounter_read+0xe0/0x118
+      
+      race at unknown origin, with read to 0xffffaf23b4139048 of 8 bytes by task 103 on cpu 0:
+       timecounter_read+0xe0/0x118
+       lockstep_phc_adjfine+0x30/0x48
+       kthread+0x1fc/0x208
+       ret_from_fork+0x10/0x20
+      
+      value changed: 0x0000012c5b978ebe -> 0x0000012c5b97968e
+      
+      Reported by Kernel Concurrency Sanitizer on:
+      CPU: 0 UID: 0 PID: 103 Comm: lockstep_adjf Not tainted 7.2.0-rc4 #10 PREEMPT 
+      Hardware name: linux,dummy-virt (DT)
+
+== Honest limitations ==
+
+* The exported region symbols keep their verification-harness names
+  (lockstep_phc_*); a real submission would rename them.
+* The Makefile rule builds the Rust freestanding for arm64 only; proper
+  CONFIG_RUST integration is deliberately out of scope here.
+* Patch 3 is the idiomatic kernel::sync::SpinLock<T> destination and
+  does NOT compile today: timecounter/cyclecounter and the PTP class
+  have no Rust abstractions yet. It is included to show where this
+  lands once they exist, with the missing binding surface called out.
+* mock_phc_create()/destroy() (registration plumbing) are unchanged.
+
+Aryaman Sonkiya (3):
+  ptp: ptp_mock: add Rust implementations of the locked regions
+  ptp: ptp_mock: call the Rust regions from the ops
+  ptp: ptp_mock: sketch the idiomatic Rust destination (RFC only)
+
+ drivers/ptp/Makefile               |   8 ++
+ drivers/ptp/ptp_mock.c             |  46 ++++-----
+ drivers/ptp/ptp_mock_regions.rs    | new
+ drivers/ptp/ptp_mock_idiomatic.rs  | new (RFC)
+
+--
+2.39.0

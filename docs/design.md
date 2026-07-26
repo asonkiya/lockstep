@@ -243,13 +243,46 @@ by a differential/whole-program result rather than a claim.
   `lockstep_phc_adjfine` in the racing stack** and a PTP clock that ran
   backwards 98 times. Remaining M4 scale-out: multi-cluster subsystems +
   syzkaller for syscall-facing regions.
-- **M5 — upstreamable output.** Emit transplants as Rust-for-Linux-shaped patches
-  against a real subsystem, with the sanitizer evidence attached. *Proof: a patch
-  that a human R4L maintainer would review — the honest end state.*
+- **M5 — upstreamable output. ✅ done (see `m5/RESULTS.md`).** Emit transplants as
+  Rust-for-Linux-shaped patches against a real subsystem, with the sanitizer
+  evidence attached. *Proof: a patch that a human R4L maintainer would review —
+  the honest end state.* Delivered: `m5/emit.py` — a formatter over the M4
+  breadth artifacts producing a git-am-able RFC series (cover letter with the
+  gate table + the KCSAN conviction excerpt; the boot-verified Rust byte-
+  identical as 0001; the verified C-shell topology as a real diff in 0002; the
+  idiomatic `SpinLock<T>` destination as RFC-only 0003 with the missing binding
+  surface named). Gated by `git apply` in sequence + the kernel's own
+  `checkpatch.pl`: **0 errors across the series.** Per the 2026-07-26 pivot the
+  series is an export format, not a submission — the project's goal is now the
+  private full-kernel rewrite ratchet (see below).
 
 The negative control is a first-class citizen at every rung, because CGIR's rung 4
 taught the lesson the hard way: **a gate that cannot reject is worse than no gate,
 and only the wrong candidate proves the right one meant something.**
+
+### 4.1 After the ladder: the ratchet (the 2026-07-26 pivot)
+
+M0–M5 are complete. The goal from here is no longer upstream acceptance — it is
+the personal moonshot: **rewrite Linux into Rust and run it**, nobody else's
+review required. That deletes two walls the ladder was designed around
+(idiomatic R4L abstractions, human review) and replaces them with a strategy
+and one piece of infrastructure:
+
+- **Unsafe-first, safe-later.** Faithful `#[repr(C)]`/raw-pointer Rust is
+  eligible where idiomatic Rust is not; the model+gate loop becomes a
+  *refinement engine* that later re-attempts unsafe entries as safe ones.
+- **The ratchet.** A manifest (`{{file, symbol, status, tier}}`) + a build
+  weaver that strips rewritten functions from their .c files, compiles all
+  Rust winners into one object, links, boots, and re-runs every prior gate
+  cumulatively. Once green, an entry never regresses to C.
+- **The metric.** % of vmlinux text that is Rust in a booting, gate-green
+  kernel, ratcheting toward the honest floor (arch entry asm, early boot,
+  deliberately-lockless structures — the C-forever residue).
+- **The scope.** The minimal arm64 virt config that already boots in this
+  harness — tens of thousands of functions, hundreds of dollars of model
+  spend at measured costs, weeks of QEMU time. Personal-scale.
+
+Ring 0 target: one subsystem (drivers/ptp) 100% Rust inside a booting kernel.
 
 ---
 
