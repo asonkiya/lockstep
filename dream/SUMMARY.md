@@ -87,5 +87,16 @@ is REJECTED on its trace (half the accesses, diverges at the missing poll). That
 is the capability that converts the driver mass from "boots" to "programs the
 hardware identically to the C."
 
-Total model spend across every transplant: **~3 cents.** The bricks are laid, the
-batching works, and the driver oracle exists; the next thousand are the same shape.
+**Ring 4 transplanted a REAL in-tree driver** (`dream/ratchet/ring4/`, RING4.md):
+`drivers/gpio/gpio-zevio.c` — genuine register-address math, RMW bit programming,
+the get/set/direction ops. Its real register logic (verbatim; only the seam
+adapted) was Haiku-transplanted ($0.0058) and trace-verified bit-identical to the
+C over a 448-access register trace across 32 pins. The negative control — the
+classic "wrong register" bug (OUTPUT ops → INPUT offset) — is REJECTED at the
+first access. First conversion of code that shipped in Linux; the 73% is
+addressable.
+
+Total model spend across every transplant: **~4 cents.** Research → differential
+oracle → ratchet (50% Rust, Rings 0–2) → driver-class oracle (Ring 3) → a real
+in-tree driver (Ring 4). The bricks are laid, the batching works, the driver
+oracle exists, and it runs on real driver code; the next thousand are the same shape.
