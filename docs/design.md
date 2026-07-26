@@ -221,6 +221,18 @@ by a differential/whole-program result rather than a claim.
 - **M4 — subsystem sweep.** Drive M3 across every region of one subsystem,
   dependency-ordered, the way CGIR swept SQLite. *Proof: N regions transplanted, a
   subsystem-level kselftest + syzkaller run clean vs stock.*
+  **Depth leg ✅ done (see `m4/RESULTS.md`): the in-kernel realization.** Haiku's
+  region ($0.0020, attempt 1) compiled freestanding, linked into vmlinux (rung-4
+  `.o_shipped` path), taking the kernel's REAL spinlock via out-of-line
+  `_raw_spin_lock` — verified inside a booting SMP Linux under the M0
+  KCSAN+lockdep config: 3M critical sections + 1.3M locked instrumented reads,
+  0 races, lockdep silent, count exact. **Negative control REJECTED BY KCSAN
+  itself**: the dropped-lock variant drew 37 `BUG: KCSAN` reports naming
+  `lockstep_reader` ("value changed 0x27fb→0x27fe" while the reader held the
+  lock) + 1,278 lost updates. Harness lesson: KCSAN samples (~1/4000 accesses) —
+  the probe must pace the stress window or a fast racy transplant outruns the
+  race oracle (run 1 vs run 2 in RESULTS). Remaining M4: the breadth sweep +
+  a region from existing kernel code (ptp_mock) + syzkaller load.
 - **M5 — upstreamable output.** Emit transplants as Rust-for-Linux-shaped patches
   against a real subsystem, with the sanitizer evidence attached. *Proof: a patch
   that a human R4L maintainer would review — the honest end state.*

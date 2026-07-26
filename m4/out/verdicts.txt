@@ -1,0 +1,3 @@
+stock verdict=FUNC_PASS 0
+rewrite verdict=FUNC_PASS 0
+sabotaged verdict=FUNC_FAIL 111
