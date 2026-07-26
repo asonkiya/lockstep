@@ -1,0 +1,54 @@
+{
+ "config": "arm64-defconfig +PTP_1588_CLOCK_MOCK",
+ "generated_by": "build_manifest.py",
+ "config_enable": [
+  "PTP_1588_CLOCK_MOCK"
+ ],
+ "sources": {
+  "drivers/ptp/ptp_mock.c": {
+   "extern_block": "\n/*\n * Region implementations in Rust (ptp_mock_regions.rs): the four critical\n * sections of this driver, boot-verified under KCSAN + lockdep against this\n * exact call topology \u2014 see the series cover letter for the evidence.\n */\nint lockstep_phc_adjfine(struct timecounter *tc, struct cyclecounter *cc,\n\t\t\t void *lock, long scaled_ppm);\nint lockstep_phc_adjtime(struct timecounter *tc, void *lock, s64 delta);\nint lockstep_phc_settime64(struct timecounter *tc, struct cyclecounter *cc,\n\t\t\t   void *lock, u64 ns);\nu64 lockstep_phc_gettime64(struct timecounter *tc, void *lock);\n",
+   "functions": {
+    "mock_phc_adjfine": {
+     "status": "rust",
+     "tier": "unsafe",
+     "gate": "differential",
+     "verdict": "PASS",
+     "seam": "lockstep_phc_adjfine",
+     "shell": "static int mock_phc_adjfine(struct ptp_clock_info *info, long scaled_ppm)\n{\n\tstruct mock_phc *phc = info_to_phc(info);\n\n\treturn lockstep_phc_adjfine(&phc->tc, &phc->cc, &phc->lock, scaled_ppm);\n}"
+    },
+    "mock_phc_adjtime": {
+     "status": "rust",
+     "tier": "unsafe",
+     "gate": "differential",
+     "verdict": "PASS",
+     "seam": "lockstep_phc_adjtime",
+     "shell": "static int mock_phc_adjtime(struct ptp_clock_info *info, s64 delta)\n{\n\tstruct mock_phc *phc = info_to_phc(info);\n\n\treturn lockstep_phc_adjtime(&phc->tc, &phc->lock, delta);\n}"
+    },
+    "mock_phc_settime64": {
+     "status": "rust",
+     "tier": "unsafe",
+     "gate": "differential",
+     "verdict": "PASS",
+     "seam": "lockstep_phc_settime64",
+     "shell": "static int mock_phc_settime64(struct ptp_clock_info *info,\n\t\t\t      const struct timespec64 *ts)\n{\n\tstruct mock_phc *phc = info_to_phc(info);\n\n\treturn lockstep_phc_settime64(&phc->tc, &phc->cc, &phc->lock,\n\t\t\t\t      timespec64_to_ns(ts));\n}"
+    },
+    "mock_phc_gettime64": {
+     "status": "rust",
+     "tier": "unsafe",
+     "gate": "differential",
+     "verdict": "PASS",
+     "seam": "lockstep_phc_gettime64",
+     "shell": "static int mock_phc_gettime64(struct ptp_clock_info *info, struct timespec64 *ts)\n{\n\tstruct mock_phc *phc = info_to_phc(info);\n\n\t*ts = ns_to_timespec64(lockstep_phc_gettime64(&phc->tc, &phc->lock));\n\n\treturn 0;\n}"
+    }
+   },
+   "total_functions": 9
+  }
+ },
+ "rust_objects": {
+  "ptp_mock_regions": {
+   "src": "ring0/ptp_mock_regions.rs",
+   "kbuild_dir": "drivers/ptp",
+   "obj": "ptp_mock_regions"
+  }
+ }
+}
