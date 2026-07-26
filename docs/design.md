@@ -179,10 +179,18 @@ by a differential/whole-program result rather than a claim.
   the container; capture a clean baseline race/lock report under a KUnit load. This
   is rung 4's gate plus sanitizer configs. *Proof: stock is clean; the report is
   reproducible.*
-- **M1 — IR extraction.** Extract the concurrency IR (§3.1) for one small subsystem
-  (candidate: a self-contained driver or `lib/` data structure with clear locking —
-  e.g. an idr/xarray user, or a simple ring buffer). *Proof: the extracted
-  `protects` map matches `lockdep`'s runtime lock-class observations.*
+- **M1 — IR extraction. ✅ done (see `m1/RESULTS.md`).** Extract the concurrency IR
+  (§3.1) for one small subsystem (candidate: a self-contained driver or `lib/` data
+  structure with clear locking — e.g. an idr/xarray user, or a simple ring buffer).
+  *Proof: the extracted `protects` map matches `lockdep`'s runtime lock-class
+  observations.* Delivered: `m1/extract.py` (lock structs, critical sections,
+  `protects` map, unprotected accesses) + `m1/crosscheck.py`, which proves the map
+  against a ThreadSanitizer run of a ring buffer (userspace stand-in for
+  KCSAN/lockdep) — `name`, the one field touched with no lock held, is exactly the
+  field that races; the lock-protected fields do not. Swept real drivers
+  (`ptp_mock`, two GPIO); limits (interprocedural helper accesses, `arch_spinlock`/
+  pointer-lock/macro patterns) documented, not pretended. In-kernel lockdep
+  realization deferred to M1.5/M2's gate.
 - **M2 — single-region transplant, hand-checked.** Transplant one critical section
   to a `SpinLock<T>` guard by hand, through the pipeline's mechanical steps, and
   pass the M0 gate. *Proof: KCSAN/lockdep clean, KUnit green, negative control (a

@@ -6,3 +6,7 @@ __pycache__/
 target/
 .DS_Store
 /scratch/
+m1/ringbuf_tsan
+m1/__pycache__/
+.pytest_cache/
+m1/*.dSYM/
