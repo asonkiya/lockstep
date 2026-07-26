@@ -74,5 +74,18 @@ Five Rust objects, four sources, one booting kernel — every function proven
 bit-identical to the C it replaced, and the widely-called ones (int_pow, hweight)
 run as Rust via **real callers at boot**. Ring 2 verified a 4-leaf batch in ONE
 boot (~292k differential comparisons) — the wall-clock lever the research called
-decisive. Total model spend across every transplant: **~3 cents.** The bricks are
-laid, the batching works; the next thousand are the same shape.
+decisive.
+
+**Ring 3 built the key to the 73%** (`dream/ratchet/ring3/`, RING3.md): the
+recorded register-access (MMIO) differential oracle. A driver's meaning is its
+register program — write order, status poll, which register — not its return
+value. Haiku transplanted the canonical driver hot path (stage/command/poll/read,
+$0.0013); the oracle drove 256 transfers, recorded the full 2,048-access trace of
+C and Rust, and asserted bit-identical (DIFF_PASS). The negative control — "skip
+the status poll" — **returns identical values** (a value-only check passes it) but
+is REJECTED on its trace (half the accesses, diverges at the missing poll). That
+is the capability that converts the driver mass from "boots" to "programs the
+hardware identically to the C."
+
+Total model spend across every transplant: **~3 cents.** The bricks are laid, the
+batching works, and the driver oracle exists; the next thousand are the same shape.
