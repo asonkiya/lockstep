@@ -28,3 +28,5 @@ dream/ratchet/out/ring3-*.txt
 dream/ratchet/ring3/__pycache__/
 dream/ratchet/out/ring4-*.txt
 dream/ratchet/ring4/__pycache__/
+dream/ratchet/out/ring5-*.txt
+dream/ratchet/ring5/__pycache__/

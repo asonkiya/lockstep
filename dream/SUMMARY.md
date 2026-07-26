@@ -96,7 +96,16 @@ classic "wrong register" bug (OUTPUT ops → INPUT offset) — is REJECTED at th
 first access. First conversion of code that shipped in Linux; the 73% is
 addressable.
 
-Total model spend across every transplant: **~4 cents.** Research → differential
+**Ring 5 ran the pipeline as an automated fleet loop** (`dream/ratchet/ring5/`,
+RING5.md): 6 real lib functions (fresh: lcm, lcm_not_zero) parallel-synthesized in
+one round-trip ($0.0054), one boot verifying all against the kernel's own symbols
+(~724k comparisons). The gate CAUGHT a wrong parallel-synth (int_sqrt chose a bad
+algorithm, failed from x=4), the loop fed back the counterexample and recovered to
+6/6 — selectivity + retry, the real autonomous-rewrite loop. Also surfaced the
+principle: gate on a pristine tree, weave separately.
+
+Total model spend across every transplant: **~5 cents.** Research → differential
 oracle → ratchet (50% Rust, Rings 0–2) → driver-class oracle (Ring 3) → a real
-in-tree driver (Ring 4). The bricks are laid, the batching works, the driver
-oracle exists, and it runs on real driver code; the next thousand are the same shape.
+in-tree driver (Ring 4) → the automated fleet loop (Ring 5). The bricks are laid,
+the batching works, the driver oracle runs on real driver code, and the loop
+catches its own bad transplants and retries. The next thousand are the same shape.
