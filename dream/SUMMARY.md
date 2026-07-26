@@ -111,9 +111,17 @@ booting kernel — the first functions to traverse the ENTIRE autonomous path
 Dashboard: **10/18 functions Rust (55.6%), 5 sources, 7 Rust objects, 10/10
 differentially gated**, booting.
 
+**Ring 7 exercised the last wall-clock lever** (`dream/ratchet/ring7/`, RING7.md):
+parallel QEMU workers. Two pristine volumes (clone: 17s), the fleet split into two
+batches, both built + booted concurrently — all DIFF_PASS, **1.99× speedup on 2
+workers** (247s wall-clock vs 493s summed), near-linear. Both multipliers in the
+research's cost model — batching (Rings 2/5, ~292k comparisons/boot) and parallel
+workers (Ring 7) — are now demonstrated; the full-run bottleneck is provisioning,
+not capability.
+
 Total model spend across every transplant: **~5 cents.** The complete arc:
 research → differential oracle → ratchet → driver-class oracle → real in-tree
-driver → automated fleet loop → **closed end-to-end loop**. The machine is whole
-and autonomous: worklist in, verified Rust woven into a booting kernel out, wrong
-transplants caught and retried, no human in the loop. What remains is pure scale —
-a wider worklist and parallel QEMU workers — not capability.
+driver → automated fleet loop → closed end-to-end loop → **parallel workers**. The
+machine is whole and autonomous: worklist in, verified Rust woven into a booting
+kernel out, wrong transplants caught and retried, no human in the loop — and it
+scales by adding workers. What remains is running it wide, which is buying cores.
