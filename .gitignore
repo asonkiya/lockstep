@@ -22,3 +22,5 @@ dream/ratchet/out/
 dream/ratchet/out/*.txt
 dream/ratchet/out/int_sqrt_wrong.rs
 dream/ratchet/__pycache__/
+dream/ratchet/out/ring2-*.txt
+dream/ratchet/ring2/__pycache__/

@@ -59,14 +59,20 @@ night. That's the research doing its job.
   I/O to start converting the 73%; parallel QEMU workers to attack the wall-clock
   bottleneck.
 
-Dashboard, current (`weave.py status`):
+Dashboard, current (`weave.py status`) — after Rings 0 → 1 → 2:
 ```
-sources woven     : 2  (drivers/ptp, lib/math)
-functions -> Rust : 5/11  (45.5% of tracked bodies)
-strongly gated    : 5/5  (differential — every Rust function proven equal to its C)
+sources woven     : 4  (drivers/ptp, lib/math x2, lib/hweight)
+functions -> Rust : 8/16  (50.0% of tracked bodies)   [4/9 -> 5/11 -> 8/16]
+strongly gated    : 8/8  (differential — every Rust function proven equal to its C)
   drivers/ptp/ptp_mock.c: adjfine, adjtime, settime64, gettime64  [differential:PASS]
   lib/math/int_sqrt.c:    int_sqrt                                 [differential:PASS]
+  lib/math/int_pow.c:     int_pow                                  [differential:PASS]
+  lib/hweight.c:          __sw_hweight32, __sw_hweight64           [differential:PASS]
+  (gcd: verified_not_woven — proven correct, weave deferred on a static-helper orphan)
 ```
-Two subsystems, two Rust objects, one booting kernel, every function proven
-bit-identical to the C it replaced. Total model spend for all transplants tonight:
-under 2 cents. The bricks are laid; the next thousand are the same shape.
+Five Rust objects, four sources, one booting kernel — every function proven
+bit-identical to the C it replaced, and the widely-called ones (int_pow, hweight)
+run as Rust via **real callers at boot**. Ring 2 verified a 4-leaf batch in ONE
+boot (~292k differential comparisons) — the wall-clock lever the research called
+decisive. Total model spend across every transplant: **~3 cents.** The bricks are
+laid, the batching works; the next thousand are the same shape.

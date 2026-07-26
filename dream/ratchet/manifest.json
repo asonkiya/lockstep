@@ -56,6 +56,42 @@
     }
    },
    "total_functions": 2
+  },
+  "lib/math/int_pow.c": {
+   "extern_block": "\nu64 cgir_int_pow(u64 base, unsigned int exp);\n",
+   "functions": {
+    "int_pow": {
+     "status": "rust",
+     "tier": "unsafe",
+     "gate": "differential",
+     "verdict": "PASS",
+     "seam": "cgir_int_pow",
+     "shell": "u64 int_pow(u64 base, unsigned int exp)\n{\n\treturn cgir_int_pow(base, exp);\n}"
+    }
+   },
+   "total_functions": 1
+  },
+  "lib/hweight.c": {
+   "extern_block": "\nunsigned int cgir_sw_hweight32(unsigned int w);\nunsigned long cgir_sw_hweight64(__u64 w);\n",
+   "functions": {
+    "__sw_hweight32": {
+     "status": "rust",
+     "tier": "unsafe",
+     "gate": "differential",
+     "verdict": "PASS",
+     "seam": "cgir_sw_hweight32",
+     "shell": "unsigned int __sw_hweight32(unsigned int w)\n{\n\treturn cgir_sw_hweight32(w);\n}"
+    },
+    "__sw_hweight64": {
+     "status": "rust",
+     "tier": "unsafe",
+     "gate": "differential",
+     "verdict": "PASS",
+     "seam": "cgir_sw_hweight64",
+     "shell": "unsigned long __sw_hweight64(__u64 w)\n{\n\treturn cgir_sw_hweight64(w);\n}"
+    }
+   },
+   "total_functions": 4
   }
  },
  "rust_objects": {
@@ -68,6 +104,28 @@
    "src": "ring1/int_sqrt.rs",
    "kbuild_dir": "lib/math",
    "obj": "int_sqrt_rust"
+  },
+  "int_pow": {
+   "src": "ring2/int_pow.rs",
+   "kbuild_dir": "lib/math",
+   "obj": "int_pow_rust"
+  },
+  "hweight32": {
+   "src": "ring2/hweight32.rs",
+   "kbuild_dir": "lib",
+   "obj": "hweight32_rust"
+  },
+  "hweight64": {
+   "src": "ring2/hweight64.rs",
+   "kbuild_dir": "lib",
+   "obj": "hweight64_rust"
+  }
+ },
+ "verified_not_woven": {
+  "gcd": {
+   "gate": "differential",
+   "verdict": "PASS",
+   "reason": "weaving would leave static helper binary_gcd unused (-Werror risk)"
   }
  }
 }
