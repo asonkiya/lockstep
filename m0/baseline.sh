@@ -46,9 +46,9 @@ docker run --rm -v "$VOL":/build "$IMG" bash -c '
   cd /build/linux && make -s -j$(nproc) Image 2>&1 | tail -6
 '
 
-echo "[m0] booting SMP under QEMU, capturing console (240s cap)..."
+echo "[m0] booting SMP under QEMU, capturing console (900s cap; KCSAN boots are slow)..."
 docker run --rm -v "$VOL":/build "$IMG" bash -c '
-  timeout 240 qemu-system-aarch64 -M virt -cpu max -smp 4 -m 2048 -nographic -net none \
+  timeout 900 qemu-system-aarch64 -M virt -cpu max -smp 4 -m 2048 -nographic -net none \
     -kernel /build/linux/arch/arm64/boot/Image \
     -append "console=ttyAMA0 panic=-1 kunit.enable=1 kcsan.early_enable=1" -no-reboot 2>&1 || true
 ' > "$OUT/baseline-console.txt"
