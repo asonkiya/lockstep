@@ -50,7 +50,7 @@ echo "[m0] booting SMP under QEMU, capturing console (900s cap; KCSAN boots are 
 docker run --rm -v "$VOL":/build "$IMG" bash -c '
   timeout 900 qemu-system-aarch64 -M virt -cpu max -smp 4 -m 2048 -nographic -net none \
     -kernel /build/linux/arch/arm64/boot/Image \
-    -append "console=ttyAMA0 panic=-1 kunit.enable=1 kcsan.early_enable=1" -no-reboot 2>&1 || true
+    -append "console=ttyAMA0 panic=-1 kunit.enable=1 kcsan.early_enable=1 kunit.filter_glob=prb* hung_task_panic=1" -no-reboot 2>&1 || true
 ' > "$OUT/baseline-console.txt"
 
 # Extract the sanitizer surface: KCSAN races + lockdep splats.
