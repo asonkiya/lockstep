@@ -19,3 +19,6 @@ dream/diffgate/out/*-console.txt
 dream/diffgate/out/*-build.txt
 dream/diffgate/out/wrong_phc.rs
 dream/ratchet/out/
+dream/ratchet/out/*.txt
+dream/ratchet/out/int_sqrt_wrong.rs
+dream/ratchet/__pycache__/
