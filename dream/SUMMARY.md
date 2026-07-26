@@ -104,8 +104,16 @@ algorithm, failed from x=4), the loop fed back the counterexample and recovered 
 6/6 — selectivity + retry, the real autonomous-rewrite loop. Also surfaced the
 principle: gate on a pristine tree, weave separately.
 
-Total model spend across every transplant: **~5 cents.** Research → differential
-oracle → ratchet (50% Rust, Rings 0–2) → driver-class oracle (Ring 3) → a real
-in-tree driver (Ring 4) → the automated fleet loop (Ring 5). The bricks are laid,
-the batching works, the driver oracle runs on real driver code, and the loop
-catches its own bad transplants and retries. The next thousand are the same shape.
+**Ring 6 closed the loop** (`dream/ratchet/ring6/`, RING6.md): the Ring 5 fleet's
+fresh verified passers (lcm, lcm_not_zero) were woven through the ratchet into a
+booting kernel — the first functions to traverse the ENTIRE autonomous path
+(worklist → parallel synth → verify → catch/retry → weave → boot) in one pipeline.
+Dashboard: **10/18 functions Rust (55.6%), 5 sources, 7 Rust objects, 10/10
+differentially gated**, booting.
+
+Total model spend across every transplant: **~5 cents.** The complete arc:
+research → differential oracle → ratchet → driver-class oracle → real in-tree
+driver → automated fleet loop → **closed end-to-end loop**. The machine is whole
+and autonomous: worklist in, verified Rust woven into a booting kernel out, wrong
+transplants caught and retried, no human in the loop. What remains is pure scale —
+a wider worklist and parallel QEMU workers — not capability.

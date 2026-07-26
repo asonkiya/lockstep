@@ -92,6 +92,28 @@
     }
    },
    "total_functions": 4
+  },
+  "lib/math/lcm.c": {
+   "extern_block": "\nunsigned long cgir_lcm(unsigned long a, unsigned long b);\nunsigned long cgir_lcm_not_zero(unsigned long a, unsigned long b);\n",
+   "functions": {
+    "lcm": {
+     "status": "rust",
+     "tier": "unsafe",
+     "gate": "differential",
+     "verdict": "PASS",
+     "seam": "cgir_lcm",
+     "shell": "unsigned long lcm(unsigned long a, unsigned long b)\n{\n\treturn cgir_lcm(a, b);\n}"
+    },
+    "lcm_not_zero": {
+     "status": "rust",
+     "tier": "unsafe",
+     "gate": "differential",
+     "verdict": "PASS",
+     "seam": "cgir_lcm_not_zero",
+     "shell": "unsigned long lcm_not_zero(unsigned long a, unsigned long b)\n{\n\treturn cgir_lcm_not_zero(a, b);\n}"
+    }
+   },
+   "total_functions": 2
   }
  },
  "rust_objects": {
@@ -119,6 +141,16 @@
    "src": "ring2/hweight64.rs",
    "kbuild_dir": "lib",
    "obj": "hweight64_rust"
+  },
+  "lcm": {
+   "src": "ring5/lcm.rs",
+   "kbuild_dir": "lib/math",
+   "obj": "lcm_rust"
+  },
+  "lcm_nz": {
+   "src": "ring5/lcm_nz.rs",
+   "kbuild_dir": "lib/math",
+   "obj": "lcm_nz_rust"
   }
  },
  "verified_not_woven": {
