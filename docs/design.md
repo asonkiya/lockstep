@@ -231,8 +231,18 @@ by a differential/whole-program result rather than a claim.
   `lockstep_reader` ("value changed 0x27fb→0x27fe" while the reader held the
   lock) + 1,278 lost updates. Harness lesson: KCSAN samples (~1/4000 accesses) —
   the probe must pace the stress window or a fast racy transplant outruns the
-  race oracle (run 1 vs run 2 in RESULTS). Remaining M4: the breadth sweep +
-  a region from existing kernel code (ptp_mock) + syzkaller load.
+  race oracle (run 1 vs run 2 in RESULTS).
+  **Breadth leg ✅ done (see `m4/breadth/RESULTS.md`): a REAL driver's whole
+  locked cluster.** `drivers/ptp/ptp_mock.c`'s four regions (adjfine/adjtime/
+  settime64/gettime64, one spinlock, shared tc/cc) — extractor-driven worklist,
+  Haiku 4/4 on attempt 1 ($0.0084), assembled into one object calling the
+  kernel's exported `timecounter_*` under a Rust-held real spinlock. Gate with
+  the STRICT criterion (negative control must be rejected by KCSAN itself):
+  stock and rewrite identical — 300k/300k monotone gettime, all ops exact, 0
+  KCSAN, lockdep silent; sabotaged cluster → 35 KCSAN reports **naming
+  `lockstep_phc_adjfine` in the racing stack** and a PTP clock that ran
+  backwards 98 times. Remaining M4 scale-out: multi-cluster subsystems +
+  syzkaller for syscall-facing regions.
 - **M5 — upstreamable output.** Emit transplants as Rust-for-Linux-shaped patches
   against a real subsystem, with the sanitizer evidence attached. *Proof: a patch
   that a human R4L maintainer would review — the honest end state.*

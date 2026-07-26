@@ -1,0 +1,938 @@
+[    0.000000] Booting Linux on physical CPU 0x0000000000 [0x000f0510]
+[    0.000000] Linux version 7.2.0-rc4 (root@1d1328030b2a) (gcc (Debian 12.2.0-14+deb12u1) 12.2.0, GNU ld (GNU Binutils for Debian) 2.40) #10 SMP PREEMPT Sun Jul 26 05:50:06 UTC 2026
+[    0.000000] KASLR enabled
+[    0.000000] random: crng init done
+[    0.000000] Machine model: linux,dummy-virt
+[    0.000000] efi: UEFI not found.
+[    0.000000] OF: reserved mem: Reserved memory: No reserved-memory node in the DT
+[    0.000000] NUMA: Faking a node at [mem 0x0000000040000000-0x00000000bfffffff]
+[    0.000000] NODE_DATA(0) allocated [mem 0xbfbeba80-0xbfbee6bf]
+[    0.000000] cma: Reserved 32 MiB at 0x00000000bda00000
+[    0.000000] psci: probing for conduit method from DT.
+[    0.000000] psci: PSCIv1.1 detected in firmware.
+[    0.000000] psci: Using standard PSCI v0.2 function IDs
+[    0.000000] psci: Trusted OS migration not required
+[    0.000000] psci: SMC Calling Convention v1.0
+[    0.000000] Zone ranges:
+[    0.000000]   DMA      [mem 0x0000000040000000-0x00000000bfffffff]
+[    0.000000]   DMA32    empty
+[    0.000000]   Normal   empty
+[    0.000000] Movable zone start for each node
+[    0.000000] Early memory node ranges
+[    0.000000]   node   0: [mem 0x0000000040000000-0x00000000bfffffff]
+[    0.000000] Initmem setup node 0 [mem 0x0000000040000000-0x00000000bfffffff]
+[    0.000000] percpu: Embedded 36 pages/cpu s109776 r8192 d29488 u147456
+[    0.000000] Detected PIPT I-cache on CPU0
+[    0.000000] CPU features: detected: Address authentication (architected QARMA5 algorithm)
+[    0.000000] CPU features: detected: HCRX_EL2 register
+[    0.000000] CPU features: detected: 52-bit Virtual Addressing (LPA2)
+[    0.000000] CPU features: detected: Spectre-v4
+[    0.000000] CPU features: detected: Spectre-BHB
+[    0.000000] alternatives: applying boot alternatives
+[    0.000000] Kernel command line: console=ttyAMA0 panic=-1 kcsan.early_enable=1 kunit.filter_glob=zz-none*
+[    0.000000] printk: log buffer data + meta data: 131072 + 458752 = 589824 bytes
+[    0.000000] Dentry cache hash table entries: 262144 (order: 9, 2097152 bytes, linear)
+[    0.000000] Inode-cache hash table entries: 131072 (order: 8, 1048576 bytes, linear)
+[    0.000000] software IO TLB: SWIOTLB bounce buffer size adjusted to 2MB
+[    0.000000] software IO TLB: area num 4.
+[    0.000000] software IO TLB: mapped [mem 0x00000000bb500000-0x00000000bb700000] (2MB)
+[    0.000000] Fallback order for Node 0: 0 
+[    0.000000] Built 1 zonelists, mobility grouping on.  Total pages: 524288
+[    0.000000] Policy zone: DMA
+[    0.000000] mem auto-init: stack:all(zero), heap alloc:off, heap free:off
+[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=4, Nodes=1
+[    0.000000] Running RCU self tests
+[    0.000000] Running RCU synchronous self tests
+[    0.000000] rcu: Preemptible hierarchical RCU implementation.
+[    0.000000] rcu: 	RCU event tracing is enabled.
+[    0.000000] rcu: 	RCU lockdep checking is enabled.
+[    0.000000] rcu: 	RCU restricting CPUs from NR_CPUS=512 to nr_cpu_ids=4.
+[    0.000000] 	Trampoline variant of Tasks RCU enabled.
+[    0.000000] 	Tracing variant of Tasks RCU enabled.
+[    0.000000] rcu: RCU calculated value of scheduler-enlistment delay is 25 jiffies.
+[    0.000000] rcu: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=4
+[    0.000000] Running RCU synchronous self tests
+[    0.000000] RCU Tasks: Setting shift to 2 and lim to 1 rcu_task_cb_adjust=1 rcu_task_cpu_ids=4.
+[    0.000000] NR_IRQS: 64, nr_irqs: 64, preallocated irqs: 0
+[    0.000000] Root IRQ handler: gic_handle_irq
+[    0.000000] GICv2m: range[mem 0x08020000-0x08020fff], SPI[80:143]
+[    0.000000] rcu: srcu_init: Setting srcu_struct sizes based on contention.
+[    0.000000] clocksource: jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 7645041785100000 ns
+[    0.000000] arch_timer: cp15 timer running at 62.50MHz (virt).
+[    0.000000] clocksource: arch_sys_counter: mask: 0x1ffffffffffffff max_cycles: 0x1cd42e208c, max_idle_ns: 881590405314 ns
+[    0.000088] sched_clock: 57 bits at 63MHz, resolution 16ns, wraps every 4398046511096ns
+[    0.065679] Console: colour dummy device 80x25
+[    0.072378] Lock dependency validator: Copyright (c) 2006 Red Hat, Inc., Ingo Molnar
+[    0.072926] ... MAX_LOCKDEP_SUBCLASSES:  8
+[    0.073504] ... MAX_LOCK_DEPTH:          48
+[    0.074011] ... MAX_LOCKDEP_KEYS:        8192
+[    0.075495] ... CLASSHASH_SIZE:          4096
+[    0.076008] ... MAX_LOCKDEP_ENTRIES:     32768
+[    0.076530] ... MAX_LOCKDEP_CHAINS:      65536
+[    0.077045] ... CHAINHASH_SIZE:          32768
+[    0.077564]  memory used by lock dependency info: 6429 kB
+[    0.078105]  memory used for stack traces: 4224 kB
+[    0.078616]  per task-struct memory footprint: 1920 bytes
+[    0.091491] Calibrating delay loop (skipped), value calculated using timer frequency.. 125.00 BogoMIPS (lpj=250000)
+[    0.093258] pid_max: default: 32768 minimum: 301
+[    0.156238] Mount-cache hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[    0.157245] Mountpoint-cache hash table entries: 4096 (order: 3, 32768 bytes, linear)
+[    0.257442] VFS: Finished mounting rootfs on nullfs
+[    0.417873] kcsan: enabled early
+[    0.418358] kcsan: non-strict mode configured - use CONFIG_KCSAN_STRICT=y to see all data races
+[    0.419944] Running RCU synchronous self tests
+[    0.422947] Running RCU synchronous self tests
+[    0.563444] cacheinfo: Unable to detect cache hierarchy for CPU 0
+[    0.926551] rcu: Hierarchical SRCU implementation.
+[    0.927095] rcu: 	Max phase no-delay instances is 1000.
+[    0.990906] Timer migration: 1 hierarchy levels; 8 children per group; 1 crossnode level
+[    1.225350] EFI services will not be available.
+[    1.288723] smp: Bringing up secondary CPUs ...
+[    1.500087] Detected PIPT I-cache on CPU1
+[    1.511474] CPU1: Booted secondary processor 0x0000000001 [0x000f0510]
+[    1.741855] Detected PIPT I-cache on CPU2
+[    1.747529] CPU2: Booted secondary processor 0x0000000002 [0x000f0510]
+[    1.980516] Detected PIPT I-cache on CPU3
+[    1.985943] CPU3: Booted secondary processor 0x0000000003 [0x000f0510]
+[    2.027187] smp: Brought up 1 node, 4 CPUs
+[    2.027834] SMP: Total of 4 processors activated.
+[    2.028329] CPU: All CPU(s) started at EL1
+[    2.033014] CPU features: detected: Branch Target Identification
+[    2.033614] CPU features: detected: 32-bit EL0 Support
+[    2.034125] CPU features: detected: 32-bit EL1 Support
+[    2.034679] CPU features: detected: ARMv8.4 Translation Table Level
+[    2.035338] CPU features: detected: Data cache clean to the PoU not required for I/D coherence
+[    2.036020] CPU features: detected: Common not Private translations
+[    2.041074] CPU features: detected: CRC32 instructions
+[    2.041597] CPU features: detected: Data independent timing control (DIT)
+[    2.043557] CPU features: detected: E0PD
+[    2.044423] CPU features: detected: Generic authentication (architected QARMA5 algorithm)
+[    2.045279] CPU features: detected: RCpc load-acquire (LDAPR)
+[    2.045882] CPU features: detected: 52-bit Virtual Addressing for KVM (LPA2)
+[    2.046793] CPU features: detected: LSE atomic instructions
+[    2.047457] CPU features: detected: Privileged Access Never
+[    2.048077] CPU features: detected: PMUv3
+[    2.058177] CPU features: detected: RAS Extension Support
+[    2.058797] CPU features: detected: RASv1p1 Extension Support
+[    2.059377] CPU features: detected: Random Number Generator
+[    2.062414] CPU features: detected: Speculation barrier (SB)
+[    2.063014] CPU features: detected: Stage-2 Force Write-Back
+[    2.063599] CPU features: detected: TLB range maintenance instructions
+[    2.064170] CPU features: detected: XNX
+[    2.064839] CPU features: detected: Scalable Matrix Extension
+[    2.065461] CPU features: detected: FA64
+[    2.066018] CPU features: detected: Speculative Store Bypassing Safe (SSBS)
+[    2.068085] CPU features: detected: Scalable Vector Extension
+[    2.094613] alternatives: applying system-wide alternatives
+[    2.308681] CPU features: detected: Hardware dirty bit management on CPU0-3
+[    2.310565] SVE: maximum available vector length 256 bytes per vector
+[    2.312734] SVE: default vector length 64 bytes per vector
+[    2.313440] SME: minimum available vector length 16 bytes per vector
+[    2.314003] SME: maximum available vector length 256 bytes per vector
+[    2.314775] SME: default vector length 32 bytes per vector
+[    2.474489] Memory: 1931640K/2097152K available (31296K kernel code, 7482K rwdata, 17284K rodata, 15744K init, 11596K bss, 128448K reserved, 32768K cma-reserved)
+[    2.687810] devtmpfs: initialized
+[    4.943972] Running RCU synchronous self tests
+[    4.952222] Running RCU synchronous self tests
+[    4.988946] Running RCU Tasks wait API self tests
+[    5.021937] Running RCU Tasks Trace wait API self tests
+[    5.120108] posixtimers hash table entries: 2048 (order: 6, 147456 bytes, linear)
+[    5.156643] futex hash table entries: 1024 (131072 bytes on 1 NUMA nodes, total 128 KiB, linear).
+[    5.192322] Callback from call_rcu_tasks_trace() invoked.
+[    5.207841] Callback from call_rcu_tasks() invoked.
+[    5.238052] 2G module region forced by RANDOMIZE_MODULE_REGION_FULL
+[    5.239217] 0 pages in range for non-PLT usage
+[    5.239730] 503360 pages in range for PLT usage
+[    6.716350] DMI: not present or invalid.
+[    7.783486] NET: Registered PF_NETLINK/PF_ROUTE protocol family
+[    8.091943] DMA: preallocated 256 KiB GFP_KERNEL|GFP_DMA pool for atomic allocations
+[    8.102635] audit: initializing netlink subsys (disabled)
+[    8.139005] audit: type=2000 audit(4.844:1): state=initialized audit_enabled=0 res=1
+[   10.034932] kcsan: selftest: 3/3 tests passed
+[   10.670747] thermal_sys: Registered thermal governor 'step_wise'
+[   10.671316] thermal_sys: Registered thermal governor 'power_allocator'
+[   10.707788] cpuidle: using governor menu
+[   10.785807] hw-breakpoint: found 6 breakpoint and 4 watchpoint registers.
+[   10.805733] ASID allocator initialised with 65536 entries
+[   13.000080] Serial: AMBA PL011 UART driver
+[   23.247011] 9000000.pl011: ttyAMA0 at MMIO 0x9000000 (irq = 13, base_baud = 0) is a PL011 rev1
+[   23.284082] printk: console [ttyAMA0] enabled
+[   24.563325] HugeTLB: registered 1.00 GiB page size, pre-allocated 0 pages
+[   24.564775] HugeTLB: 0 KiB vmemmap can be freed for a 1.00 GiB page
+[   24.566156] HugeTLB: registered 32.0 MiB page size, pre-allocated 0 pages
+[   24.568894] HugeTLB: 0 KiB vmemmap can be freed for a 32.0 MiB page
+[   24.570194] HugeTLB: registered 2.00 MiB page size, pre-allocated 0 pages
+[   24.571212] HugeTLB: 0 KiB vmemmap can be freed for a 2.00 MiB page
+[   24.572122] HugeTLB: registered 64.0 KiB page size, pre-allocated 0 pages
+[   24.573861] HugeTLB: 0 KiB vmemmap can be freed for a 64.0 KiB page
+[   25.752594] ACPI: Interpreter disabled.
+[   27.994987] iommu: Default domain type: Translated
+[   27.996451] iommu: DMA domain TLB invalidation policy: strict mode
+[   28.137183] SCSI subsystem initialized
+[   28.302295] usbcore: registered new interface driver usbfs
+[   28.325882] usbcore: registered new interface driver hub
+[   28.340750] usbcore: registered new device driver usb
+[   28.814429] pps_core: LinuxPPS API ver. 1 registered
+[   28.816959] pps_core: Software ver. 5.3.6 - Copyright 2005-2007 Rodolfo Giometti <giometti@linux.it>
+[   28.823240] PTP clock support registered
+[   28.908476] EDAC MC: Ver: 3.0.0
+[   29.038151] scmi_core: SCMI protocol bus registered
+[   29.572863] FPGA manager framework
+[   30.109043] vgaarb: loaded
+[   30.227188] clocksource: Switched to clocksource arch_sys_counter
+[   30.436730] VFS: Disk quotas dquot_6.6.0
+[   30.447035] VFS: Dquot-cache hash table entries: 512 (4096 bytes)
+[   30.600855] pnp: PnP ACPI: disabled
+[   34.852907] NET: Registered PF_INET protocol family
+[   34.876503] IP idents hash table entries: 32768 (order: 6, 262144 bytes, linear)
+[   35.231142] tcp_listen_portaddr_hash hash table entries: 1024 (order: 5, 73728 bytes, linear)
+[   35.252972] Table-perturb hash table entries: 65536 (order: 6, 262144 bytes, linear)
+[   35.256748] TCP established hash table entries: 16384 (order: 5, 131072 bytes, linear)
+[   35.556345] TCP bind hash table entries: 16384 (order: 10, 2359296 bytes, linear)
+[   36.119855] TCP: Hash tables configured (established 16384 bind 16384)
+[   36.140453] UDP hash table entries: 1024 (order: 6, 262144 bytes, linear)
+[   36.233099] NET: Registered PF_UNIX/PF_LOCAL protocol family
+[   36.379489] RPC: Registered named UNIX socket transport module.
+[   36.381093] RPC: Registered udp transport module.
+[   36.383213] RPC: Registered tcp transport module.
+[   36.383889] RPC: Registered tcp-with-tls transport module.
+[   36.384747] RPC: Registered tcp NFSv4.1 backchannel transport module.
+[   36.390680] PCI: CLS 0 bytes, default 64
+[   36.543550] kvm [1]: HYP mode not available
+[   37.260046] Initialise system trusted keyrings
+[   37.307394] workingset: timestamp_bits=42 (anon: 37) max_order=19 bucket_order=0 (anon: 0)
+[   37.461154] squashfs: version 4.0 (2009/01/31) Phillip Lougher
+[   37.551770] NFS: Registering the id_resolver key type
+[   37.559434] Key type id_resolver registered
+[   37.560184] Key type id_legacy registered
+[   37.567438] nfs4filelayout_init: NFSv4 File Layout Driver Registering...
+[   37.571485] nfs4flexfilelayout_init: NFSv4 Flexfile Layout Driver Registering...
+[   37.712565] Key type asymmetric registered
+[   37.716066] Asymmetric key parser 'x509' registered
+[   37.733075] Block layer SCSI generic (bsg) driver version 0.4 loaded (major 243)
+[   37.736783] io scheduler mq-deadline registered
+[   37.739518] io scheduler kyber registered
+[   37.768833] io scheduler bfq registered
+[   48.419056] pl061_gpio 9030000.pl061: PL061 GPIO chip registered
+[   49.966706] ledtrig-cpu: registered to indicate activity on CPUs
+[   50.763408] pci-host-generic 4010000000.pcie: host bridge /pcie@10000000 ranges:
+[   50.780420] pci-host-generic 4010000000.pcie:       IO 0x003eff0000..0x003effffff -> 0x0000000000
+[   50.797544] pci-host-generic 4010000000.pcie:      MEM 0x0010000000..0x003efeffff -> 0x0010000000
+[   50.807491] pci-host-generic 4010000000.pcie:      MEM 0x8000000000..0xffffffffff -> 0x8000000000
+[   50.817008] pci-host-generic 4010000000.pcie: Memory resource size exceeds max for 32 bits
+[   50.836058] pci-host-generic 4010000000.pcie: ECAM at [mem 0x4010000000-0x401fffffff] for [bus 00-ff]
+[   50.978455] pci-host-generic 4010000000.pcie: PCI host bridge to bus 0000:00
+[   50.983447] pci_bus 0000:00: root bus resource [bus 00-ff]
+[   50.984691] pci_bus 0000:00: root bus resource [io  0x0000-0xffff]
+[   50.987918] pci_bus 0000:00: root bus resource [mem 0x10000000-0x3efeffff]
+[   50.989020] pci_bus 0000:00: root bus resource [mem 0x8000000000-0xffffffffff]
+[   51.012290] pci 0000:00:00.0: [1b36:0008] type 00 class 0x060000 conventional PCI endpoint
+[   51.299374] pci_bus 0000:00: resource 4 [io  0x0000-0xffff]
+[   51.301251] pci_bus 0000:00: resource 5 [mem 0x10000000-0x3efeffff]
+[   51.304338] pci_bus 0000:00: resource 6 [mem 0x8000000000-0xffffffffff]
+[   81.820926] ==================================================================
+[   81.821422] BUG: KCSAN: data-race in _find_first_bit+0x3c/0x8c
+[   81.822556] 
+[   81.822917] race at unknown origin, with read to 0xfff0000005426558 of 8 bytes by interrupt on cpu 3:
+[   81.823641]  _find_first_bit+0x3c/0x8c
+[   81.824672]  sched_balance_trigger+0xb0/0x57c
+[   81.825639]  sched_tick+0x158/0x2ac
+[   81.826493]  update_process_times+0xb8/0x214
+[   81.827214]  tick_nohz_handler+0x128/0x3c8
+[   81.828176]  __hrtimer_run_queues+0x614/0x6f8
+[   81.828949]  hrtimer_interrupt+0x1bc/0x59c
+[   81.829724]  arch_timer_handler_virt+0x40/0x54
+[   81.830588]  handle_percpu_devid_irq+0x170/0x350
+[   81.831516]  handle_irq_desc+0x78/0x94
+[   81.832595]  generic_handle_domain_irq+0x18/0x24
+[   81.833731]  gic_handle_irq+0x60/0x114
+[   81.834414]  call_on_irq_stack+0x30/0x48
+[   81.835244]  do_interrupt_handler+0xc0/0xc4
+[   81.836194]  el1_interrupt+0x3c/0x60
+[   81.837131]  el1h_64_irq_handler+0x18/0x24
+[   81.838105]  el1h_64_irq+0x6c/0x70
+[   81.838783]  trace_event_update_all+0x360/0x44c
+[   81.839683]  eval_map_work_func+0x30/0x40
+[   81.840488]  process_one_work+0x404/0xdd0
+[   81.841536]  worker_thread+0x2f8/0x57c
+[   81.842600]  kthread+0x1fc/0x208
+[   81.843484]  ret_from_fork+0x10/0x20
+[   81.844371] 
+[   81.844633] value changed: 0x0000000000000005 -> 0x0000000000000001
+[   81.845083] 
+[   81.845341] Reported by Kernel Concurrency Sanitizer on:
+[   81.846084] CPU: 3 UID: 0 PID: 12 Comm: kworker/u16:0 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[   81.847118] Hardware name: linux,dummy-virt (DT)
+[   81.847741] Workqueue: trace_init_wq eval_map_work_func
+[   81.849041] ==================================================================
+[   83.496743] Serial: 8250/16550 driver, 4 ports, IRQ sharing enabled
+[   86.880801] msm_serial: driver initialized
+[   87.303480] SuperH (H)SCI(F) driver initialized
+[   87.401177] STM32 USART driver initialized
+[   94.504720] loop: module loaded
+[   95.239358] megasas: 07.734.00.00-rc1
+[   96.505512] physmap-flash 0.flash: physmap platform flash device: [mem 0x00000000-0x03ffffff]
+[   96.512019] 0.flash: Found 2 x16 devices at 0x0 in 32-bit bank. Manufacturer ID 0x000000 Chip ID 0x000000
+[   96.515733] Intel/Sharp Extended Query Table at 0x0031
+[   96.519144] Using buffer write method
+[   96.525172] physmap-flash 0.flash: physmap platform flash device: [mem 0x04000000-0x07ffffff]
+[   96.531320] 0.flash: Found 2 x16 devices at 0x0 in 32-bit bank. Manufacturer ID 0x000000 Chip ID 0x000000
+[   96.532770] Intel/Sharp Extended Query Table at 0x0031
+[   96.535499] Using buffer write method
+[   96.537248] Concatenating MTD devices:
+[   96.539748] (0): "0.flash"
+[   96.540377] (1): "0.flash"
+[   96.541009] into device "0.flash"
+[  101.972789] tun: Universal TUN/TAP device driver, 1.6
+[  102.277186] VFIO - User Level meta-driver version: 0.3
+[  104.987497] usbcore: registered new interface driver usb-storage
+[  107.872666] rtc-pl031 9010000.pl031: registered as rtc0
+[  107.880736] rtc-pl031 9010000.pl031: setting system clock to 2026-07-26T05:52:09 UTC (1785045129)
+[  108.431640] i2c_dev: i2c /dev entries driver
+[  118.520261] usbcore: registered new interface driver usbhid
+[  118.524860] usbhid: USB HID core driver
+[  121.056289] hw perfevents: enabled with armv8_pmuv3 PMU driver, 7 (0,8000003f) counters available
+[  124.197276] NET: Registered PF_INET6 protocol family
+[  124.424555] Segment Routing with IPv6
+[  124.436435] In-situ OAM (IOAM) with IPv6
+[  124.448903] NET: Registered PF_PACKET protocol family
+[  124.479516] Key type dns_resolver registered
+[  142.400543] registered taskstats version 1
+[  142.452697] Loading compiled-in X.509 certificates
+[  158.861568] Demotion targets for Node 0: null
+[  160.609250] LOCKSTEP_PHC: starting 5 hammers + reader over 4 regions (SMP=4)
+[  164.109658] ==================================================================
+[  164.110194] BUG: KCSAN: data-race in phc_reader+0x40/0x104
+[  164.111052] 
+[  164.111361] race at unknown origin, with read to 0xffffaf23b4139048 of 8 bytes by task 99 on cpu 0:
+[  164.111952]  phc_reader+0x40/0x104
+[  164.112720]  kthread+0x1fc/0x208
+[  164.113737]  ret_from_fork+0x10/0x20
+[  164.114574] 
+[  164.114829] value changed: 0x00000119b9a6fb7a -> 0x00000119b9a6ff62
+[  164.115265] 
+[  164.115519] Reported by Kernel Concurrency Sanitizer on:
+[  164.115880] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  164.116719] Hardware name: linux,dummy-virt (DT)
+[  164.117128] ==================================================================
+[  164.306576] ==================================================================
+[  164.307037] BUG: KCSAN: data-race in timecounter_read+0xe0/0x118
+[  164.308069] 
+[  164.308359] race at unknown origin, with read to 0xffffaf23b4139048 of 8 bytes by task 103 on cpu 0:
+[  164.308934]  timecounter_read+0xe0/0x118
+[  164.310028]  lockstep_phc_adjfine+0x30/0x48
+[  164.310829]  kthread+0x1fc/0x208
+[  164.311701]  ret_from_fork+0x10/0x20
+[  164.312520] 
+[  164.312780] value changed: 0x0000012c5b978ebe -> 0x0000012c5b97968e
+[  164.313273] 
+[  164.313556] Reported by Kernel Concurrency Sanitizer on:
+[  164.314015] CPU: 0 UID: 0 PID: 103 Comm: lockstep_adjf Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  164.314851] Hardware name: linux,dummy-virt (DT)
+[  164.315261] ==================================================================
+[  164.702507] ==================================================================
+[  164.703633] BUG: KCSAN: data-race in phc_reader / timecounter_read
+[  164.704830] 
+[  164.705166] write to 0xffffaf23b4139040 of 8 bytes by task 100 on cpu 1:
+[  164.705794]  timecounter_read+0xd4/0x118
+[  164.706802]  gettime_hammer+0x98/0x128
+[  164.707604]  kthread+0x1fc/0x208
+[  164.708497]  ret_from_fork+0x10/0x20
+[  164.709335] 
+[  164.709710] read to 0xffffaf23b4139040 of 8 bytes by task 99 on cpu 0:
+[  164.710288]  phc_reader+0x4c/0x104
+[  164.711039]  kthread+0x1fc/0x208
+[  164.711907]  ret_from_fork+0x10/0x20
+[  164.712733] 
+[  164.712988] value changed: 0x00000023f8e08de0 -> 0x00000023f8e4ca60
+[  164.713461] 
+[  164.713760] Reported by Kernel Concurrency Sanitizer on:
+[  164.714139] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  164.715022] Hardware name: linux,dummy-virt (DT)
+[  164.715420] ==================================================================
+[  165.330834] ==================================================================
+[  165.331877] BUG: KCSAN: data-race in phc_reader / timecounter_read
+[  165.333063] 
+[  165.333351] write to 0xffffaf23b4139048 of 8 bytes by task 101 on cpu 2:
+[  165.334032]  timecounter_read+0xf0/0x118
+[  165.335040]  gettime_hammer+0x98/0x128
+[  165.335804]  kthread+0x1fc/0x208
+[  165.336676]  ret_from_fork+0x10/0x20
+[  165.337599] 
+[  165.337890] read to 0xffffaf23b4139048 of 8 bytes by task 99 on cpu 0:
+[  165.338455]  phc_reader+0x40/0x104
+[  165.339201]  kthread+0x1fc/0x208
+[  165.340068]  ret_from_fork+0x10/0x20
+[  165.340875] 
+[  165.341140] value changed: 0x0000018e24753ab6 -> 0x0000018e2475466e
+[  165.341640] 
+[  165.341933] Reported by Kernel Concurrency Sanitizer on:
+[  165.342310] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  165.343174] Hardware name: linux,dummy-virt (DT)
+[  165.343573] ==================================================================
+[  167.398243] ==================================================================
+[  167.398721] BUG: KCSAN: data-race in phc_reader+0x40/0x104
+[  167.399521] 
+[  167.399798] race at unknown origin, with read to 0xffffaf23b4139048 of 8 bytes by task 99 on cpu 0:
+[  167.400355]  phc_reader+0x40/0x104
+[  167.401068]  kthread+0x1fc/0x208
+[  167.401991]  ret_from_fork+0x10/0x20
+[  167.402813] 
+[  167.403094] value changed: 0x0000025fb0ae2d18 -> 0x0000025fb0ae3100
+[  167.403506] 
+[  167.403749] Reported by Kernel Concurrency Sanitizer on:
+[  167.404101] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  167.404900] Hardware name: linux,dummy-virt (DT)
+[  167.405381] ==================================================================
+[  170.513076] ==================================================================
+[  170.513532] BUG: KCSAN: data-race in phc_reader+0x40/0x104
+[  170.514598] 
+[  170.514913] race at unknown origin, with read to 0xffffaf23b4139048 of 8 bytes by task 99 on cpu 0:
+[  170.515511]  phc_reader+0x40/0x104
+[  170.516268]  kthread+0x1fc/0x208
+[  170.517140]  ret_from_fork+0x10/0x20
+[  170.518069] 
+[  170.518331] value changed: 0x000003a0ff871424 -> 0x000003a0ff871bf4
+[  170.518764] 
+[  170.519033] Reported by Kernel Concurrency Sanitizer on:
+[  170.519398] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  170.520300] Hardware name: linux,dummy-virt (DT)
+[  170.520687] ==================================================================
+[  171.606729] ==================================================================
+[  171.607222] BUG: KCSAN: data-race in timecounter_read+0xe0/0x118
+[  171.608268] 
+[  171.608562] race at unknown origin, with read to 0xffffaf23b4139048 of 8 bytes by task 101 on cpu 2:
+[  171.609146]  timecounter_read+0xe0/0x118
+[  171.610273]  gettime_hammer+0x98/0x128
+[  171.611061]  kthread+0x1fc/0x208
+[  171.611926]  ret_from_fork+0x10/0x20
+[  171.612746] 
+[  171.613008] value changed: 0x00000415696a0e3a -> 0x00000415696a1222
+[  171.613492] 
+[  171.613767] Reported by Kernel Concurrency Sanitizer on:
+[  171.614145] CPU: 2 UID: 0 PID: 101 Comm: lockstep_get1 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  171.615145] Hardware name: linux,dummy-virt (DT)
+[  171.615563] ==================================================================
+[  173.107628] ==================================================================
+[  173.108830] BUG: KCSAN: data-race in timecounter_read / timecounter_read
+[  173.110379] 
+[  173.110717] write to 0xffffaf23b4139048 of 8 bytes by task 101 on cpu 2:
+[  173.111262]  timecounter_read+0xf0/0x118
+[  173.112217]  gettime_hammer+0x98/0x128
+[  173.112956]  kthread+0x1fc/0x208
+[  173.113928]  ret_from_fork+0x10/0x20
+[  173.114818] 
+[  173.115129] read to 0xffffaf23b4139048 of 8 bytes by task 100 on cpu 1:
+[  173.115681]  timecounter_read+0xe0/0x118
+[  173.116681]  gettime_hammer+0x98/0x128
+[  173.117456]  kthread+0x1fc/0x208
+[  173.118421]  ret_from_fork+0x10/0x20
+[  173.119238] 
+[  173.119494] value changed: 0x000004af1577ce57 -> 0x000004af1577ddf7
+[  173.119922] 
+[  173.120189] Reported by Kernel Concurrency Sanitizer on:
+[  173.120553] CPU: 1 UID: 0 PID: 100 Comm: lockstep_get0 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  173.121455] Hardware name: linux,dummy-virt (DT)
+[  173.121899] ==================================================================
+[  174.872875] ==================================================================
+[  174.873338] BUG: KCSAN: data-race in phc_reader+0x40/0x104
+[  174.874360] 
+[  174.874660] race at unknown origin, with read to 0xffffaf23b4139048 of 8 bytes by task 99 on cpu 0:
+[  174.875264]  phc_reader+0x40/0x104
+[  174.876048]  kthread+0x1fc/0x208
+[  174.876914]  ret_from_fork+0x10/0x20
+[  174.877837] 
+[  174.878112] value changed: 0x000005625c9a03b9 -> 0x000005625c9a0b89
+[  174.878589] 
+[  174.878848] Reported by Kernel Concurrency Sanitizer on:
+[  174.879221] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  174.880064] Hardware name: linux,dummy-virt (DT)
+[  174.880464] ==================================================================
+[  175.186265] ==================================================================
+[  175.186732] BUG: KCSAN: data-race in timecounter_read+0xe0/0x118
+[  175.187779] 
+[  175.188078] race at unknown origin, with read to 0xffffaf23b4139048 of 8 bytes by task 101 on cpu 2:
+[  175.188655]  timecounter_read+0xe0/0x118
+[  175.189678]  gettime_hammer+0x98/0x128
+[  175.190486]  kthread+0x1fc/0x208
+[  175.191368]  ret_from_fork+0x10/0x20
+[  175.192189] 
+[  175.192446] value changed: 0x00000582f5cb4b00 -> 0x00000582f5cb52d0
+[  175.192875] 
+[  175.193137] Reported by Kernel Concurrency Sanitizer on:
+[  175.193524] CPU: 2 UID: 0 PID: 101 Comm: lockstep_get1 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  175.194364] Hardware name: linux,dummy-virt (DT)
+[  175.194831] ==================================================================
+[  180.818553] ==================================================================
+[  180.819030] BUG: KCSAN: data-race in timecounter_read+0x94/0x118
+[  180.820068] 
+[  180.820360] race at unknown origin, with read to 0xffffaf23b4139030 of 4 bytes by task 100 on cpu 1:
+[  180.820936]  timecounter_read+0x94/0x118
+[  180.822000]  gettime_hammer+0x98/0x128
+[  180.822787]  kthread+0x1fc/0x208
+[  180.823660]  ret_from_fork+0x10/0x20
+[  180.824480] 
+[  180.824735] value changed: 0x7feadd5a -> 0x7feae5bd
+[  180.825206] 
+[  180.825561] Reported by Kernel Concurrency Sanitizer on:
+[  180.825932] CPU: 1 UID: 0 PID: 100 Comm: lockstep_get0 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  180.826776] Hardware name: linux,dummy-virt (DT)
+[  180.827237] ==================================================================
+[  181.031149] ==================================================================
+[  181.032266] BUG: KCSAN: data-race in phc_reader / timecounter_read
+[  181.033545] 
+[  181.033871] write to 0xffffaf23b4139040 of 8 bytes by task 100 on cpu 1:
+[  181.034424]  timecounter_read+0xd4/0x118
+[  181.035427]  gettime_hammer+0x98/0x128
+[  181.036272]  kthread+0x1fc/0x208
+[  181.037154]  ret_from_fork+0x10/0x20
+[  181.038146] 
+[  181.038456] read to 0xffffaf23b4139040 of 8 bytes by task 99 on cpu 0:
+[  181.039020]  phc_reader+0x4c/0x104
+[  181.039764]  kthread+0x1fc/0x208
+[  181.040675]  ret_from_fork+0x10/0x20
+[  181.041617] 
+[  181.041876] value changed: 0x00000027c62323b0 -> 0x00000027c6277770
+[  181.042327] 
+[  181.042583] Reported by Kernel Concurrency Sanitizer on:
+[  181.042951] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  181.043800] Hardware name: linux,dummy-virt (DT)
+[  181.044208] ==================================================================
+[  190.513637] ==================================================================
+[  190.514116] BUG: KCSAN: data-race in timecounter_read+0x94/0x118
+[  190.515152] 
+[  190.515443] race at unknown origin, with read to 0xffffaf23b4139030 of 4 bytes by task 101 on cpu 2:
+[  190.516027]  timecounter_read+0x94/0x118
+[  190.517009]  gettime_hammer+0x98/0x128
+[  190.517845]  kthread+0x1fc/0x208
+[  190.518734]  ret_from_fork+0x10/0x20
+[  190.519559] 
+[  190.519815] value changed: 0x7fe5a790 -> 0x7fe5aff3
+[  190.520245] 
+[  190.520501] Reported by Kernel Concurrency Sanitizer on:
+[  190.520862] CPU: 2 UID: 0 PID: 101 Comm: lockstep_get1 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  190.521798] Hardware name: linux,dummy-virt (DT)
+[  190.522224] ==================================================================
+[  192.298561] ==================================================================
+[  192.299740] BUG: KCSAN: data-race in timecounter_read / timecounter_read
+[  192.301163] 
+[  192.301455] write to 0xffffaf23b4139048 of 8 bytes by task 100 on cpu 1:
+[  192.302081]  timecounter_read+0xf0/0x118
+[  192.303065]  gettime_hammer+0x98/0x128
+[  192.303833]  kthread+0x1fc/0x208
+[  192.304701]  ret_from_fork+0x10/0x20
+[  192.305557] 
+[  192.305915] read to 0xffffaf23b4139048 of 8 bytes by task 103 on cpu 0:
+[  192.306464]  timecounter_read+0xe0/0x118
+[  192.307458]  lockstep_phc_adjfine+0x30/0x48
+[  192.308264]  kthread+0x1fc/0x208
+[  192.309203]  ret_from_fork+0x10/0x20
+[  192.310126] 
+[  192.310390] value changed: 0x00000c8abced08cd -> 0x00000c8abced8e03
+[  192.310837] 
+[  192.311114] Reported by Kernel Concurrency Sanitizer on:
+[  192.311478] CPU: 0 UID: 0 PID: 103 Comm: lockstep_adjf Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  192.312342] Hardware name: linux,dummy-virt (DT)
+[  192.312739] ==================================================================
+[  194.438598] ==================================================================
+[  194.439698] BUG: KCSAN: data-race in phc_reader / timecounter_read
+[  194.440891] 
+[  194.441239] write to 0xffffaf23b4139040 of 8 bytes by task 101 on cpu 2:
+[  194.441830]  timecounter_read+0xd4/0x118
+[  194.442854]  gettime_hammer+0x98/0x128
+[  194.443631]  kthread+0x1fc/0x208
+[  194.444507]  ret_from_fork+0x10/0x20
+[  194.445317] 
+[  194.445665] read to 0xffffaf23b4139040 of 8 bytes by task 99 on cpu 0:
+[  194.446263]  phc_reader+0x4c/0x104
+[  194.447031]  kthread+0x1fc/0x208
+[  194.447906]  ret_from_fork+0x10/0x20
+[  194.448721] 
+[  194.448975] value changed: 0x0000002ae54a2490 -> 0x0000002ae54e5e90
+[  194.449478] 
+[  194.449733] Reported by Kernel Concurrency Sanitizer on:
+[  194.450098] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  194.450956] Hardware name: linux,dummy-virt (DT)
+[  194.451366] ==================================================================
+[  197.774513] ==================================================================
+[  197.775697] BUG: KCSAN: data-race in timecounter_read / timecounter_read
+[  197.777129] 
+[  197.777442] write to 0xffffaf23b4139048 of 8 bytes by task 103 on cpu 0:
+[  197.778049]  timecounter_read+0xf0/0x118
+[  197.779038]  lockstep_phc_adjfine+0x30/0x48
+[  197.779837]  kthread+0x1fc/0x208
+[  197.780706]  ret_from_fork+0x10/0x20
+[  197.781577] 
+[  197.781896] read to 0xffffaf23b4139048 of 8 bytes by task 100 on cpu 1:
+[  197.782447]  timecounter_read+0xe0/0x118
+[  197.783444]  gettime_hammer+0x98/0x128
+[  197.784209]  kthread+0x1fc/0x208
+[  197.785077]  ret_from_fork+0x10/0x20
+[  197.785983] 
+[  197.786261] value changed: 0x00000ed324393007 -> 0x00000ed3243a2d0e
+[  197.786694] 
+[  197.786964] Reported by Kernel Concurrency Sanitizer on:
+[  197.787340] CPU: 1 UID: 0 PID: 100 Comm: lockstep_get0 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  197.788178] Hardware name: linux,dummy-virt (DT)
+[  197.788574] ==================================================================
+[  200.637742] ==================================================================
+[  200.638829] BUG: KCSAN: data-race in phc_reader / timecounter_read
+[  200.640035] 
+[  200.640329] write to 0xffffaf23b4139048 of 8 bytes by task 101 on cpu 2:
+[  200.640869]  timecounter_read+0xf0/0x118
+[  200.641943]  gettime_hammer+0x98/0x128
+[  200.642732]  kthread+0x1fc/0x208
+[  200.643609]  ret_from_fork+0x10/0x20
+[  200.644470] 
+[  200.644759] read to 0xffffaf23b4139048 of 8 bytes by task 99 on cpu 0:
+[  200.645296]  phc_reader+0x40/0x104
+[  200.646122]  kthread+0x1fc/0x208
+[  200.647025]  ret_from_fork+0x10/0x20
+[  200.647836] 
+[  200.648101] value changed: 0x00000fff7deb46cf -> 0x00000fff7debdc7c
+[  200.648534] 
+[  200.648789] Reported by Kernel Concurrency Sanitizer on:
+[  200.649159] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  200.650107] Hardware name: linux,dummy-virt (DT)
+[  200.650539] ==================================================================
+[  204.226645] ==================================================================
+[  204.227759] BUG: KCSAN: data-race in phc_reader / timecounter_read
+[  204.228944] 
+[  204.229244] write to 0xffffaf23b4139040 of 8 bytes by task 100 on cpu 1:
+[  204.229873]  timecounter_read+0xd4/0x118
+[  204.230882]  gettime_hammer+0x98/0x128
+[  204.231665]  kthread+0x1fc/0x208
+[  204.232537]  ret_from_fork+0x10/0x20
+[  204.233353] 
+[  204.233680] read to 0xffffaf23b4139040 of 8 bytes by task 99 on cpu 0:
+[  204.234254]  phc_reader+0x4c/0x104
+[  204.235005]  kthread+0x1fc/0x208
+[  204.235874]  ret_from_fork+0x10/0x20
+[  204.236686] 
+[  204.236941] value changed: 0x0000002d2cb37640 -> 0x0000002d2cb7b000
+[  204.237385] 
+[  204.237688] Reported by Kernel Concurrency Sanitizer on:
+[  204.238084] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  204.238929] Hardware name: linux,dummy-virt (DT)
+[  204.239345] ==================================================================
+[  212.642205] ==================================================================
+[  212.642751] BUG: KCSAN: data-race in phc_reader+0x40/0x104
+[  212.643602] 
+[  212.643896] race at unknown origin, with read to 0xffffaf23b4139048 of 8 bytes by task 99 on cpu 0:
+[  212.644484]  phc_reader+0x40/0x104
+[  212.645229]  kthread+0x1fc/0x208
+[  212.646317]  ret_from_fork+0x10/0x20
+[  212.647153] 
+[  212.647412] value changed: 0x000012668f57f764 -> 0x000012668f587352
+[  212.647848] 
+[  212.648109] Reported by Kernel Concurrency Sanitizer on:
+[  212.648472] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  212.649456] Hardware name: linux,dummy-virt (DT)
+[  212.649876] ==================================================================
+[  214.467452] ==================================================================
+[  214.468567] BUG: KCSAN: data-race in phc_reader / timecounter_read
+[  214.469847] 
+[  214.470157] write to 0xffffaf23b4139048 of 8 bytes by task 100 on cpu 1:
+[  214.470750]  timecounter_read+0xf0/0x118
+[  214.471708]  gettime_hammer+0x98/0x128
+[  214.472448]  kthread+0x1fc/0x208
+[  214.473287]  ret_from_fork+0x10/0x20
+[  214.474109] 
+[  214.474383] read to 0xffffaf23b4139048 of 8 bytes by task 99 on cpu 0:
+[  214.474894]  phc_reader+0x40/0x104
+[  214.475602]  kthread+0x1fc/0x208
+[  214.476432]  ret_from_fork+0x10/0x20
+[  214.477229] 
+[  214.477476] value changed: 0x0000126f029828fa -> 0x0000126f02985474
+[  214.478067] 
+[  214.478325] Reported by Kernel Concurrency Sanitizer on:
+[  214.478695] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  214.479549] Hardware name: linux,dummy-virt (DT)
+[  214.479957] ==================================================================
+[  216.413283] ==================================================================
+[  216.413808] BUG: KCSAN: data-race in timecounter_read+0x94/0x118
+[  216.414847] 
+[  216.415146] race at unknown origin, with read to 0xffffaf23b4139030 of 4 bytes by task 100 on cpu 1:
+[  216.415724]  timecounter_read+0x94/0x118
+[  216.416702]  gettime_hammer+0x98/0x128
+[  216.417481]  kthread+0x1fc/0x208
+[  216.418468]  ret_from_fork+0x10/0x20
+[  216.419292] 
+[  216.419549] value changed: 0x800f98fa -> 0x800fa15d
+[  216.419964] 
+[  216.420230] Reported by Kernel Concurrency Sanitizer on:
+[  216.420598] CPU: 1 UID: 0 PID: 100 Comm: lockstep_get0 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  216.421481] Hardware name: linux,dummy-virt (DT)
+[  216.421899] ==================================================================
+[  219.982233] ==================================================================
+[  219.983415] BUG: KCSAN: data-race in timecounter_read / timecounter_read
+[  219.984834] 
+[  219.985133] write to 0xffffaf23b4139048 of 8 bytes by task 103 on cpu 0:
+[  219.985752]  timecounter_read+0xf0/0x118
+[  219.986751]  lockstep_phc_adjfine+0x30/0x48
+[  219.987563]  kthread+0x1fc/0x208
+[  219.988432]  ret_from_fork+0x10/0x20
+[  219.989315] 
+[  219.989609] read to 0xffffaf23b4139048 of 8 bytes by task 101 on cpu 2:
+[  219.990154]  timecounter_read+0xe0/0x118
+[  219.991135]  gettime_hammer+0x98/0x128
+[  219.991896]  kthread+0x1fc/0x208
+[  219.992764]  ret_from_fork+0x10/0x20
+[  219.993577] 
+[  219.993887] value changed: 0x0000128c62558563 -> 0x0000128c6255ebd4
+[  219.994346] 
+[  219.994616] Reported by Kernel Concurrency Sanitizer on:
+[  219.994986] CPU: 2 UID: 0 PID: 101 Comm: lockstep_get1 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  219.995869] Hardware name: linux,dummy-virt (DT)
+[  219.996293] ==================================================================
+[  224.537699] ==================================================================
+[  224.538961] BUG: KCSAN: data-race in timecounter_read / timecounter_read
+[  224.540392] 
+[  224.540678] write to 0xffffaf23b4139048 of 8 bytes by task 100 on cpu 1:
+[  224.541213]  timecounter_read+0xf0/0x118
+[  224.542274]  gettime_hammer+0x98/0x128
+[  224.543059]  kthread+0x1fc/0x208
+[  224.543926]  ret_from_fork+0x10/0x20
+[  224.544746] 
+[  224.545046] read to 0xffffaf23b4139048 of 8 bytes by task 103 on cpu 0:
+[  224.545611]  timecounter_read+0xe0/0x118
+[  224.546643]  lockstep_phc_adjfine+0x30/0x48
+[  224.547577]  kthread+0x1fc/0x208
+[  224.548482]  ret_from_fork+0x10/0x20
+[  224.549320] 
+[  224.549606] value changed: 0x000012a77d600ab4 -> 0x000012a77d608dc7
+[  224.550054] 
+[  224.550308] Reported by Kernel Concurrency Sanitizer on:
+[  224.550683] CPU: 0 UID: 0 PID: 103 Comm: lockstep_adjf Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  224.551522] Hardware name: linux,dummy-virt (DT)
+[  224.551919] ==================================================================
+[  225.017908] ==================================================================
+[  225.018381] BUG: KCSAN: data-race in timecounter_read+0x94/0x118
+[  225.019416] 
+[  225.019708] race at unknown origin, with read to 0xffffaf23b4139030 of 4 bytes by task 101 on cpu 2:
+[  225.020293]  timecounter_read+0x94/0x118
+[  225.021260]  gettime_hammer+0x98/0x128
+[  225.022119]  kthread+0x1fc/0x208
+[  225.022985]  ret_from_fork+0x10/0x20
+[  225.023803] 
+[  225.024069] value changed: 0x7feedcc3 -> 0x7feee526
+[  225.024487] 
+[  225.024741] Reported by Kernel Concurrency Sanitizer on:
+[  225.025106] CPU: 2 UID: 0 PID: 101 Comm: lockstep_get1 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  225.026014] Hardware name: linux,dummy-virt (DT)
+[  225.026420] ==================================================================
+[  225.877453] ==================================================================
+[  225.878661] BUG: KCSAN: data-race in timecounter_read / timecounter_read
+[  225.880091] 
+[  225.880384] write to 0xffffaf23b4139040 of 8 bytes by task 103 on cpu 0:
+[  225.880921]  timecounter_read+0xd4/0x118
+[  225.881958]  lockstep_phc_adjfine+0x30/0x48
+[  225.882777]  kthread+0x1fc/0x208
+[  225.883651]  ret_from_fork+0x10/0x20
+[  225.884465] 
+[  225.884753] read to 0xffffaf23b4139040 of 8 bytes by task 101 on cpu 2:
+[  225.885294]  timecounter_read+0x5c/0x118
+[  225.886330]  gettime_hammer+0x98/0x128
+[  225.887105]  kthread+0x1fc/0x208
+[  225.887971]  ret_from_fork+0x10/0x20
+[  225.888790] 
+[  225.889056] value changed: 0x00000032372ff600 -> 0x0000003237343630
+[  225.889536] 
+[  225.889797] Reported by Kernel Concurrency Sanitizer on:
+[  225.890167] CPU: 2 UID: 0 PID: 101 Comm: lockstep_get1 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  225.891008] Hardware name: linux,dummy-virt (DT)
+[  225.891406] ==================================================================
+[  230.617786] ==================================================================
+[  230.618262] BUG: KCSAN: data-race in timecounter_read+0x94/0x118
+[  230.619326] 
+[  230.619627] race at unknown origin, with read to 0xffffaf23b4139030 of 4 bytes by task 101 on cpu 2:
+[  230.620229]  timecounter_read+0x94/0x118
+[  230.621215]  gettime_hammer+0x98/0x128
+[  230.622059]  kthread+0x1fc/0x208
+[  230.622929]  ret_from_fork+0x10/0x20
+[  230.623745] 
+[  230.624008] value changed: 0x8001797c -> 0x800181e0
+[  230.624424] 
+[  230.624678] Reported by Kernel Concurrency Sanitizer on:
+[  230.625044] CPU: 2 UID: 0 PID: 101 Comm: lockstep_get1 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  230.625920] Hardware name: linux,dummy-virt (DT)
+[  230.626334] ==================================================================
+[  233.622132] ==================================================================
+[  233.623244] BUG: KCSAN: data-race in phc_reader / timecounter_read
+[  233.624426] 
+[  233.624710] write to 0xffffaf23b4139040 of 8 bytes by task 101 on cpu 2:
+[  233.625339]  timecounter_read+0xd4/0x118
+[  233.626342]  gettime_hammer+0x98/0x128
+[  233.627123]  kthread+0x1fc/0x208
+[  233.627988]  ret_from_fork+0x10/0x20
+[  233.628806] 
+[  233.629102] read to 0xffffaf23b4139040 of 8 bytes by task 99 on cpu 0:
+[  233.629690]  phc_reader+0x4c/0x104
+[  233.630448]  kthread+0x1fc/0x208
+[  233.631333]  ret_from_fork+0x10/0x20
+[  233.632149] 
+[  233.632404] value changed: 0x0000003404ce70b0 -> 0x0000003404d2db30
+[  233.632832] 
+[  233.633094] Reported by Kernel Concurrency Sanitizer on:
+[  233.633454] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  233.634428] Hardware name: linux,dummy-virt (DT)
+[  233.634833] ==================================================================
+[  238.326378] ==================================================================
+[  238.326838] BUG: KCSAN: data-race in timecounter_read+0x94/0x118
+[  238.327876] 
+[  238.328175] race at unknown origin, with read to 0xffffaf23b4139030 of 4 bytes by task 101 on cpu 2:
+[  238.328750]  timecounter_read+0x94/0x118
+[  238.329752]  gettime_hammer+0x98/0x128
+[  238.330525]  kthread+0x1fc/0x208
+[  238.331396]  ret_from_fork+0x10/0x20
+[  238.332213] 
+[  238.332469] value changed: 0x800c6b48 -> 0x800c73ab
+[  238.332884] 
+[  238.333148] Reported by Kernel Concurrency Sanitizer on:
+[  238.333546] CPU: 2 UID: 0 PID: 101 Comm: lockstep_get1 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  238.334423] Hardware name: linux,dummy-virt (DT)
+[  238.334809] ==================================================================
+[  242.398090] ==================================================================
+[  242.398560] BUG: KCSAN: data-race in timecounter_read+0x94/0x118
+[  242.399600] 
+[  242.399889] race at unknown origin, with read to 0xffffaf23b4139030 of 4 bytes by task 101 on cpu 2:
+[  242.400470]  timecounter_read+0x94/0x118
+[  242.401445]  gettime_hammer+0x98/0x128
+[  242.402286]  kthread+0x1fc/0x208
+[  242.403168]  ret_from_fork+0x10/0x20
+[  242.404015] 
+[  242.404306] value changed: 0x7ff7b5af -> 0x7ff7be13
+[  242.404732] 
+[  242.404986] Reported by Kernel Concurrency Sanitizer on:
+[  242.405359] CPU: 2 UID: 0 PID: 101 Comm: lockstep_get1 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  242.406286] Hardware name: linux,dummy-virt (DT)
+[  242.406696] ==================================================================
+[  250.197960] ==================================================================
+[  250.199052] BUG: KCSAN: data-race in phc_reader / timecounter_read
+[  250.200247] 
+[  250.200538] write to 0xffffaf23b4139040 of 8 bytes by task 101 on cpu 2:
+[  250.201091]  timecounter_read+0xd4/0x118
+[  250.202143]  gettime_hammer+0x98/0x128
+[  250.202899]  kthread+0x1fc/0x208
+[  250.203746]  ret_from_fork+0x10/0x20
+[  250.204527] 
+[  250.204803] read to 0xffffaf23b4139040 of 8 bytes by task 99 on cpu 0:
+[  250.205325]  phc_reader+0x4c/0x104
+[  250.206250]  kthread+0x1fc/0x208
+[  250.207150]  ret_from_fork+0x10/0x20
+[  250.207981] 
+[  250.208254] value changed: 0x00000037e0ce36d0 -> 0x00000037e0d27050
+[  250.208687] 
+[  250.208940] Reported by Kernel Concurrency Sanitizer on:
+[  250.209311] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  250.210244] Hardware name: linux,dummy-virt (DT)
+[  250.210662] ==================================================================
+[  252.514318] ==================================================================
+[  252.515488] BUG: KCSAN: data-race in timecounter_read / timecounter_read
+[  252.517005] 
+[  252.517309] write to 0xffffaf23b4139048 of 8 bytes by task 103 on cpu 0:
+[  252.517938]  timecounter_read+0xf0/0x118
+[  252.518932]  lockstep_phc_adjfine+0x30/0x48
+[  252.519746]  kthread+0x1fc/0x208
+[  252.520615]  ret_from_fork+0x10/0x20
+[  252.521431] 
+[  252.521763] read to 0xffffaf23b4139048 of 8 bytes by task 101 on cpu 2:
+[  252.522312]  timecounter_read+0xe0/0x118
+[  252.523356]  gettime_hammer+0x98/0x128
+[  252.524122]  kthread+0x1fc/0x208
+[  252.524954]  ret_from_fork+0x10/0x20
+[  252.525813] 
+[  252.526088] value changed: 0x000013367a292c0f -> 0x000013367a2a2084
+[  252.526528] 
+[  252.526789] Reported by Kernel Concurrency Sanitizer on:
+[  252.527170] CPU: 2 UID: 0 PID: 101 Comm: lockstep_get1 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  252.528007] Hardware name: linux,dummy-virt (DT)
+[  252.528408] ==================================================================
+[  254.042865] ==================================================================
+[  254.043927] BUG: KCSAN: data-race in phc_reader / timecounter_read
+[  254.045196] 
+[  254.045492] write to 0xffffaf23b4139048 of 8 bytes by task 101 on cpu 2:
+[  254.046235]  timecounter_read+0xf0/0x118
+[  254.047256]  gettime_hammer+0x98/0x128
+[  254.048033]  kthread+0x1fc/0x208
+[  254.048895]  ret_from_fork+0x10/0x20
+[  254.049827] 
+[  254.050136] read to 0xffffaf23b4139048 of 8 bytes by task 99 on cpu 0:
+[  254.050685]  phc_reader+0x40/0x104
+[  254.051443]  kthread+0x1fc/0x208
+[  254.052322]  ret_from_fork+0x10/0x20
+[  254.053126] 
+[  254.053378] value changed: 0x0000133cd9a3f25f -> 0x0000133cd9a44231
+[  254.053887] 
+[  254.054161] Reported by Kernel Concurrency Sanitizer on:
+[  254.054525] CPU: 0 UID: 0 PID: 99 Comm: lockstep_phcrea Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  254.055395] Hardware name: linux,dummy-virt (DT)
+[  254.055794] ==================================================================
+[  262.574252] ==================================================================
+[  262.574746] BUG: KCSAN: data-race in timecounter_read+0x94/0x118
+[  262.575752] 
+[  262.576044] race at unknown origin, with read to 0xffffaf23b4139030 of 4 bytes by task 100 on cpu 1:
+[  262.576596]  timecounter_read+0x94/0x118
+[  262.577757]  gettime_hammer+0x98/0x128
+[  262.578612]  kthread+0x1fc/0x208
+[  262.579492]  ret_from_fork+0x10/0x20
+[  262.580317] 
+[  262.580577] value changed: 0x80078961 -> 0x800791c4
+[  262.581000] 
+[  262.581301] Reported by Kernel Concurrency Sanitizer on:
+[  262.581680] CPU: 1 UID: 0 PID: 100 Comm: lockstep_get0 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  262.582586] Hardware name: linux,dummy-virt (DT)
+[  262.583002] ==================================================================
+[  268.914600] ==================================================================
+[  268.915125] BUG: KCSAN: data-race in timecounter_read+0x94/0x118
+[  268.916180] 
+[  268.916478] race at unknown origin, with read to 0xffffaf23b4139030 of 4 bytes by task 100 on cpu 1:
+[  268.917073]  timecounter_read+0x94/0x118
+[  268.918091]  gettime_hammer+0x98/0x128
+[  268.918890]  kthread+0x1fc/0x208
+[  268.919770]  ret_from_fork+0x10/0x20
+[  268.920598] 
+[  268.920855] value changed: 0x7fe3da30 -> 0x7fe3e294
+[  268.921281] 
+[  268.921609] Reported by Kernel Concurrency Sanitizer on:
+[  268.921972] CPU: 1 UID: 0 PID: 100 Comm: lockstep_get0 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  268.922831] Hardware name: linux,dummy-virt (DT)
+[  268.923248] ==================================================================
+[  353.031628] LOCKSTEP_PHC: gettime_ok=299902/300000 violations=98 adjtime=150000 adjfine=150000 settime=2000 reads=985698 verdict=FUNC_FAIL
+[  353.467876] input: gpio-keys as /devices/platform/gpio-keys/input/input0
+[  353.827293] clk: Disabling unused clocks
+[  353.832722] PM: genpd: Disabling unused power domains
+[  353.853480] KTAP version 1
+[  353.856344] 1..0
+[  354.092053] /dev/root: Can't open blockdev
+[  354.103478] VFS: Cannot open root device "" or unknown-block(0,0): error -6
+[  354.104894] Please append a correct "root=" boot option; here are the available partitions:
+[  354.119681] 1f00          131072 mtdblock0 
+[  354.121022]  (driver?)
+[  354.127878] List of all bdev filesystems:
+[  354.128458]  ext3
+[  354.128974]  ext2
+[  354.129532]  ext4
+[  354.133029]  squashfs
+[  354.135345]  vfat
+[  354.136038] 
+[  354.137411] Kernel panic - not syncing: VFS: Unable to mount root fs on unknown-block(0,0)
+[  354.149918] CPU: 1 UID: 0 PID: 1 Comm: swapper/0 Not tainted 7.2.0-rc4 #10 PREEMPT 
+[  354.154006] Hardware name: linux,dummy-virt (DT)
+[  354.156502] Call trace:
+[  354.158324]  show_stack+0x18/0x24 (C)
+[  354.161043]  dump_stack_lvl+0x38/0xd0
+[  354.163849]  dump_stack+0x18/0x24
+[  354.166693]  vpanic+0x520/0x6f4
+[  354.169319]  do_panic_on_target_cpu+0x0/0x1c
+[  354.172119]  mount_root_generic+0x234/0x340
+[  354.174594]  mount_root+0x1bc/0x3d4
+[  354.177531]  prepare_namespace+0x84/0x350
+[  354.180057]  kernel_init_freeable+0x3b8/0x488
+[  354.182946]  kernel_init+0x34/0x238
+[  354.185604]  ret_from_fork+0x10/0x20
+[  354.188754] SMP: stopping secondary CPUs
+[  354.192027] Kernel Offset: 0x2f232f000000 from 0xffff800080000000
+[  354.194907] PHYS_OFFSET: 0x40000000
+[  354.196819] CPU features: 0x00000000,003c600a,67c60780,540676bf
+[  354.199429] Memory Limit: none

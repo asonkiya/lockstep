@@ -1,0 +1,52 @@
+{
+ "subject": "drivers/ptp/ptp_mock.c (vendored verbatim)",
+ "ir": {
+  "structs": {
+   "mock_phc": {
+    "lock": "spinlock_t"
+   }
+  },
+  "protects": {
+   "mock_phc": {
+    "lock": [
+     "cc",
+     "clock",
+     "info",
+     "tc"
+    ]
+   }
+  },
+  "regions_found": [
+   "mock_phc_adjfine",
+   "mock_phc_adjtime",
+   "mock_phc_create",
+   "mock_phc_gettime64",
+   "mock_phc_settime64"
+  ]
+ },
+ "transplant": {
+  "mock_phc_adjfine": {
+   "why": "region: lock { timecounter_read; cc.mult = MULT + adj }",
+   "c_source": "\nstatic int mock_phc_adjfine(struct ptp_clock_info *info, long scaled_ppm)\n{\n\tstruct mock_phc *phc = info_to_phc(info);\n\ts64 adj;\n\n\tadj = (s64)scaled_ppm << MOCK_PHC_FADJ_SHIFT;\n\tadj = div_s64(adj, MOCK_PHC_FADJ_DENOMINATOR);\n\n\tspin_lock(&phc->lock);\n\ttimecounter_read(&phc->tc);\n\tphc->cc.mult = MOCK_PHC_CC_MULT + adj;\n\tspin_unlock(&phc->lock);\n\n\treturn 0;\n}"
+  },
+  "mock_phc_adjtime": {
+   "why": "region: lock { tc.nsec += delta } (timecounter_adjtime inline)",
+   "c_source": "\nstatic int mock_phc_adjtime(struct ptp_clock_info *info, s64 delta)\n{\n\tstruct mock_phc *phc = info_to_phc(info);\n\n\tspin_lock(&phc->lock);\n\ttimecounter_adjtime(&phc->tc, delta);\n\tspin_unlock(&phc->lock);\n\n\treturn 0;\n}"
+  },
+  "mock_phc_settime64": {
+   "why": "region: lock { timecounter_init(tc, cc, ns) }",
+   "c_source": "\nstatic int mock_phc_settime64(struct ptp_clock_info *info,\n\t\t\t      const struct timespec64 *ts)\n{\n\tstruct mock_phc *phc = info_to_phc(info);\n\tu64 ns = timespec64_to_ns(ts);\n\n\tspin_lock(&phc->lock);\n\ttimecounter_init(&phc->tc, &phc->cc, ns);\n\tspin_unlock(&phc->lock);\n\n\treturn 0;\n}"
+  },
+  "mock_phc_gettime64": {
+   "why": "region: lock { ns = timecounter_read(tc) }",
+   "c_source": "\nstatic int mock_phc_gettime64(struct ptp_clock_info *info, struct timespec64 *ts)\n{\n\tstruct mock_phc *phc = info_to_phc(info);\n\tu64 ns;\n\n\tspin_lock(&phc->lock);\n\tns = timecounter_read(&phc->tc);\n\tspin_unlock(&phc->lock);\n\n\t*ts = ns_to_timespec64(ns);\n\n\treturn 0;\n}"
+  }
+ },
+ "skipped": {
+  "mock_phc_create": "init path (spin_lock_init + registration) \u2014 probe replicates it, no critical section to transplant",
+  "mock_phc_destroy": "teardown glue, no lock",
+  "mock_phc_refresh": "wrapper: calls gettime64, takes no lock of its own",
+  "mock_phc_cc_read": "cyclecounter callback (ktime_get_raw_ns), lock-free by design",
+  "mock_phc_index": "accessor glue, no lock"
+ }
+}
