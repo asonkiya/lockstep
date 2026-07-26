@@ -191,10 +191,20 @@ by a differential/whole-program result rather than a claim.
   (`ptp_mock`, two GPIO); limits (interprocedural helper accesses, `arch_spinlock`/
   pointer-lock/macro patterns) documented, not pretended. In-kernel lockdep
   realization deferred to M1.5/M2's gate.
-- **M2 — single-region transplant, hand-checked.** Transplant one critical section
-  to a `SpinLock<T>` guard by hand, through the pipeline's mechanical steps, and
-  pass the M0 gate. *Proof: KCSAN/lockdep clean, KUnit green, negative control (a
-  deliberately dropped lock) is REJECTED by KCSAN.*
+- **M2 — single-region transplant, hand-checked. ✅ done (see `m2/RESULTS.md`).**
+  Transplant one critical section to a `SpinLock<T>` guard by hand, through the
+  pipeline's mechanical steps, and pass the M0 gate. *Proof: KCSAN/lockdep clean,
+  KUnit green, negative control (a deliberately dropped lock) is REJECTED by KCSAN.*
+  Delivered: the M1 ring buffer's `ring_push`/`ring_count` transplanted into a Rust
+  `SpinLock<RingFields>` (R4L shape — fields owned by the lock, reached only through
+  a guard). `m2/gate.py` is green on all legs: stock C race-clean under TSan;
+  transplant functional under real contention (exact count); **loom** proves the
+  transplant data-race-free *exhaustively* (userspace KCSAN analog, stronger than
+  sampling); the dropped-lock negative control is REJECTED for a genuine
+  concurrent-access race (not vacuously); and — the R4L bonus — the dropped lock
+  does not even compile (`E0616`, the invariant is type-enforced). In-kernel
+  realization (real `kernel::sync::SpinLock<T>` under M0's QEMU+KCSAN, syzkaller as
+  load) folded into M3's real-region work.
 - **M3 — model-synthesized transplant.** The model selects the abstraction and
   produces the region rewrite from the IR + R4L catalog; same gate. *Proof: a
   cheap-model transplant of a real region passes the full battery; a wrong one is

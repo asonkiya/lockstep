@@ -1,0 +1,20 @@
+[package]
+name = "transplant"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+# loom is pulled in ONLY under `--cfg loom`; the normal build is std-only.
+[target.'cfg(loom)'.dependencies]
+loom = "0.7"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(loom)'] }
+
+[lib]
+name = "transplant"
+path = "src/lib.rs"
+
+[[bin]]
+name = "stress"
+path = "src/main.rs"

@@ -10,3 +10,7 @@ m1/ringbuf_tsan
 m1/__pycache__/
 .pytest_cache/
 m1/*.dSYM/
+m2/transplant/target/
+m2/ring_stock_tsan
+m2/ring_stock_tsan.dSYM/
+m2/_neg_out
