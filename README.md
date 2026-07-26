@@ -33,10 +33,9 @@ one means something).
 
 ## New to the concurrency side?
 
-[`docs/SYLLABUS.md`](docs/SYLLABUS.md) is a from-zero course (with a teaching-agent
-header) on the kernel-concurrency domain this project lives in — data races, locks,
-memory ordering, the sanitizer oracle (KCSAN/lockdep), Rust-for-Linux, and where the
-milestone ladder currently stands. Hand it to a cheap agent and learn the domain.
+The from-zero learning course (syllabus + conversational lessons with coding
+exercises) lives in its own repo: **[lockstep-course](https://github.com/asonkiya/lockstep-course)**.
+
 
 ## Status
 
