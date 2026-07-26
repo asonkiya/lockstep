@@ -232,8 +232,15 @@ Then, run both in a multithreaded context and observe the difference.
 **Starter code:**
 
 ```python
+import sys
 import threading
-import time
+
+# Modern CPython's GIL makes a bare `x += 1` effectively atomic, so a naive
+# race often won't show. Two things make it reliably visible: force frequent
+# thread switches, and split the update into read()/write() calls so a switch
+# can land *between* the read and the write. (This is a teaching trick to
+# surface a race the language usually hides — the race is real either way.)
+sys.setswitchinterval(1e-9)
 
 # Shared data (simulating kernel state)
 counter = {"value": 0}  # dict so it's mutable and shared
@@ -244,9 +251,15 @@ def pure_multiply(a, b):
     # Should take inputs and return output; touch nothing shared.
     pass
 
+# read() and write() split the update so a thread switch can interleave them.
+def read():
+    return counter["value"]
+def write(v):
+    counter["value"] = v
+
 # TODO: Implement increment_counter
 def increment_counter(n_times):
-    # Should modify counter["value"] n_times.
+    # Should do write(read() + 1), n_times.
     # Try it WITHOUT a lock first, then WITH a lock.
     # Observe what happens to the final value.
     pass
@@ -286,17 +299,21 @@ def pure_multiply(a, b):
     return a * b
 
 def increment_counter(n_times):
-    # WITHOUT lock (first pass):
+    # WITHOUT lock (first pass) — a switch can land between read() and write(),
+    # so two threads read the same value and one increment is lost:
     for _ in range(n_times):
-        temp = counter["value"]
-        temp += 1
-        counter["value"] = temp
-    
-    # WITH lock (second pass):
+        write(read() + 1)
+
+    # WITH lock (second pass) — the lock makes read+write indivisible, so the
+    # count is exact. Swap the loop above for this and re-run:
     # for _ in range(n_times):
     #     with lock:
-    #         counter["value"] += 1
+    #         write(read() + 1)
 ```
+
+> Verified: without the lock this reliably prints well under 400000 (updates
+> lost to the race); with the lock it prints exactly 400000. If you ever see the
+> exact number without a lock, raise the thread count — the race is there.
 
 **What to observe:**
 - Test 1: All 400,000 results are 6 — pure functions are deterministic.

@@ -22,6 +22,8 @@
 
 ---
 
+> **Ready-to-run lessons:** each module below is expanded into a full conversational lesson with coding exercises in [`lessons/`](lessons/README.md) — hand one to an LLM at a time and learn by doing.
+
 ## The 60-second version (read this first, together)
 
 An AI can already rewrite a **pure function** (input → output, no shared state)
