@@ -1,0 +1,15 @@
+[package]
+name = "m3harness"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[target.'cfg(loom)'.dependencies]
+loom = "0.7"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(loom)'] }
+
+[lib]
+name = "m3harness"
+path = "src/lib.rs"

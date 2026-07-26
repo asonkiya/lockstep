@@ -205,8 +205,17 @@ by a differential/whole-program result rather than a claim.
   does not even compile (`E0616`, the invariant is type-enforced). In-kernel
   realization (real `kernel::sync::SpinLock<T>` under M0's QEMU+KCSAN, syzkaller as
   load) folded into M3's real-region work.
-- **M3 — model-synthesized transplant.** The model selects the abstraction and
-  produces the region rewrite from the IR + R4L catalog; same gate. *Proof: a
+- **M3 — model-synthesized transplant. ✅ done (see `m3/RESULTS.md`).** The model
+  selects the abstraction and produces the region rewrite from the IR + R4L
+  catalog; same gate. Delivered: `m3/synthesize.py` — IR (m1 extractor) + catalog
+  (§3.2) + scaffold API → Haiku → `region.rs` → the M2 battery. **First attempt,
+  $0.0028**: correct catalog selection (machine-checked), correct rewrite, all
+  legs green, and the dropped-lock control rejected the model's own winner. All
+  three wrong-transplant modes proven rejected: concurrency (loom), semantics
+  (functional leg kills a race-free `count += 2` bug), structural (won't
+  compile). Harness proven non-vacuous via `--self-test` before the model ran.
+  In-kernel realization + a real kernel region (ptp_mock) deferred to M4's sweep.
+  *Proof: a
   cheap-model transplant of a real region passes the full battery; a wrong one is
   caught.*
 - **M4 — subsystem sweep.** Drive M3 across every region of one subsystem,
