@@ -110,15 +110,25 @@ def cmd_apply() -> int:
         n = sum(1 for f in entry["functions"].values() if f["status"] == "rust")
         print(f"  wove {path}: {n} bodies -> Rust seam calls")
 
-    # 3. compile each Rust object into its kbuild dir and wire it
-    for name, obj in m["rust_objects"].items():
+    # 3. compile each Rust object into its kbuild dir and wire it.
+    #    Multiple freestanding Rust objects each define #[panic_handler]
+    #    (rust_begin_unwind) as a global symbol and collide at the vmlinux link
+    #    (the linking-research finding, confirmed in practice). Fix: keep ONE
+    #    object's handler global (the first) and localize it in all the rest, so
+    #    each self-contains its panic path with no global clash.
+    for idx, (name, obj) in enumerate(m["rust_objects"].items()):
         src = os.path.join(HERE, obj["src"])
         d = obj["kbuild_dir"]
+        localize = (
+            f" && aarch64-linux-gnu-objcopy --wildcard "
+            f"--localize-symbol '*rust_begin_unwind*' {obj['obj']}.o_shipped"
+            if idx > 0 else ""
+        )
         rc = _docker(
             f"cd /build/linux/{d} && "
             f"rustc --target aarch64-unknown-none-softfloat --emit=obj "
             f"-C panic=abort -C relocation-model=static -O /w/{os.path.basename(src)} "
-            f"-o {obj['obj']}.o_shipped && test -s {obj['obj']}.o_shipped && echo OK",
+            f"-o {obj['obj']}.o_shipped && test -s {obj['obj']}.o_shipped{localize} && echo OK",
             mounts=[f"{os.path.dirname(src)}:/w:ro"],
         )
         if "OK" not in rc.stdout:

@@ -42,6 +42,20 @@
     }
    },
    "total_functions": 9
+  },
+  "lib/math/int_sqrt.c": {
+   "extern_block": "\nunsigned long cgir_int_sqrt(unsigned long x);\n",
+   "functions": {
+    "int_sqrt": {
+     "status": "rust",
+     "tier": "unsafe",
+     "gate": "differential",
+     "verdict": "PASS",
+     "seam": "cgir_int_sqrt",
+     "shell": "unsigned long int_sqrt(unsigned long x)\n{\n\treturn cgir_int_sqrt(x);\n}"
+    }
+   },
+   "total_functions": 2
   }
  },
  "rust_objects": {
@@ -49,6 +63,11 @@
    "src": "ring0/ptp_mock_regions.rs",
    "kbuild_dir": "drivers/ptp",
    "obj": "ptp_mock_regions"
+  },
+  "int_sqrt": {
+   "src": "ring1/int_sqrt.rs",
+   "kbuild_dir": "lib/math",
+   "obj": "int_sqrt_rust"
   }
  }
 }

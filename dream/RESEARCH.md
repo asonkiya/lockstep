@@ -334,6 +334,11 @@ wall below.
    (recommended), or `objcopy --localize-symbol` + `ld -r`. Also: freestanding Rust emits
    `memcpy`/`memset`/`memmove` refs (kernel's arch/arm64/lib provides them — links, but a
    runtime dependency to know about).
+   **UPDATE — confirmed in practice and solved (Ring 1).** Weaving two real Rust objects
+   (ptp + int_sqrt) into one vmlinux hit this exact collision at N=2. Fix applied and now
+   baked into the ratchet (`weave.py`): `aarch64-linux-gnu-objcopy --wildcard
+   --localize-symbol '*rust_begin_unwind*'` on all-but-one object → each self-contains its
+   panic path, one global winner, no clash. Predicted → hit → solved.
 
 **Architecture that falls out**: a **shared runtime crate** (single panic handler + the
 kernel-idioms reimpl library + the variadic-log shims + the struct-mirror library with
