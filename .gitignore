@@ -15,3 +15,7 @@ m2/ring_stock_tsan
 m2/ring_stock_tsan.dSYM/
 m2/_neg_out
 m3/harness/target/
+dream/diffgate/out/*-console.txt
+dream/diffgate/out/*-build.txt
+dream/diffgate/out/wrong_phc.rs
+dream/ratchet/out/

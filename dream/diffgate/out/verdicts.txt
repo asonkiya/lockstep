@@ -1,0 +1,2 @@
+correct verdict=DIFF_PASS 1
+wrong verdict=DIFF_FAIL 1
