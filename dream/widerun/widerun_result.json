@@ -1,30 +1,27 @@
 {
  "harvested": 72,
- "compiled": 71,
- "boot_attempted": 16,
+ "pure_routed": 13,
+ "quarantined": 59,
+ "compiled": 13,
+ "boot_attempted": 11,
  "verified_pass": 10,
- "rejected": 6,
- "dropped_unlinkable": 11,
- "synth_cost_usd": 0.1025,
- "elapsed_min": 7.4,
+ "rejected": 1,
+ "dropped_unlinkable": 2,
+ "synth_cost_usd": 0.0,
+ "elapsed_min": 4.3,
  "pass_syms": [
   "__kfifo_max_r",
-  "__node_distance",
-  "__refrigerator",
   "__sw_hweight16",
   "__sw_hweight32",
   "__sw_hweight8",
+  "int_pow",
+  "int_sqrt",
+  "int_sqrt64",
   "nfs_check_flags",
   "pci_rebar_bytes_to_size",
-  "phys_to_target_node",
-  "probe_irq_mask"
+  "xas_try_split_min_order"
  ],
  "reject_syms": [
-  "memory_group_register_static",
-  "neigh_rand_reach_time",
-  "nfs4_stat_to_errno",
-  "numa_nearest_node",
-  "pci_bus_find_emul_domain_nr",
-  "poll_state_synchronize_rcu"
+  "cper_severity_to_aer"
  ]
 }

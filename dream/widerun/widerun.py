@@ -212,11 +212,22 @@ def build_boot(batch, tag):
 
 
 def main():
+    import purity
     t0 = time.time()
     print("[wide] harvesting tree-wide...")
-    work = harvest()
-    print(f"[wide] harvested {len(work)} scalar-exported leaves")
-    json.dump([w["sym"] for w in work], open(os.path.join(HERE, "harvested.json"), "w"))
+    harvested = harvest()
+    # PURITY ROUTER: only provably-pure functions are eligible for the scalar
+    # differential; stateful ones are quarantined for the trace oracle (Ring 3).
+    pn = set()
+    for _ in range(3):
+        pn = {w["sym"] for w in harvested if purity.classify(w["body"], pn, w["sym"])[0] == "pure"}
+    work = [w for w in harvested if w["sym"] in pn]
+    quarantined = {w["sym"]: purity.classify(w["body"], pn, w["sym"])[1]
+                   for w in harvested if w["sym"] not in pn}
+    print(f"[wide] harvested {len(harvested)}; purity router -> {len(work)} PURE "
+          f"(scalar-gate), {len(quarantined)} quarantined (trace oracle)")
+    json.dump({"harvested": [w["sym"] for w in harvested], "pure": sorted(pn),
+               "quarantined": quarantined}, open(os.path.join(HERE, "routing.json"), "w"), indent=1)
     print(f"[wide] parallel-synthesizing {len(work)}...")
     total, compiled = 0.0, []
     with concurrent.futures.ThreadPoolExecutor(max_workers=8) as ex:
@@ -238,7 +249,8 @@ def main():
         npass = sum(1 for v in verd.values() if v[0] == "PASS")
         print(f"  batch {bi+1}: {npass}/{len(verd)} PASS, {len(dropped)} dropped")
     npass = sum(1 for v in allv.values() if v[0] == "PASS")
-    result = {"harvested": len(work), "compiled": len(compiled), "boot_attempted": len(allv),
+    result = {"harvested": len(harvested), "pure_routed": len(work), "quarantined": len(quarantined),
+              "compiled": len(compiled), "boot_attempted": len(allv),
               "verified_pass": npass, "rejected": len(allv) - npass, "dropped_unlinkable": len(alldrop),
               "synth_cost_usd": round(total, 4), "elapsed_min": round((time.time() - t0) / 60, 1),
               "pass_syms": sorted(k for k, v in allv.items() if v[0] == "PASS"),

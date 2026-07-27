@@ -72,3 +72,33 @@ the genuinely-comparable set.
   trace oracle for anything stateful, or you over-credit.
 - Genuinely-pure functions verify soundly and cheaply across every subsystem
   touched (lib, mm, fs, drivers/pci, kernel). That class is turnkey at scale.
+
+## v2 — with the purity router (`purity.py`), the run is now SOUND
+
+Finding 2 said the scalar differential over-credits stateful functions. `purity.py`
+fixes it: before the gate, classify each function (conservative — anything not
+provably pure is quarantined), route **pure → scalar differential**, **stateful →
+the trace oracle**. Re-ran wide:
+
+```
+harvested 72 -> purity router: 13 PURE (scalar-gate), 59 quarantined (trace oracle)
+pure+linkable booted 11 -> VERIFIED 10, rejected 1, dropped 2
+verified: __sw_hweight8/16/32, __kfifo_max_r, int_pow, int_sqrt, int_sqrt64,
+          nfs_check_flags, pci_rebar_bytes_to_size, xas_try_split_min_order
+```
+
+The three over-credited functions from v1 — `__refrigerator`, `probe_irq_mask`,
+`__node_distance` — are now **correctly quarantined** (the router flags `pr_debug`,
+IRQ-desc state, `numa_` respectively), so they never reach the scalar gate. Every
+one of the 10 passes is now a genuinely-pure, **behavior-equivalent** verification
+across lib / mm / fs / drivers-pci / kfifo / xarray. The 1 reject
+(`cper_severity_to_aer`, an ACPI severity table) is a retryable synth miss; the 2
+drops are config-unlinkable. The router is intentionally conservative — it even
+quarantines `gcd`/`lcm` (they read a static-branch global) — because for a
+verification gate, **soundness beats completeness**: better to send a pure function
+to the (also-sound) trace oracle than to let one stateful function through the
+scalar one.
+
+**Net:** the wide pipeline now has zero unsound passes by construction, not by
+luck. Purity routing was the one missing piece of plumbing between "runs at scale"
+and "every pass means what it says." It's built.
