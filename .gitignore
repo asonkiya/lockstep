@@ -40,3 +40,7 @@ dream/sweep/*-build.txt
 dream/sweep/*-console.txt
 dream/sweep/__pycache__/
 dream/sweep/sweep_probe.c
+dream/widerun/cand/
+dream/widerun/wide_probe.c
+dream/widerun/wide-*.txt
+dream/widerun/__pycache__/
