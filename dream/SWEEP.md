@@ -107,3 +107,20 @@ and struct-families, not in inventions.
 
 *(Reproduce: `dream/sweep/census.py`, `harvest.py`, `sweep_fleet.py`; raw verdicts
 in `sweep/sweep_result.json` + `census.json`.)*
+
+## Addendum — the wide run refined one thing (see `widerun/WIDERUN.md`)
+
+The first production-scale run (72 leaves harvested tree-wide, $0.10) confirmed
+the machine runs autonomously at scale, and it sharpened one point that the
+"how close" answer must carry: **the oracle has to be chosen by purity.** A
+return-value differential is sound only for provably-pure functions; on a
+side-effectful one (the run caught `__refrigerator` and `probe_irq_mask`) it will
+pass a transplant that reproduces the *return* while silently dropping the
+*effect*. Genuinely-pure leaves verify soundly and cheaply everywhere; everything
+stateful must go through Ring 3's trace oracle, never the scalar one. So the
+"strongly verified ~17%" tier is real only when the right oracle is applied per
+function class — mislabeling purity is the single way a wrong transplant slips
+through, and it is a routing discipline, not a new capability. Also measured:
+config coverage bounds the testable set (a minimal build links only a fraction of
+harvested symbols), so scaling the verified count means building a larger config,
+not only harvesting wider.

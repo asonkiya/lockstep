@@ -1,0 +1,30 @@
+{
+ "harvested": 72,
+ "compiled": 71,
+ "boot_attempted": 16,
+ "verified_pass": 10,
+ "rejected": 6,
+ "dropped_unlinkable": 11,
+ "synth_cost_usd": 0.1025,
+ "elapsed_min": 7.4,
+ "pass_syms": [
+  "__kfifo_max_r",
+  "__node_distance",
+  "__refrigerator",
+  "__sw_hweight16",
+  "__sw_hweight32",
+  "__sw_hweight8",
+  "nfs_check_flags",
+  "pci_rebar_bytes_to_size",
+  "phys_to_target_node",
+  "probe_irq_mask"
+ ],
+ "reject_syms": [
+  "memory_group_register_static",
+  "neigh_rand_reach_time",
+  "nfs4_stat_to_errno",
+  "numa_nearest_node",
+  "pci_bus_find_emul_domain_nr",
+  "poll_state_synchronize_rcu"
+ ]
+}
