@@ -96,9 +96,13 @@ def extern_protos(src: str) -> str:
 
 
 def rust_export(cand_path: str) -> str:
-    """The #[no_mangle] exported symbol in the candidate."""
+    """The exported symbol in the candidate: #[no_mangle] fn name, or an
+    explicit #[export_name = "..."] (the c2rust rung's shape)."""
     src = open(cand_path).read()
-    m = re.search(r"#\[no_mangle\]\s*pub\s+extern\s+\"C\"\s+fn\s+(\w+)", src)
+    m = re.search(r'#\[export_name\s*=\s*"(\w+)"\]', src)
+    if m:
+        return m.group(1)
+    m = re.search(r"#\[no_mangle\]\s*pub\s+(?:unsafe\s+)?extern\s+\"C\"\s+fn\s+(\w+)", src)
     if not m:
         raise SystemExit("hostdiff: candidate exports no #[no_mangle] pub extern \"C\" fn")
     return m.group(1)

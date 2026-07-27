@@ -1,0 +1,77 @@
+{
+ "rows": [
+  {
+   "func": "gcd",
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "secs": 0.8
+  },
+  {
+   "func": "int_sqrt",
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "secs": 0.7
+  },
+  {
+   "func": "int_pow",
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "secs": 0.7
+  },
+  {
+   "func": "__sw_hweight32",
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "secs": 0.7
+  },
+  {
+   "func": "__sw_hweight64",
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "secs": 0.7
+  },
+  {
+   "func": "lcm",
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "secs": 0.9
+  },
+  {
+   "func": "lcm_not_zero",
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "secs": 0.9
+  },
+  {
+   "func": "intlog2",
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "secs": 0.7
+  }
+ ],
+ "spend": 0.0
+}
