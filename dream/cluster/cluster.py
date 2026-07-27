@@ -44,27 +44,48 @@ _NOT_CALLS = {
 }
 
 
+_KEYWORDS = {"if", "for", "while", "switch", "return", "sizeof", "do", "else"}
+
+
+def _mask(src: str) -> str:
+    """Length-preserving comment/string mask so parens and braces inside
+    comments or literals can't confuse parsing (the lifter's lesson: a doc
+    comment's `(C) 2013 ...` otherwise swallows the next definition)."""
+    def blank(m: re.Match) -> str:
+        return "".join(c if c == "\n" else " " for c in m.group(0))
+    src = re.sub(r"/\*.*?\*/", blank, src, flags=re.DOTALL)
+    src = re.sub(r"//[^\n]*", blank, src)
+    src = re.sub(r'"(?:[^"\\\n]|\\.)*"', blank, src)
+    src = re.sub(r"'(?:[^'\\\n]|\\.)*'", blank, src)
+    return src
+
+
 def functions(src: str) -> dict[str, dict]:
     """name -> {static: bool, ret: str, params: str, text: str, start, end}.
 
     Matches top-level definitions `[static] RET name(params) {...}` and
-    brace-balances to the closing `}`. Skips prototypes (no body).
+    brace-balances to the closing `}`. Skips prototypes (no body). Parsing runs
+    on a comment/string-masked copy (same offsets); extracted text comes from
+    the original.
     """
+    masked = _mask(src)
     out: dict[str, dict] = {}
     for m in re.finditer(
         r"(?m)^(?P<static>static\s+)?(?P<ret>[\w \t\*]+?)\b(?P<name>\w+)\s*\((?P<params>[^;{}]*)\)\s*\{",
-        src,
+        masked,
     ):
+        name = m.group("name")
+        if name in _KEYWORDS:
+            continue
         depth, i = 0, m.end() - 1
-        while i < len(src):
-            if src[i] == "{":
+        while i < len(masked):
+            if masked[i] == "{":
                 depth += 1
-            elif src[i] == "}":
+            elif masked[i] == "}":
                 depth -= 1
                 if depth == 0:
                     break
             i += 1
-        name = m.group("name")
         out[name] = {
             "static": bool(m.group("static")),
             "ret": m.group("ret").strip(),
