@@ -134,5 +134,14 @@ driver → automated fleet loop → closed loop → parallel workers → **depth
 for the Tier-B middle**. The machine is whole and autonomous — worklist in,
 verified Rust woven into a booting kernel out, wrong transplants caught and
 retried, no human in the loop; it scales by adding workers; and the struct-context
-substrate now reaches the majority of the kernel one struct family at a time. What
-remains is running it wide (buying cores) and mirroring more struct families.
+substrate now reaches the majority of the kernel one struct family at a time.
+
+**Ring 9 swept a real subsystem** (`dream/ratchet/ring9/`, RING9.md): the entire
+divider-math family of `drivers/clk/clk-divider.c` — 6 functions reading
+`clk_div_table` arrays and branching on divider flags — transplanted as ONE Rust
+object against the Ring 8 `ksdk` mirror ($0.0087, one shot), all 6 verified
+bit-identical to the C across the flag/width/table matrix in one boot. The depth
+payoff made concrete: the mirror built once in Ring 8 unlocked the whole family at
+no extra cost — breadth × depth on real in-tree code, the shape a full subsystem
+sweep repeats. What remains is running it wide (buying cores) and mirroring more
+struct families.
