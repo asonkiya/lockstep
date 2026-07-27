@@ -46,3 +46,5 @@ dream/widerun/wide-*.txt
 dream/widerun/__pycache__/
 dream/widerun/routing.json
 dream/widerun/purity.json
+dream/exhaustive/out/
+dream/concgate/out/
