@@ -102,3 +102,45 @@ scalar one.
 **Net:** the wide pipeline now has zero unsound passes by construction, not by
 luck. Purity routing was the one missing piece of plumbing between "runs at scale"
 and "every pass means what it says." It's built.
+
+## v3 — retrying the quarantined 59 with the observation oracle
+
+Can the quarantined functions be verified by the *in-kernel* differential (the C
+runs against real state; the Rust is a pure reimplementation)? Soundly, only if a
+function differs from pure **only by reading state** — no side effect, and no
+opaque callee that could hide one. For such a read-only function, return-
+equivalence to the C *is* behavior-equivalence in this config (nothing to miss).
+
+`retry_trace.py` split the 59 by that sound criterion:
+
+```
+quarantined 59  =  1 read-only-recoverable  +  58 effectful / opaque-callee
+read-only booted 1 -> RECOVERED (config-sound) 1, still state-dependent 0
+recovered: __node_distance   (single-node config -> constant distance; the pure
+           reimpl matches the C here — a valid per-config transplant)
+58 effectful -> need a per-function effect trace (NOT auto-run): __refrigerator,
+   irq_* , numa_* , memory_group_register_* , vm_munmap, remove_cpu, gcd/lcm
+   (call opaque static helpers), zstd_* , ...
+```
+
+**This is the honest boundary of automation, drawn from the data:** the return/
+observation differential soundly recovers essentially *nothing* from the
+quarantine (1 of 59) — because almost every stateful function either has a real
+effect (`__refrigerator` freezes, `vm_munmap` unmaps, the `irq_*` family touches
+descriptors) or calls a helper the checker must treat as opaque. Those genuinely
+need a **recorded effect trace**, per function or per state-source. Ring 3/4
+proved the *MMIO* subclass of that is uniformly automatable (record `readl`/
+`writel`); arbitrary global/per-cpu/RCU state is not, and is honest per-function
+work — or it stays C.
+
+So the four-way verdict, now fully measured end to end:
+- **pure leaves** → scalar differential, turnkey, sound, cents (this is the bulk
+  of the reachable win);
+- **read-only-otherwise-pure** → in-kernel differential, config-sound, a thin
+  sliver (1/59 here);
+- **effectful** → recorded effect trace; MMIO subclass automatable (Ring 3/4),
+  the rest per-function;
+- **entangled (Tier D, ~11%)** → C-forever.
+
+The quarantine was right, the router is sound, and the line between "automatable"
+and "hand/effect-trace work" is now empirical, not guessed.

@@ -48,6 +48,10 @@ PURE_CALL = {
     "upper_32_bits", "lower_32_bits", "mul_u32_u32", "sizeof", "offsetof_never",
     "le16_to_cpu", "le32_to_cpu", "le64_to_cpu", "cpu_to_le16", "cpu_to_le32",
     "cpu_to_le64", "be16_to_cpu", "be32_to_cpu", "array_index_nospec",
+    # read-only branch selectors: read a static key, no side effect (the
+    # differential still decides if the taken branch produces matching output)
+    "static_branch_likely", "static_branch_unlikely", "static_key_enabled",
+    "static_key_false", "static_key_true", "likely", "unlikely",
 }
 CALL = re.compile(r"\b([A-Za-z_]\w*)\s*\(")
 # C keywords / type-ish tokens that appear before '(' but aren't calls
@@ -56,12 +60,57 @@ NONCALL = {"if", "for", "while", "switch", "return", "sizeof", "do", "else",
            "char", "short", "size_t", "typeof", "__typeof__"}
 
 
+# side-effect markers: writes state / has an observable effect. A read-only
+# function (reads state but writes/does nothing) can be checked by the in-kernel
+# differential — the C reads the real state, the Rust is pure, and for a
+# read-only function return-equivalence IS behavior-equivalence (no effect to
+# miss). An effectful function needs a real effect-trace oracle (per-function).
+EFFECT = re.compile(
+    r"\bwritel\b|\bwrite[bwlq]\b|iowrite|\bout[bwl]\b"
+    r"|WRITE_ONCE|\bxchg\b|cmpxchg|atomic_(set|add|sub|inc|dec|or|and|xor|cmpxchg)|refcount_(set|add|inc|dec|sub)"
+    r"|\bk[mzv]alloc|\bkfree|\bvfree"
+    r"|register|unregister|\bschedule\b|\bwait_|\bsleep\b|msleep|freeze|refrigerator|wake_up|complete\("
+    r"|\bprintk\b|\bpr_(err|warn|info|debug|cont|notice)|\bdev_(err|warn|info|dbg)|\bWARN|\bBUG\b|\bpanic\b"
+    r"|\bspin_lock|\bmutex_lock|\bdown_|_send|_ipi|raise_|trigger_|notify_"
+    r"|->\s*\w+\s*(=|\+\+|--|\+=|-=|\|=|&=)|\*\s*\w+\s*="   # write through a deref/field
+    r"|\bset_\w+\(|\bclear_\w+\(|\benable_\w+\(|\bdisable_\w+\("
+)
+
+
+def has_effect(body: str) -> bool:
+    b = mask(body)
+    hdr = b.find("{")
+    return bool(EFFECT.search(b[hdr:] if hdr > 0 else b))
+
+
 def mask(s):
     s = re.sub(r"/\*.*?\*/", " ", s, flags=re.DOTALL)
     s = re.sub(r"//[^\n]*", " ", s)
+    s = re.sub(r"^\s*#[^\n]*", " ", s, flags=re.MULTILINE)   # preprocessor lines
     s = re.sub(r'"(\\.|[^"])*"', '""', s)
     s = re.sub(r"'(\\.|[^'])'", "''", s)
     return s
+
+
+def calls_ok(body: str, pure_names: set, own: str = "") -> bool:
+    """True iff every function called is a known-pure helper, a pure leaf, or
+    self — i.e. the function makes no call that could hide a side effect."""
+    b = mask(body)
+    hdr = b.find("{")
+    scan = b[hdr:] if hdr > 0 else b
+    for c in CALL.findall(scan):
+        if c in NONCALL or c in PURE_CALL or c in pure_names or c == own:
+            continue
+        return False
+    return True
+
+
+def recoverable_readonly(body: str, pure_names: set, own: str = "") -> bool:
+    """Sound criterion for the in-kernel return-differential: differs from pure
+    ONLY by reading state — no side effect, and no call that could hide one.
+    For such a function, return-equivalence to the C IS behavior-equivalence
+    (config-scoped), because there is no effect to miss and no opaque callee."""
+    return (not has_effect(body)) and calls_ok(body, pure_names, own)
 
 
 def classify(body: str, pure_names: set, own: str = "") -> tuple[str, str]:
