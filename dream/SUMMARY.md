@@ -119,9 +119,20 @@ research's cost model — batching (Rings 2/5, ~292k comparisons/boot) and paral
 workers (Ring 7) — are now demonstrated; the full-run bottleneck is provisioning,
 not capability.
 
+**Ring 8 went for depth** (`dream/ratchet/ring8/`, RING8.md): the reusable
+`ksdk` crate that unlocks the ~73% Tier-B middle — `#[repr(C)]` struct mirrors with
+compile-time layout guards, reimplemented inline/macro helpers, `container_of`. A
+real struct-context function (clk-divider's `clk_div_table` table walk — the class
+pure-scalar synth can't touch) was transplanted against the mirror and verified
+bit-identical. Two complementary mirror gates proven: a size-wrong mirror FAILS TO
+COMPILE (layout guard, `E0080`); a field-swapped mirror (same size, guard blind)
+is caught at runtime by the differential (bad=13). Struct mirroring needs both.
+
 Total model spend across every transplant: **~5 cents.** The complete arc:
 research → differential oracle → ratchet → driver-class oracle → real in-tree
-driver → automated fleet loop → closed end-to-end loop → **parallel workers**. The
-machine is whole and autonomous: worklist in, verified Rust woven into a booting
-kernel out, wrong transplants caught and retried, no human in the loop — and it
-scales by adding workers. What remains is running it wide, which is buying cores.
+driver → automated fleet loop → closed loop → parallel workers → **depth substrate
+for the Tier-B middle**. The machine is whole and autonomous — worklist in,
+verified Rust woven into a booting kernel out, wrong transplants caught and
+retried, no human in the loop; it scales by adding workers; and the struct-context
+substrate now reaches the majority of the kernel one struct family at a time. What
+remains is running it wide (buying cores) and mirroring more struct families.

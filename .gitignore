@@ -30,3 +30,6 @@ dream/ratchet/out/ring4-*.txt
 dream/ratchet/ring4/__pycache__/
 dream/ratchet/out/ring5-*.txt
 dream/ratchet/ring5/__pycache__/
+dream/ratchet/out/ring8-*.txt
+dream/ratchet/out/clkdiv_*.rs
+dream/ratchet/ring8/__pycache__/
