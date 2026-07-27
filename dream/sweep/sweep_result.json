@@ -1,0 +1,160 @@
+{
+ "harvested_total": 37,
+ "excluded_prelink": {
+  "div64_s64": "ref not linked in config",
+  "div64_u64": "ref not linked in config",
+  "is_prime_number": "ref not linked in config",
+  "next_prime_number": "ref not linked in config",
+  "slow_is_prime_number": "ref not linked in config",
+  "jiffies_to_msecs": "ref not linked in config",
+  "jiffies_to_usecs": "ref not linked in config",
+  "zstd_compress_bound": "ref not linked in config",
+  "clock_t_to_jiffies": "candidate needs __udivti3 (u128 div) freestanding",
+  "msleep_interruptible": "side effect (sleeps) \u2014 not a pure differential target"
+ },
+ "attempted": 27,
+ "harvested": 27,
+ "synth_compiled": 27,
+ "synth_cost_usd": 0.0,
+ "verified_pass": 14,
+ "verified_fail": 13,
+ "probe_reached_end": true,
+ "per_fn": {
+  "__kfifo_max_r": {
+   "verdict": "PASS",
+   "n": 2304,
+   "bad": 0
+  },
+  "__msecs_to_jiffies": {
+   "verdict": "FAIL",
+   "n": 2001,
+   "bad": 1996
+  },
+  "__round_jiffies_relative": {
+   "verdict": "FAIL",
+   "n": 2304,
+   "bad": 2283
+  },
+  "__round_jiffies_up_relative": {
+   "verdict": "FAIL",
+   "n": 2304,
+   "bad": 2289
+  },
+  "__sw_hweight16": {
+   "verdict": "PASS",
+   "n": 2001,
+   "bad": 0
+  },
+  "__sw_hweight32": {
+   "verdict": "PASS",
+   "n": 2001,
+   "bad": 0
+  },
+  "__sw_hweight8": {
+   "verdict": "PASS",
+   "n": 2001,
+   "bad": 0
+  },
+  "__usecs_to_jiffies": {
+   "verdict": "PASS",
+   "n": 2001,
+   "bad": 0
+  },
+  "cpumask_local_spread": {
+   "verdict": "FAIL",
+   "n": 2304,
+   "bad": 2256
+  },
+  "gcd": {
+   "verdict": "PASS",
+   "n": 2304,
+   "bad": 0
+  },
+  "int_pow": {
+   "verdict": "PASS",
+   "n": 2304,
+   "bad": 0
+  },
+  "int_sqrt": {
+   "verdict": "PASS",
+   "n": 2001,
+   "bad": 0
+  },
+  "int_sqrt64": {
+   "verdict": "FAIL",
+   "n": 2001,
+   "bad": 1317
+  },
+  "intlog10": {
+   "verdict": "FAIL",
+   "n": 2001,
+   "bad": 1989
+  },
+  "jiffies64_to_msecs": {
+   "verdict": "FAIL",
+   "n": 2001,
+   "bad": 2000
+  },
+  "jiffies64_to_nsecs": {
+   "verdict": "PASS",
+   "n": 2001,
+   "bad": 0
+  },
+  "lcm": {
+   "verdict": "PASS",
+   "n": 2304,
+   "bad": 0
+  },
+  "lcm_not_zero": {
+   "verdict": "PASS",
+   "n": 2304,
+   "bad": 0
+  },
+  "nsecs_to_jiffies": {
+   "verdict": "FAIL",
+   "n": 2001,
+   "bad": 2000
+  },
+  "nsecs_to_jiffies64": {
+   "verdict": "PASS",
+   "n": 2001,
+   "bad": 0
+  },
+  "round_jiffies": {
+   "verdict": "FAIL",
+   "n": 2001,
+   "bad": 1600
+  },
+  "round_jiffies_relative": {
+   "verdict": "FAIL",
+   "n": 2001,
+   "bad": 2000
+  },
+  "round_jiffies_up": {
+   "verdict": "FAIL",
+   "n": 2001,
+   "bad": 1981
+  },
+  "round_jiffies_up_relative": {
+   "verdict": "FAIL",
+   "n": 2001,
+   "bad": 2001
+  },
+  "xas_try_split_min_order": {
+   "verdict": "PASS",
+   "n": 2001,
+   "bad": 0
+  },
+  "zstd_dstream_workspace_bound": {
+   "verdict": "FAIL",
+   "n": 2001,
+   "bad": 2001
+  },
+  "zstd_is_error": {
+   "verdict": "PASS",
+   "n": 2001,
+   "bad": 0
+  }
+ },
+ "elapsed_s": 265
+}
