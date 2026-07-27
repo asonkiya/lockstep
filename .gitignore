@@ -39,3 +39,4 @@ dream/sweep/cand/
 dream/sweep/*-build.txt
 dream/sweep/*-console.txt
 dream/sweep/__pycache__/
+dream/sweep/sweep_probe.c
