@@ -79,6 +79,9 @@ def build_prompt(csrc: str, sig_line: str, feedback: str | None) -> str:
 {sig_line}
 - Self-contained: implement any helper logic inline (private fns allowed). Do not call external functions.
 - Kernel semantics: unsigned long is 64-bit. __ffs(x) is x.trailing_zeros(), __fls(x) is 63 - x.leading_zeros(). C unsigned arithmetic wraps: use wrapping_mul/wrapping_sub/wrapping_add where C could overflow.
+- C-to-Rust pitfalls: C logical `!x` on an integer is `x == 0` in Rust (Rust `!` on integers is BITWISE not). C `-x` on an unsigned is `x.wrapping_neg()`. Parameters you reassign must be declared `mut`. Integer conditions like `while (x)` become `while x != 0`.
+- Give every integer literal binding an explicit type: `let mut result: u64 = 1;` — NEVER `let mut result = 1;` followed by a method call (ambiguous-type error).
+- Preserve the C algorithm EXACTLY (same loop structure). Do not substitute a different algorithm — it must terminate fast even for inputs like u64::MAX. Any helper you add must be O(log n) for 64-bit inputs (gcd = remainder-based Euclid `while b != 0 {{ let t = a % b; a = b; b = t; }}`, never a subtraction loop).
 - No std, no I/O, no globals, no unsafe needed.
 
 C source:
@@ -109,10 +112,19 @@ def extract_code(text: str) -> str:
 
 def feedback_of(res: dict) -> str:
     if res["verdict"] == "RUSTC_FAIL":
-        return "rustc error:\n" + res.get("detail", "")[:500]
+        # feed back the actual error lines, not the warning preamble
+        errs = [ln for ln in res.get("detail", "").splitlines()
+                if "error" in ln or "expected" in ln or "^" in ln]
+        return "rustc errors:\n" + "\n".join(errs[:12] or [res.get("detail", "")[:400]])
     if res["verdict"] == "DIVERGE":
         m = re.search(r"first: (.+)$", res.get("out", ""), re.MULTILINE)
         return "wrong output. counterexample: " + (m.group(1) if m else res.get("out", ""))
+    if res["verdict"] == "HANG":
+        return ("your code loops forever or is far too slow on extreme inputs "
+                "(e.g. u64::MAX with 1). Use the SAME algorithm as the C, not a substitute.")
+    if res["verdict"] == "NO_EXPORT":
+        return ("you must export exactly one function as `#[no_mangle] pub extern \"C\" fn` "
+                "with the required signature. Helpers stay private (plain `fn`).")
     return res.get("detail", res["verdict"])[:400]
 
 
@@ -136,7 +148,8 @@ def main() -> int:
             code, t_gen = synth(a.model, build_prompt(csrc, sig_line, fb))
             cand = f"/tmp/localbench_{func}.rs"
             open(cand, "w").write(extract_code(code))
-            res = hostdiff.run(path, func, cand, deps, KSRC, 500_000, quiet=True)
+            res = hostdiff.run(path, func, cand, deps, KSRC, 500_000, quiet=True,
+                               probe_timeout=20)
             verdict = res["verdict"]
             tag = "PASS" if verdict == "MATCH" else verdict
             print(f"  {func}: attempt {attempts} -> {tag} (gen {t_gen:.0f}s, verify {res.get('secs','-')}s)")

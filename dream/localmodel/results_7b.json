@@ -1,0 +1,53 @@
+{
+ "model": "qwen2.5-coder:7b",
+ "rows": [
+  {
+   "func": "gcd",
+   "verdict": "RUSTC_FAIL",
+   "attempts": 4,
+   "secs": 21.3
+  },
+  {
+   "func": "int_sqrt",
+   "verdict": "RUSTC_FAIL",
+   "attempts": 4,
+   "secs": 14.3
+  },
+  {
+   "func": "int_pow",
+   "verdict": "MATCH",
+   "attempts": 2,
+   "secs": 6.4
+  },
+  {
+   "func": "__sw_hweight32",
+   "verdict": "MATCH",
+   "attempts": 1,
+   "secs": 4.3
+  },
+  {
+   "func": "__sw_hweight64",
+   "verdict": "MATCH",
+   "attempts": 1,
+   "secs": 6.1
+  },
+  {
+   "func": "lcm",
+   "verdict": "MATCH",
+   "attempts": 1,
+   "secs": 4.0
+  },
+  {
+   "func": "lcm_not_zero",
+   "verdict": "DIVERGE",
+   "attempts": 4,
+   "secs": 14.0
+  },
+  {
+   "func": "intlog2",
+   "verdict": "RUSTC_FAIL",
+   "attempts": 4,
+   "secs": 72.4
+  }
+ ]
+}

@@ -167,7 +167,7 @@ def gen_probe(func: str, rust_sym: str, ret: str, params: list[tuple[str, str]],
 
 
 def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
-        workdir: str | None = None, quiet: bool = False) -> dict:
+        workdir: str | None = None, quiet: bool = False, probe_timeout: int = 120) -> dict:
     t0 = time.time()
     w = workdir or f"/tmp/hostdiff_{func}"
     subprocess.run(["rm", "-rf", w], check=True)
@@ -194,7 +194,10 @@ def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
         return {"verdict": "CC_TU_FAIL", "detail": r.stderr[:400]}
 
     ret, params = parse_sig(open(os.path.join(ksrc, path)).read(), func)
-    rust_sym = rust_export(cand)
+    try:
+        rust_sym = rust_export(cand)
+    except SystemExit as e:
+        return {"verdict": "NO_EXPORT", "detail": str(e)}
     open(f"{w}/probe.c", "w").write(gen_probe(func, rust_sym, ret, params, nrand))
 
     r = subprocess.run(["rustc", "--edition", "2021", "-O", "--crate-type=staticlib",
@@ -208,7 +211,14 @@ def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
     if r.returncode:
         return {"verdict": "LINK_FAIL", "detail": r.stderr[:400]}
 
-    r = subprocess.run([f"{w}/diff"], capture_output=True, text=True, timeout=120)
+    try:
+        r = subprocess.run([f"{w}/diff"], capture_output=True, text=True, timeout=probe_timeout)
+    except subprocess.TimeoutExpired:
+        # correct fns finish 2M cases in <1s; a stuck probe = the candidate
+        # loops (or is algorithmically absurd, e.g. subtraction-gcd on
+        # u64::MAX) — a legitimate reject class, not a harness error
+        return {"verdict": "HANG", "secs": round(time.time() - t0, 2),
+                "detail": f"probe exceeded {probe_timeout}s (correct code finishes in <1s)"}
     dt = time.time() - t0
     out = r.stdout.strip()
     if not quiet:
