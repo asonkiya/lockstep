@@ -1,0 +1,9 @@
+[package]
+name = "formal"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[lib]
+name = "formal"
+path = "src/lib.rs"
