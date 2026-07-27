@@ -1,0 +1,486 @@
+[
+ {
+  "sym": "__kfifo_max_r",
+  "file": "lib/kfifo.c",
+  "ret": "unsigned int",
+  "args": [
+   [
+    "unsigned int",
+    "len"
+   ],
+   [
+    "size_t",
+    "recsize"
+   ]
+  ],
+  "body": "\nunsigned int __kfifo_max_r(unsigned int len, size_t recsize)\n{\n\tunsigned int max = (1 << (recsize << 3)) - 1;\n\n\tif (len > max)\n\t\treturn max;\n\treturn len;\n}"
+ },
+ {
+  "sym": "__msecs_to_jiffies",
+  "file": "kernel/time/time.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned int",
+    "m"
+   ]
+  ],
+  "body": "\nunsigned long __msecs_to_jiffies(const unsigned int m)\n{\n\t/*\n\t * Negative value, means infinite timeout:\n\t */\n\tif ((int)m < 0)\n\t\treturn MAX_JIFFY_OFFSET;\n\treturn _msecs_to_jiffies(m);\n}"
+ },
+ {
+  "sym": "__round_jiffies_relative",
+  "file": "kernel/time/timer.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned long",
+    "j"
+   ],
+   [
+    "int",
+    "cpu"
+   ]
+  ],
+  "body": "\nunsigned long __round_jiffies_relative(unsigned long j, int cpu)\n{\n\tunsigned long j0 = jiffies;\n\n\t/* Use j0 because jiffies might change while we run */\n\treturn round_jiffies_common(j + j0, cpu, false) - j0;\n}"
+ },
+ {
+  "sym": "__round_jiffies_up_relative",
+  "file": "kernel/time/timer.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned long",
+    "j"
+   ],
+   [
+    "int",
+    "cpu"
+   ]
+  ],
+  "body": "\nunsigned long __round_jiffies_up_relative(unsigned long j, int cpu)\n{\n\tunsigned long j0 = jiffies;\n\n\t/* Use j0 because jiffies might change while we run */\n\treturn round_jiffies_common(j + j0, cpu, true) - j0;\n}"
+ },
+ {
+  "sym": "__sw_hweight16",
+  "file": "lib/hweight.c",
+  "ret": "unsigned int",
+  "args": [
+   [
+    "unsigned int",
+    "w"
+   ]
+  ],
+  "body": "\nunsigned int __sw_hweight16(unsigned int w)\n{\n\tunsigned int res = w - ((w >> 1) & 0x5555);\n\tres = (res & 0x3333) + ((res >> 2) & 0x3333);\n\tres = (res + (res >> 4)) & 0x0F0F;\n\treturn (res + (res >> 8)) & 0x00FF;\n}"
+ },
+ {
+  "sym": "__sw_hweight32",
+  "file": "lib/hweight.c",
+  "ret": "unsigned int",
+  "args": [
+   [
+    "unsigned int",
+    "w"
+   ]
+  ],
+  "body": "\nunsigned int __sw_hweight32(unsigned int w)\n{\n#ifdef CONFIG_ARCH_HAS_FAST_MULTIPLIER\n\tw -= (w >> 1) & 0x55555555;\n\tw =  (w & 0x33333333) + ((w >> 2) & 0x33333333);\n\tw =  (w + (w >> 4)) & 0x0f0f0f0f;\n\treturn (w * 0x01010101) >> 24;\n#else\n\tunsigned int res = w - ((w >> 1) & 0x55555555);\n\tres = (res & 0x33333333) + ((res >> 2) & 0x33333333);\n\tres = (res + (res >> 4)) & 0x0F0F0F0F;\n\tres = res + (res >> 8);\n\treturn (res + (res >> 16)) & 0x000000FF;\n#endif\n}"
+ },
+ {
+  "sym": "__sw_hweight8",
+  "file": "lib/hweight.c",
+  "ret": "unsigned int",
+  "args": [
+   [
+    "unsigned int",
+    "w"
+   ]
+  ],
+  "body": "\nunsigned int __sw_hweight8(unsigned int w)\n{\n\tunsigned int res = w - ((w >> 1) & 0x55);\n\tres = (res & 0x33) + ((res >> 2) & 0x33);\n\treturn (res + (res >> 4)) & 0x0F;\n}"
+ },
+ {
+  "sym": "__usecs_to_jiffies",
+  "file": "kernel/time/time.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned int",
+    "u"
+   ]
+  ],
+  "body": "\nunsigned long __usecs_to_jiffies(const unsigned int u)\n{\n\tif (u > jiffies_to_usecs(MAX_JIFFY_OFFSET))\n\t\treturn MAX_JIFFY_OFFSET;\n\treturn _usecs_to_jiffies(u);\n}"
+ },
+ {
+  "sym": "clock_t_to_jiffies",
+  "file": "kernel/time/time.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned long",
+    "x"
+   ]
+  ],
+  "body": "\nunsigned long clock_t_to_jiffies(unsigned long x)\n{\n#if (HZ % USER_HZ)==0\n\tif (x >= ~0UL / (HZ / USER_HZ))\n\t\treturn ~0UL;\n\treturn x * (HZ / USER_HZ);\n#else\n\t/* Don't worry about loss of precision here .. */\n\tif (x >= ~0UL / HZ * USER_HZ)\n\t\treturn ~0UL;\n\n\t/* .. but do try to contain it here */\n\treturn div_u64((u64)x * HZ, USER_HZ);\n#endif\n}"
+ },
+ {
+  "sym": "cpumask_local_spread",
+  "file": "lib/cpumask.c",
+  "ret": "unsigned int",
+  "args": [
+   [
+    "unsigned int",
+    "i"
+   ],
+   [
+    "int",
+    "node"
+   ]
+  ],
+  "body": "\nunsigned int cpumask_local_spread(unsigned int i, int node)\n{\n\tunsigned int cpu;\n\n\t/* Wrap: we always want a cpu. */\n\ti %= num_online_cpus();\n\n\tcpu = sched_numa_find_nth_cpu(cpu_online_mask, i, node);\n\n\tWARN_ON(cpu >= nr_cpu_ids);\n\treturn cpu;\n}"
+ },
+ {
+  "sym": "div64_s64",
+  "file": "lib/math/div64.c",
+  "ret": "s64",
+  "args": [
+   [
+    "s64",
+    "dividend"
+   ],
+   [
+    "s64",
+    "divisor"
+   ]
+  ],
+  "body": "\ns64 div64_s64(s64 dividend, s64 divisor)\n{\n\ts64 quot, t;\n\n\tquot = div64_u64(abs(dividend), abs(divisor));\n\tt = (dividend ^ divisor) >> 63;\n\n\treturn (quot ^ t) - t;\n}"
+ },
+ {
+  "sym": "div64_u64",
+  "file": "lib/math/div64.c",
+  "ret": "u64",
+  "args": [
+   [
+    "u64",
+    "dividend"
+   ],
+   [
+    "u64",
+    "divisor"
+   ]
+  ],
+  "body": "\nu64 div64_u64(u64 dividend, u64 divisor)\n{\n\tu32 high = divisor >> 32;\n\tu64 quot;\n\n\tif (high == 0) {\n\t\tquot = div_u64(dividend, divisor);\n\t} else {\n\t\tint n = fls(high);\n\t\tquot = div_u64(dividend >> n, divisor >> n);\n\n\t\tif (quot != 0)\n\t\t\tquot--;\n\t\tif ((dividend - quot * divisor) >= divisor)\n\t\t\tquot++;\n\t}\n\n\treturn quot;\n}"
+ },
+ {
+  "sym": "gcd",
+  "file": "lib/math/gcd.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned long",
+    "a"
+   ],
+   [
+    "unsigned long",
+    "b"
+   ]
+  ],
+  "body": "\nunsigned long gcd(unsigned long a, unsigned long b)\n{\n\tunsigned long r = a | b;\n\n\tif (!a || !b)\n\t\treturn r;\n\n#if !defined(CONFIG_CPU_NO_EFFICIENT_FFS)\n\tif (static_branch_likely(&efficient_ffs_key))\n\t\treturn binary_gcd(a, b);\n#endif\n\n\t/* Isolate lsbit of r */\n\tr &= -r;\n\n\twhile (!(b & r))\n\t\tb >>= 1;\n\tif (b == r)\n\t\treturn r;\n\n\tfor (;;) {\n\t\twhile (!(a & r))\n\t\t\ta >>= 1;\n\t\tif (a == r)\n\t\t\treturn r;\n\t\tif (a == b)\n\t\t\treturn a;\n\n\t\tif (a < b)\n\t\t\tswap(a, b);\n\t\ta -= b;\n\t\ta >>= 1;\n\t\tif (a & r)\n\t\t\ta += b;\n\t\ta >>= 1;\n\t}\n}"
+ },
+ {
+  "sym": "int_pow",
+  "file": "lib/math/int_pow.c",
+  "ret": "u64",
+  "args": [
+   [
+    "u64",
+    "base"
+   ],
+   [
+    "unsigned int",
+    "exp"
+   ]
+  ],
+  "body": "\nu64 int_pow(u64 base, unsigned int exp)\n{\n\tu64 result = 1;\n\n\twhile (exp) {\n\t\tif (exp & 1)\n\t\t\tresult *= base;\n\t\texp >>= 1;\n\t\tbase *= base;\n\t}\n\n\treturn result;\n}"
+ },
+ {
+  "sym": "int_sqrt",
+  "file": "lib/math/int_sqrt.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned long",
+    "x"
+   ]
+  ],
+  "body": "\nunsigned long int_sqrt(unsigned long x)\n{\n\tunsigned long b, m, y = 0;\n\n\tif (x <= 1)\n\t\treturn x;\n\n\tm = 1UL << (__fls(x) & ~1UL);\n\twhile (m != 0) {\n\t\tb = y + m;\n\t\ty >>= 1;\n\n\t\tif (x >= b) {\n\t\t\tx -= b;\n\t\t\ty += m;\n\t\t}\n\t\tm >>= 2;\n\t}\n\n\treturn y;\n}"
+ },
+ {
+  "sym": "int_sqrt64",
+  "file": "lib/math/int_sqrt.c",
+  "ret": "u32",
+  "args": [
+   [
+    "u64",
+    "x"
+   ]
+  ],
+  "body": "\nu32 int_sqrt64(u64 x)\n{\n\tu64 b, m, y = 0;\n\n\tif (x <= ULONG_MAX)\n\t\treturn int_sqrt((unsigned long) x);\n\n\tm = 1ULL << ((fls64(x) - 1) & ~1ULL);\n\twhile (m != 0) {\n\t\tb = y + m;\n\t\ty >>= 1;\n\n\t\tif (x >= b) {\n\t\t\tx -= b;\n\t\t\ty += m;\n\t\t}\n\t\tm >>= 2;\n\t}\n\n\treturn y;\n}"
+ },
+ {
+  "sym": "intlog10",
+  "file": "lib/math/int_log.c",
+  "ret": "unsigned int",
+  "args": [
+   [
+    "u32",
+    "value"
+   ]
+  ],
+  "body": "\nunsigned int intlog10(u32 value)\n{\n\t/**\n\t *\treturns: log10(value) * 2^24\n\t *\twrong result if value = 0 (log10(0) is undefined)\n\t */\n\tu64 log;\n\n\tif (unlikely(value == 0)) {\n\t\tWARN_ON(1);\n\t\treturn 0;\n\t}\n\n\tlog = intlog2(value);\n\n\t/**\n\t *\twe use the following method:\n\t *\tlog10(x) = log2(x) * log10(2)\n\t */\n\n\treturn (log * 646456993) >> 31;\n}"
+ },
+ {
+  "sym": "is_prime_number",
+  "file": "lib/math/prime_numbers.c",
+  "ret": "bool",
+  "args": [
+   [
+    "unsigned long",
+    "x"
+   ]
+  ],
+  "body": "\nbool is_prime_number(unsigned long x)\n{\n\tconst struct primes *p;\n\tbool result;\n\n\trcu_read_lock();\n\tp = rcu_dereference(primes);\n\twhile (x >= p->sz) {\n\t\trcu_read_unlock();\n\n\t\tif (!expand_to_next_prime(x))\n\t\t\treturn slow_is_prime_number(x);\n\n\t\trcu_read_lock();\n\t\tp = rcu_dereference(primes);\n\t}\n\tresult = test_bit(x, p->primes);\n\trcu_read_unlock();\n\n\treturn result;\n}"
+ },
+ {
+  "sym": "jiffies64_to_msecs",
+  "file": "kernel/time/time.c",
+  "ret": "u64",
+  "args": [
+   [
+    "u64",
+    "j"
+   ]
+  ],
+  "body": "\nu64 jiffies64_to_msecs(const u64 j)\n{\n#if HZ <= MSEC_PER_SEC && !(MSEC_PER_SEC % HZ)\n\treturn (MSEC_PER_SEC / HZ) * j;\n#else\n\treturn div_u64(j * HZ_TO_MSEC_NUM, HZ_TO_MSEC_DEN);\n#endif\n}"
+ },
+ {
+  "sym": "jiffies64_to_nsecs",
+  "file": "kernel/time/time.c",
+  "ret": "u64",
+  "args": [
+   [
+    "u64",
+    "j"
+   ]
+  ],
+  "body": "\nu64 jiffies64_to_nsecs(u64 j)\n{\n#if !(NSEC_PER_SEC % HZ)\n\treturn (NSEC_PER_SEC / HZ) * j;\n# else\n\treturn div_u64(j * HZ_TO_NSEC_NUM, HZ_TO_NSEC_DEN);\n#endif\n}"
+ },
+ {
+  "sym": "jiffies_to_msecs",
+  "file": "kernel/time/time.c",
+  "ret": "unsigned int",
+  "args": [
+   [
+    "unsigned long",
+    "j"
+   ]
+  ],
+  "body": "\nunsigned int jiffies_to_msecs(const unsigned long j)\n{\n#if HZ > MSEC_PER_SEC && !(HZ % MSEC_PER_SEC)\n\treturn (j + (HZ / MSEC_PER_SEC) - 1)/(HZ / MSEC_PER_SEC);\n#else\n# if BITS_PER_LONG == 32\n\treturn (HZ_TO_MSEC_MUL32 * j + (1ULL << HZ_TO_MSEC_SHR32) - 1) >>\n\t       HZ_TO_MSEC_SHR32;\n# else\n\treturn DIV_ROUND_UP(j * HZ_TO_MSEC_NUM, HZ_TO_MSEC_DEN);\n# endif\n#endif\n}"
+ },
+ {
+  "sym": "jiffies_to_usecs",
+  "file": "kernel/time/time.c",
+  "ret": "unsigned int",
+  "args": [
+   [
+    "unsigned long",
+    "j"
+   ]
+  ],
+  "body": "\nunsigned int jiffies_to_usecs(const unsigned long j)\n{\n\t/*\n\t * Hz usually doesn't go much further MSEC_PER_SEC.\n\t * jiffies_to_usecs() and usecs_to_jiffies() depend on that.\n\t */\n\tBUILD_BUG_ON(HZ > USEC_PER_SEC);\n\n#if BITS_PER_LONG == 32\n\treturn (HZ_TO_USEC_MUL32 * j) >> HZ_TO_USEC_SHR32;\n#else\n\treturn (j * HZ_TO_USEC_NUM) / HZ_TO_USEC_DEN;\n#endif\n}"
+ },
+ {
+  "sym": "lcm",
+  "file": "lib/math/lcm.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned long",
+    "a"
+   ],
+   [
+    "unsigned long",
+    "b"
+   ]
+  ],
+  "body": "\nunsigned long lcm(unsigned long a, unsigned long b)\n{\n\tif (a && b)\n\t\treturn (a / gcd(a, b)) * b;\n\telse\n\t\treturn 0;\n}"
+ },
+ {
+  "sym": "lcm_not_zero",
+  "file": "lib/math/lcm.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned long",
+    "a"
+   ],
+   [
+    "unsigned long",
+    "b"
+   ]
+  ],
+  "body": "\nunsigned long lcm_not_zero(unsigned long a, unsigned long b)\n{\n\tunsigned long l = lcm(a, b);\n\n\tif (l)\n\t\treturn l;\n\n\treturn (b ? : a);\n}"
+ },
+ {
+  "sym": "msleep_interruptible",
+  "file": "kernel/time/sleep_timeout.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned int",
+    "msecs"
+   ]
+  ],
+  "body": "\nunsigned long msleep_interruptible(unsigned int msecs)\n{\n\tunsigned long timeout = msecs_to_jiffies(msecs);\n\n\twhile (timeout && !signal_pending(current))\n\t\ttimeout = schedule_timeout_interruptible(timeout);\n\treturn jiffies_to_msecs(timeout);\n}"
+ },
+ {
+  "sym": "next_prime_number",
+  "file": "lib/math/prime_numbers.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned long",
+    "x"
+   ]
+  ],
+  "body": "\nunsigned long next_prime_number(unsigned long x)\n{\n\tconst struct primes *p;\n\n\trcu_read_lock();\n\tp = rcu_dereference(primes);\n\twhile (x >= p->last) {\n\t\trcu_read_unlock();\n\n\t\tif (!expand_to_next_prime(x))\n\t\t\treturn slow_next_prime_number(x);\n\n\t\trcu_read_lock();\n\t\tp = rcu_dereference(primes);\n\t}\n\tx = find_next_bit(p->primes, p->last, x + 1);\n\trcu_read_unlock();\n\n\treturn x;\n}"
+ },
+ {
+  "sym": "nsecs_to_jiffies",
+  "file": "kernel/time/time.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "u64",
+    "n"
+   ]
+  ],
+  "body": "\nunsigned long nsecs_to_jiffies(u64 n)\n{\n\treturn (unsigned long)nsecs_to_jiffies64(n);\n}"
+ },
+ {
+  "sym": "nsecs_to_jiffies64",
+  "file": "kernel/time/time.c",
+  "ret": "u64",
+  "args": [
+   [
+    "u64",
+    "n"
+   ]
+  ],
+  "body": "\nu64 nsecs_to_jiffies64(u64 n)\n{\n#if (NSEC_PER_SEC % HZ) == 0\n\t/* Common case, HZ = 100, 128, 200, 250, 256, 500, 512, 1000 etc. */\n\treturn div_u64(n, NSEC_PER_SEC / HZ);\n#elif (HZ % 512) == 0\n\t/* overflow after 292 years if HZ = 1024 */\n\treturn div_u64(n * HZ / 512, NSEC_PER_SEC / 512);\n#else\n\t/*\n\t * Generic case - optimized for cases where HZ is a multiple of 3.\n\t * overflow after 64.99 years, exact for HZ = 60, 72, 90, 120 etc.\n\t */\n\treturn div_u64(n * 9, (9ull * NSEC_PER_SEC + HZ / 2) / HZ);\n#endif\n}"
+ },
+ {
+  "sym": "round_jiffies",
+  "file": "kernel/time/timer.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned long",
+    "j"
+   ]
+  ],
+  "body": "\nunsigned long round_jiffies(unsigned long j)\n{\n\treturn round_jiffies_common(j, raw_smp_processor_id(), false);\n}"
+ },
+ {
+  "sym": "round_jiffies_relative",
+  "file": "kernel/time/timer.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned long",
+    "j"
+   ]
+  ],
+  "body": "\nunsigned long round_jiffies_relative(unsigned long j)\n{\n\treturn __round_jiffies_relative(j, raw_smp_processor_id());\n}"
+ },
+ {
+  "sym": "round_jiffies_up",
+  "file": "kernel/time/timer.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned long",
+    "j"
+   ]
+  ],
+  "body": "\nunsigned long round_jiffies_up(unsigned long j)\n{\n\treturn round_jiffies_common(j, raw_smp_processor_id(), true);\n}"
+ },
+ {
+  "sym": "round_jiffies_up_relative",
+  "file": "kernel/time/timer.c",
+  "ret": "unsigned long",
+  "args": [
+   [
+    "unsigned long",
+    "j"
+   ]
+  ],
+  "body": "\nunsigned long round_jiffies_up_relative(unsigned long j)\n{\n\treturn __round_jiffies_up_relative(j, raw_smp_processor_id());\n}"
+ },
+ {
+  "sym": "slow_is_prime_number",
+  "file": "lib/math/prime_numbers.c",
+  "ret": "bool",
+  "args": [
+   [
+    "unsigned long",
+    "x"
+   ]
+  ],
+  "body": "\nbool slow_is_prime_number(unsigned long x)\n{\n\tunsigned long y = int_sqrt(x);\n\n\twhile (y > 1) {\n\t\tif ((x % y) == 0)\n\t\t\tbreak;\n\t\ty--;\n\t}\n\n\treturn y == 1;\n}"
+ },
+ {
+  "sym": "xas_try_split_min_order",
+  "file": "lib/xarray.c",
+  "ret": "unsigned int",
+  "args": [
+   [
+    "unsigned int",
+    "order"
+   ]
+  ],
+  "body": "\nunsigned int xas_try_split_min_order(unsigned int order)\n{\n\tif (order % XA_CHUNK_SHIFT == 0)\n\t\treturn order == 0 ? 0 : order - 1;\n\n\treturn order - (order % XA_CHUNK_SHIFT);\n}"
+ },
+ {
+  "sym": "zstd_compress_bound",
+  "file": "lib/zstd/zstd_compress_module.c",
+  "ret": "size_t",
+  "args": [
+   [
+    "size_t",
+    "src_size"
+   ]
+  ],
+  "body": "\nsize_t zstd_compress_bound(size_t src_size)\n{\n\treturn ZSTD_compressBound(src_size);\n}"
+ },
+ {
+  "sym": "zstd_dstream_workspace_bound",
+  "file": "lib/zstd/zstd_decompress_module.c",
+  "ret": "size_t",
+  "args": [
+   [
+    "size_t",
+    "max_window_size"
+   ]
+  ],
+  "body": "\nsize_t zstd_dstream_workspace_bound(size_t max_window_size)\n{\n\treturn ZSTD_estimateDStreamSize(max_window_size);\n}"
+ },
+ {
+  "sym": "zstd_is_error",
+  "file": "lib/zstd/zstd_decompress_module.c",
+  "ret": "unsigned int",
+  "args": [
+   [
+    "size_t",
+    "code"
+   ]
+  ],
+  "body": "\nunsigned int zstd_is_error(size_t code)\n{\n\treturn ZSTD_isError(code);\n}"
+ }
+]

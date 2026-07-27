@@ -35,3 +35,7 @@ dream/ratchet/out/clkdiv_*.rs
 dream/ratchet/ring8/__pycache__/
 dream/ratchet/out/ring9-*.txt
 dream/ratchet/ring9/__pycache__/
+dream/sweep/cand/
+dream/sweep/*-build.txt
+dream/sweep/*-console.txt
+dream/sweep/__pycache__/
