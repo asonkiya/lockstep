@@ -69,8 +69,8 @@ def func_body(src: str, fn: str) -> str:
     raise Unsupported("unbalanced body")
 
 
-# base pointer as `<var>->base` or `<var>->regs`
-BASE = r"\w+->(?:base|regs|reg_base|membase)"
+# base pointer as `<var>->base`, `<var>->regs`, `<var>->gpio_io`, ...
+BASE = r"\w+->(?:base|regs|reg_base|membase|gpio_io)"
 RD = re.compile(rf"readl\s*\(\s*{BASE}\s*\+\s*(\w+)\s*\)")
 WR = re.compile(rf"writel\s*\(\s*(.+?)\s*,\s*{BASE}\s*\+\s*(\w+)\s*\)")
 INPUT_CALL = re.compile(r"irqd_to_hwirq\s*\([^)]*\)|\bhwirq\b|\boffset\b")
@@ -79,6 +79,29 @@ OUT_OF_TRACE = re.compile(r"\b(gpiochip_(?:enable|disable)_irq|gpiochip_(?:lock|
 
 
 CONTROL = re.compile(r"\b(if|else|for|while|switch|goto|do)\b")
+
+# Scalar kernel local types (SSA temps). A declaration of one or more of these,
+# with no register-touching initializer, is plumbing and is dropped. This is a
+# strict allow-list: anything not matching stays an "unmodellable statement" and
+# refuses, so we never silently drop something with an effect.
+_SCALAR_TYPE = (r"(?:unsigned\s+(?:long|int|char|short)?|signed\s+(?:long|int|char|short)?|"
+                r"long(?:\s+long)?|short|int|char|bool|"
+                r"u8|u16|u32|u64|s8|s16|s32|s64|"
+                r"irq_hw_number_t|size_t|__le32|__be32|uint\d+_t|int\d+_t)")
+# `u32 a;`  |  `u32 a, b, c;`  |  `int off = <plain expr, no readl/writel>;`
+SCALAR_DECL = re.compile(
+    rf"^{_SCALAR_TYPE}\s+\**\s*\w+(?:\s*,\s*\**\s*\w+)*"
+    r"(?:\s*=\s*(?![^;]*\b(?:readl|writel|ioread|iowrite)\w*\s*\()[^;]*)?$"
+)
+
+# base-alias local: `void __iomem *base = <base-expr>[ + <offset-expr>];`  (also
+# a bare re-alias `base = other_base;`). We track <name> so a later
+# `readl(<name> + OFF)` resolves against the real base. The added offset must be
+# a resolvable #define constant (folded into the recorded offset) or absent; an
+# opaque/computed added offset REFUSES rather than record a wrong offset.
+IOMEM_ALIAS = re.compile(
+    r"^(?:void\s+__iomem\s*\*|__iomem\s+void\s*\*)?\s*\**\s*(\w+)\s*=\s*(.+)$"
+)
 
 
 def extract(src: str, fn: str, defs: dict[str, int]) -> dict:
@@ -93,15 +116,40 @@ def extract(src: str, fn: str, defs: dict[str, int]) -> dict:
     cm = CONTROL.search(masked)
     if cm:
         raise Unsupported(f"control flow `{cm.group(1)}` in body — ';'-split would erase it")
+    # A nested brace `{...}` is a scope (block-guard like scoped_guard(...) {...},
+    # a compound literal, an inline init) with NO control-flow keyword. The
+    # ';'-split flattens it — the scope's opener glues onto the next statement and
+    # the program becomes lossy. Keyword-less scopes are just as unmodellable as
+    # control flow, so refuse rather than flatten.
+    if "{" in masked or "}" in masked:
+        raise Unsupported("nested brace scope in body — ';'-split would flatten it")
     # the statements after the struct prologue (drop lines that only plumb structs)
     stmts, out_of_trace = [], []
+    # <alias-name> -> (base_regex_match_str, folded_offset:int, offset_name:str)
+    # A base-alias local `x = g->base + OFF` records that `readl(x + OFF2)`
+    # touches `g->base + (OFF + OFF2)`; only resolvable-constant folds are kept.
+    aliases: dict[str, int] = {}
     for raw in inner.split(";"):
         s = re.sub(r"//.*", "", raw).strip()
         if not s:
             continue
+        # struct plumbing declarations — dropped (as before)
         if re.match(r"struct\s+\w+\s*\*?\s*\w+\s*=", s) or "gpiochip_get_data" in s or \
-           "irq_data_get" in s or re.match(r"u32\s+\w+$", s) or re.match(r"unsigned.*\bval$", s):
-            continue  # struct/local declarations — plumbing
+           "irq_data_get" in s:
+            continue
+        # A base-alias local: recognise `<name> = <base-expr>[ + <offset>]` where
+        # the RHS is a known register base (optionally + a resolvable const). We
+        # must test this BEFORE the scalar-decl drop so `void __iomem *base = ...`
+        # is tracked, not silently discarded.
+        am = _match_base_alias(s, defs)
+        if am is not None:
+            name, folded = am
+            aliases[name] = folded
+            continue
+        # A scalar-local declaration with no register-touching initializer is an
+        # SSA temp — drop it. Multiple comma-separated names are allowed.
+        if SCALAR_DECL.match(s):
+            continue
         om = OUT_OF_TRACE.search(s)
         if om:
             out_of_trace.append(om.group(1))
@@ -112,16 +160,13 @@ def extract(src: str, fn: str, defs: dict[str, int]) -> dict:
     prog = []
     for s in stmts:
         if "readl" in s:
-            rm = RD.search(s)
-            if not rm or rm.group(1) not in defs:
-                raise Unsupported(f"non-clean read: {s!r}")
+            off_name, off_val = _resolve_access(s, "readl", defs, aliases)
             lhs = s.split("=")[0].strip() if "=" in s else "val"
-            prog.append(("R", defs[rm.group(1)], rm.group(1), lhs))
+            prog.append(("R", off_val, off_name, lhs))
         elif "writel" in s:
-            wm = WR.search(s)
-            if not wm or wm.group(2) not in defs:
-                raise Unsupported(f"non-clean write: {s!r}")
-            prog.append(("W", defs[wm.group(2)], wm.group(2), wm.group(1).strip()))
+            off_name, off_val = _resolve_access(s, "writel", defs, aliases)
+            wm = WR_ALIAS.search(s)
+            prog.append(("W", off_val, off_name, wm.group(1).strip()))
         elif re.match(r"\w+\s*(&=|\|=|\^=|=)", s):
             prog.append(("C", None, None, s))   # a compute on val
         else:
@@ -130,6 +175,65 @@ def extract(src: str, fn: str, defs: dict[str, int]) -> dict:
         raise Unsupported("no MMIO accesses found")
     return {"fn": fn, "program": prog, "out_of_trace": out_of_trace,
             "regs": {p[2]: p[1] for p in prog if p[1] is not None}}
+
+
+# base-or-alias access: `readl(<base|alias> + OFF)`; `<alias>` need not be `x->y`.
+RD_ALIAS = re.compile(r"readl\s*\(\s*([\w>-]+)\s*\+\s*(\w+)\s*\)")
+WR_ALIAS = re.compile(r"writel\s*\(\s*(.+?)\s*,\s*([\w>-]+)\s*\+\s*(\w+)\s*\)")
+
+
+def _match_base_alias(s: str, defs: dict[str, int]):
+    """If `s` declares/assigns a base-alias local, return (name, folded_offset).
+    `<name> = <base-expr>` folds 0; `<name> = <base-expr> + CONST` folds CONST
+    (CONST must be a resolvable #define). An opaque added offset REFUSES; a RHS
+    that isn't a known register base is not an alias (returns None -> other paths
+    handle it)."""
+    m = IOMEM_ALIAS.match(s)
+    if not m:
+        return None
+    name, rhs = m.group(1), m.group(2).strip()
+    # RHS must START with a register base (`x->base` etc.), else it's not a base
+    # alias we can reason about (e.g. `val = readl(...)` — handled elsewhere).
+    bm = re.match(rf"^({BASE})\s*(?:\+\s*(.+))?$", rhs)
+    if not bm:
+        return None
+    added = bm.group(2)
+    if added is None:
+        return name, 0
+    added = added.strip()
+    if added in defs:
+        return name, defs[added]
+    # An opaque/computed added offset (a helper call, arithmetic on the pin, an
+    # unresolved macro): recording base+0 would be a WRONG trace — refuse.
+    raise Unsupported(f"base-alias with unresolvable offset: {s!r}")
+
+
+def _resolve_access(s: str, op: str, defs: dict[str, int], aliases: dict[str, int]):
+    """Resolve a `readl/writel(<target> + OFF)` to (offset_name, offset_value).
+    <target> is either a register base (`x->base`) or a tracked base-alias. For
+    an alias with a folded prologue offset, the recorded offset is the SUM, and
+    the recorded name is synthesised so the emitted #define is faithful."""
+    rx = RD_ALIAS if op == "readl" else WR_ALIAS
+    m = rx.search(s)
+    if not m:
+        raise Unsupported(f"non-clean {op}: {s!r}")
+    target = m.group(1) if op == "readl" else m.group(2)
+    off_name = m.group(2) if op == "readl" else m.group(3)
+    if off_name not in defs:
+        raise Unsupported(f"non-clean {op}: {s!r}")
+    off_val = defs[off_name]
+    # direct base access: target must be a real register base
+    if re.fullmatch(BASE, target):
+        return off_name, off_val
+    # else it must be a tracked base-alias local
+    if target in aliases:
+        base_off = aliases[target]
+        if base_off == 0:
+            return off_name, off_val
+        # fold the prologue offset into the recorded offset; synthesise a valid-C
+        # name so the emitted #define reflects the true absolute offset
+        return f"{off_name}_PLUS_{base_off:x}", base_off + off_val
+    raise Unsupported(f"non-clean {op} (unknown base/alias {target!r}): {s!r}")
 
 
 def _expr_c(e: str) -> str:

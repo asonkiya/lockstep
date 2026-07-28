@@ -262,6 +262,147 @@ def test_no_mmio_access_refuses():
         mh.extract("static void f(struct s *g) { u32 val; }", "f", defs)
 
 
+# --------------------------------------------------------------------------- #
+# 5. BASE-ALIAS LOCALS — `void __iomem *base = g->reg_base + OFF; readl(base+O2)`
+# --------------------------------------------------------------------------- #
+def test_base_alias_zero_fold_extracts():
+    """`base = g->base` (no added offset) then `readl(base + REG)` resolves to REG
+    exactly, same as a direct `readl(g->base + REG)`."""
+    defs = {"REG": 0x20}
+    body = (
+        "static void f(struct s *g) { "
+        "void __iomem *base = g->base; "
+        "u32 val; val = readl(base + REG); writel(val, base + REG); }"
+    )
+    ex = mh.extract(body, "f", defs)
+    assert _prog_seq(ex) == [("R", "REG"), ("W", "REG")]
+    assert ex["regs"]["REG"] == 0x20
+    _assert_no_phantom_resolve(ex)
+
+
+def test_base_alias_const_fold_records_absolute_offset():
+    """`base = g->base + BANK` folds BANK into every subsequent access offset: the
+    recorded offset must be the ABSOLUTE offset the driver pokes (BANK+REG), not
+    REG — otherwise the trace would be wrong."""
+    defs = {"BANK": 0x800, "REG": 0x40}
+    body = (
+        "static void f(struct s *g) { "
+        "void __iomem *base = g->base + BANK; "
+        "u32 val; writel(1, base + REG); }"
+    )
+    ex = mh.extract(body, "f", defs)
+    assert _prog_seq(ex) == [("W", "REG_PLUS_800")]
+    # 0x800 + 0x40 = 0x840 — the true absolute offset
+    assert ex["regs"]["REG_PLUS_800"] == 0x840
+    _assert_no_phantom_resolve(ex)
+
+
+def test_base_alias_opaque_offset_refuses():
+    """`base = g->base + bank_stride(pin)` — the added offset is a runtime function
+    of the pin, not a resolvable #define. Recording base+0 would be a WRONG
+    trace, so it MUST refuse rather than guess."""
+    defs = {"REG": 0x40}
+    body = (
+        "static void f(struct s *g, int pin) { "
+        "void __iomem *base = g->base + bank_stride(pin); "
+        "u32 val; writel(1, base + REG); }"
+    )
+    with pytest.raises(mh.Unsupported):
+        mh.extract(body, "f", defs)
+
+
+@toolchain
+def test_base_alias_end_to_end_match_and_diverge(tmp_path):
+    """Full record/replay on a base-alias function: correct MATCHes its own C
+    register trace, wrong-register control DIVERGEs. Proves the folded absolute
+    offset is what actually drives the recorded trace (non-vacuous)."""
+    defs = {"BANK": 0x800, "ENABLE_CONFIG": 0x00, "INT_CLR": 0x40}
+    body = (
+        "static void basealias_demo(struct s *g) { "
+        "void __iomem *base = g->base + BANK; "
+        "u32 val, tmp; "
+        "val = readl(base + ENABLE_CONFIG); val |= 0x2; "
+        "writel(val, base + ENABLE_CONFIG); writel(1, base + INT_CLR); }"
+    )
+    ex = mh.extract(body, "basealias_demo", defs)
+    assert _prog_seq(ex) == [
+        ("R", "ENABLE_CONFIG_PLUS_800"), ("C", None),
+        ("W", "ENABLE_CONFIG_PLUS_800"), ("W", "INT_CLR_PLUS_800"),
+    ]
+    out = str(tmp_path / "basealias")
+    os.makedirs(out, exist_ok=True)
+    shutil.copy(os.path.join(mh.HERE, "record_engine.h"), out)
+    open(f"{out}/basealias_demo_ref.c", "w").write(mh.emit_ref_c(ex))
+    open(f"{out}/basealias_demo_cand.rs", "w").write(mh.emit_cand_rs(ex, False))
+    open(f"{out}/basealias_demo_bad.rs", "w").write(mh.emit_cand_rs(ex, True))
+    open(f"{out}/basealias_demo_probe.c", "w").write(mh.emit_probe(ex))
+    v1, l1 = mh.gate("basealias_demo", out, "basealias_demo_cand.rs")
+    assert v1 == "MATCH", f"correct base-alias candidate not MATCH: {l1}"
+    v2, l2 = mh.gate("basealias_demo", out, "basealias_demo_bad.rs")
+    assert v2 == "DIVERGE", f"base-alias mutant did not diverge (self-match hole!): {l2}"
+
+
+# --------------------------------------------------------------------------- #
+# 6. MULTI-LOCAL DECLARATIONS — several scalar SSA temps, dropped as plumbing
+# --------------------------------------------------------------------------- #
+def test_multi_local_comma_decl_dropped():
+    """`u32 pos, regset, val;` — multiple comma-separated scalar temps must all be
+    dropped as plumbing, leaving the clean access program."""
+    defs = {"REG": 0x20}
+    body = (
+        "static void f(struct s *g) { "
+        "u32 pos, regset, val; unsigned long flags; int off; "
+        "val = readl(g->base + REG); writel(val, g->base + REG); }"
+    )
+    ex = mh.extract(body, "f", defs)
+    assert _prog_seq(ex) == [("R", "REG"), ("W", "REG")]
+    _assert_no_phantom_resolve(ex)
+
+
+def test_multi_local_does_not_swallow_effects():
+    """The multi-local drop is a strict scalar-decl allow-list: a non-declaration
+    statement (a bare call with side effects) must NOT be swallowed — if it isn't
+    a modellable access/compute/out-of-trace effect, refuse."""
+    defs = {"REG": 0x20}
+    body = (
+        "static void f(struct s *g) { "
+        "u32 a, b; some_side_effect(g); writel(1, g->base + REG); }"
+    )
+    with pytest.raises(mh.Unsupported):
+        mh.extract(body, "f", defs)
+
+
+def test_multi_local_computed_offset_still_refuses():
+    """Even with multi-local decls allowed, a computed offset stays refused: the
+    xlp pattern `u32 pos, regset; ... readl(addr + regset)` — regset is not a
+    #define, so the offset is a phantom => refuse."""
+    defs = {"XLP_GPIO_REGSZ": 32}
+    body = (
+        "static void f(void __iomem *addr, unsigned gpio) { "
+        "u32 pos, regset; regset = (gpio / XLP_GPIO_REGSZ) * 4; "
+        "return readl(addr + regset); }"
+    )
+    with pytest.raises(mh.Unsupported):
+        mh.extract(body, "f", defs)
+
+
+# --------------------------------------------------------------------------- #
+# 7. NESTED BRACE SCOPE (keyword-less) — must refuse, ';'-split would flatten it
+# --------------------------------------------------------------------------- #
+def test_scoped_guard_block_refuses():
+    """`scoped_guard(...) { ... }` has no control-flow keyword but IS a scope; the
+    ';'-split flattens the block opener onto the next statement. This is exactly
+    as unmodellable as control flow — must refuse (real mlxbf2 pattern)."""
+    defs = {"REG": 0x94}
+    body = (
+        "static void f(struct s *gs) { u32 val; "
+        "scoped_guard(gpio_lock, &gs->chip) { "
+        "val = readl(gs->gpio_io + REG); writel(val, gs->gpio_io + REG); } }"
+    )
+    with pytest.raises(mh.Unsupported):
+        mh.extract(body, "f", defs)
+
+
 def test_resolve_defines_ignores_non_integer():
     """resolve_defines must only surface integer offsets; string/expr macros are
     dropped, so they can never masquerade as a resolvable register offset."""
