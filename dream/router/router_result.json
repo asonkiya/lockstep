@@ -1,0 +1,511 @@
+{
+ "rows": [
+  {
+   "func": "__kfifo_max_r",
+   "file": "lib/kfifo.c",
+   "route": "T1_KERNEL",
+   "reason": "pure + linkable \u2014 in-kernel differential, one batched boot",
+   "status": "verified_T1"
+  },
+  {
+   "func": "__node_distance",
+   "file": "mm/numa_memblks.c",
+   "route": "T1_KERNEL",
+   "reason": "read-only-otherwise-pure + linkable \u2014 in-kernel differential, one batched boot",
+   "status": "verified_T1"
+  },
+  {
+   "func": "__refrigerator",
+   "file": "kernel/freezer.c",
+   "route": "TC_REGION",
+   "reason": "census C: takes a lock \u2014 region machinery (concgate class)",
+   "status": "routed"
+  },
+  {
+   "func": "__sw_hweight16",
+   "file": "lib/hweight.c",
+   "route": "T0_HOST",
+   "reason": "pure + TU compiles on host \u2014 boot-free differential",
+   "status": "verified_T0(c2rust)"
+  },
+  {
+   "func": "__sw_hweight32",
+   "file": "lib/hweight.c",
+   "route": "T0_HOST",
+   "reason": "pure + TU compiles on host \u2014 boot-free differential",
+   "status": "verified_T0(c2rust)"
+  },
+  {
+   "func": "__sw_hweight8",
+   "file": "lib/hweight.c",
+   "route": "T0_HOST",
+   "reason": "pure + TU compiles on host \u2014 boot-free differential",
+   "status": "verified_T0(c2rust)"
+  },
+  {
+   "func": "add_cpu",
+   "file": "kernel/cpu.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'get_cpu') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "blk_mq_num_online_queues",
+   "file": "block/blk-mq-cpumap.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `blk_mq_num_queues`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "blk_mq_num_possible_queues",
+   "file": "block/blk-mq-cpumap.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `blk_mq_num_queues`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "capable",
+   "file": "kernel/capability.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `ns_capable`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "cper_severity_to_aer",
+   "file": "drivers/pci/pcie/aer.c",
+   "route": "T1_KERNEL",
+   "reason": "pure + linkable \u2014 in-kernel differential, one batched boot",
+   "status": "T1_rejected(bad=1998)"
+  },
+  {
+   "func": "cpu_is_hotpluggable",
+   "file": "drivers/base/cpu.c",
+   "route": "C_FOREVER",
+   "reason": "census D: entangled (container_of/per-cpu/RCU/list)",
+   "status": "routed"
+  },
+  {
+   "func": "cpumask_local_spread",
+   "file": "lib/cpumask.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'numa_') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "cs5535_gpio_isset",
+   "file": "drivers/gpio/gpio-cs5535.c",
+   "route": "TC_REGION",
+   "reason": "census C: takes a lock \u2014 region machinery (concgate class)",
+   "status": "routed"
+  },
+  {
+   "func": "cs5535_gpio_set_irq",
+   "file": "drivers/gpio/gpio-cs5535.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `rdmsr`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "disable_hardirq",
+   "file": "kernel/irq/manage.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `__disable_irq_nosync`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "fuse_req_hash",
+   "file": "fs/fuse/dev.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `hash_long`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "gcd",
+   "file": "lib/math/gcd.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `binary_gcd`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "generic_check_addressable",
+   "file": "fs/libfs.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `check_shl_overflow`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "generic_handle_irq",
+   "file": "kernel/irq/irqdesc.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'irq_desc') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "generic_handle_irq_safe",
+   "file": "kernel/irq/irqdesc.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'irq_desc') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "get_unused_fd_flags",
+   "file": "fs/file.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `__get_unused_fd_flags`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "int_pow",
+   "file": "lib/math/int_pow.c",
+   "route": "T0_HOST",
+   "reason": "pure + TU compiles on host \u2014 boot-free differential",
+   "status": "verified_T0(c2rust)"
+  },
+  {
+   "func": "int_sqrt",
+   "file": "lib/math/int_sqrt.c",
+   "route": "T0_HOST",
+   "reason": "pure + TU compiles on host \u2014 boot-free differential",
+   "status": "verified_T0(c2rust)"
+  },
+  {
+   "func": "int_sqrt64",
+   "file": "lib/math/int_sqrt.c",
+   "route": "T0_HOST",
+   "reason": "pure + TU compiles on host \u2014 boot-free differential",
+   "status": "T0_unsolved"
+  },
+  {
+   "func": "intlog10",
+   "file": "lib/math/int_log.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'WARN') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "ipi_send_single",
+   "file": "kernel/irq/ipi.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'irq_desc') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "irq_check_status_bit",
+   "file": "kernel/irq/manage.c",
+   "route": "TC_REGION",
+   "reason": "census C: takes a lock \u2014 region machinery (concgate class)",
+   "status": "routed"
+  },
+  {
+   "func": "irq_has_action",
+   "file": "kernel/irq/manage.c",
+   "route": "TC_REGION",
+   "reason": "census C: takes a lock \u2014 region machinery (concgate class)",
+   "status": "routed"
+  },
+  {
+   "func": "irq_inject_interrupt",
+   "file": "kernel/irq/resend.c",
+   "route": "T2_MIRROR",
+   "reason": "census B: reads struct fields \u2014 needs a mirror for its struct family",
+   "status": "routed"
+  },
+  {
+   "func": "irq_percpu_is_enabled",
+   "file": "kernel/irq/manage.c",
+   "route": "T2_MIRROR",
+   "reason": "census B: reads struct fields \u2014 needs a mirror for its struct family",
+   "status": "routed"
+  },
+  {
+   "func": "irq_set_irq_type",
+   "file": "kernel/irq/chip.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `scoped_irqdesc_get_and_buslock`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "irq_set_irq_wake",
+   "file": "kernel/irq/manage.c",
+   "route": "T2_MIRROR",
+   "reason": "census B: reads struct fields \u2014 needs a mirror for its struct family",
+   "status": "routed"
+  },
+  {
+   "func": "irq_set_parent",
+   "file": "kernel/irq/manage.c",
+   "route": "T2_MIRROR",
+   "reason": "census B: reads struct fields \u2014 needs a mirror for its struct family",
+   "status": "routed"
+  },
+  {
+   "func": "kcpustat_field_idle",
+   "file": "kernel/sched/cputime.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'ktime') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "kcpustat_field_iowait",
+   "file": "kernel/sched/cputime.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'ktime') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "lcm",
+   "file": "lib/math/lcm.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `gcd`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "lcm_not_zero",
+   "file": "lib/math/lcm.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `lcm`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "memory_add_physaddr_to_nid",
+   "file": "mm/numa_memblks.c",
+   "route": "T2_MIRROR",
+   "reason": "census B: reads struct fields \u2014 needs a mirror for its struct family",
+   "status": "routed"
+  },
+  {
+   "func": "memory_group_register_dynamic",
+   "file": "drivers/base/memory.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'register') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "memory_group_register_static",
+   "file": "drivers/base/memory.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'register') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "neigh_rand_reach_time",
+   "file": "net/core/neighbour.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'get_random') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "nfs4_stat_to_errno",
+   "file": "fs/nfs_common/common.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `ARRAY_SIZE`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "nfs_check_flags",
+   "file": "fs/nfs/file.c",
+   "route": "T1_KERNEL",
+   "reason": "pure + linkable \u2014 in-kernel differential, one batched boot",
+   "status": "verified_T1"
+  },
+  {
+   "func": "numa_nearest_node",
+   "file": "mm/mempolicy.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'node_distance') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "o2hb_check_node_heartbeating_from_callback",
+   "file": "fs/ocfs2/cluster/heartbeat.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `BITS_TO_LONGS`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "pci_bus_find_emul_domain_nr",
+   "file": "drivers/pci/pci.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `ida_alloc_range`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "pci_rebar_bytes_to_size",
+   "file": "drivers/pci/rebar.c",
+   "route": "T1_KERNEL",
+   "reason": "pure + linkable \u2014 in-kernel differential, one batched boot",
+   "status": "T1_rejected(bad=2001)"
+  },
+  {
+   "func": "phys_to_target_node",
+   "file": "mm/numa_memblks.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'numa_') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "poll_state_synchronize_rcu",
+   "file": "kernel/rcu/tiny.c",
+   "route": "T2_MIRROR",
+   "reason": "census B: reads struct fields \u2014 needs a mirror for its struct family",
+   "status": "routed"
+  },
+  {
+   "func": "probe_irq_mask",
+   "file": "kernel/irq/autoprobe.c",
+   "route": "T2_MIRROR",
+   "reason": "census B: reads struct fields \u2014 needs a mirror for its struct family",
+   "status": "routed"
+  },
+  {
+   "func": "probe_irq_off",
+   "file": "kernel/irq/autoprobe.c",
+   "route": "T2_MIRROR",
+   "reason": "census B: reads struct fields \u2014 needs a mirror for its struct family",
+   "status": "routed"
+  },
+  {
+   "func": "rcu_get_gpwrap_count",
+   "file": "kernel/rcu/tree.c",
+   "route": "C_FOREVER",
+   "reason": "census D: entangled (container_of/per-cpu/RCU/list)",
+   "status": "routed"
+  },
+  {
+   "func": "remove_cpu",
+   "file": "kernel/cpu.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'get_cpu') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "remove_memory",
+   "file": "mm/memory_hotplug.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `lock_device_hotplug`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "snd_dma_pointer",
+   "file": "sound/core/isadma.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'pr_err') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "snd_pcm_rate_bit_to_rate",
+   "file": "sound/core/pcm_misc.c",
+   "route": "T2_MIRROR",
+   "reason": "census B: reads struct fields \u2014 needs a mirror for its struct family",
+   "status": "routed"
+  },
+  {
+   "func": "snd_pcm_rate_mask_intersect",
+   "file": "sound/core/pcm_misc.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `snd_pcm_rate_mask_sanitize`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "snd_pcm_rate_to_rate_bit",
+   "file": "sound/core/pcm_misc.c",
+   "route": "T2_MIRROR",
+   "reason": "census B: reads struct fields \u2014 needs a mirror for its struct family",
+   "status": "routed"
+  },
+  {
+   "func": "snd_seq_event_port_detach",
+   "file": "sound/core/seq/seq_ports.c",
+   "route": "T2_MIRROR",
+   "reason": "census B: reads struct fields \u2014 needs a mirror for its struct family",
+   "status": "routed"
+  },
+  {
+   "func": "sock_load_diag_module",
+   "file": "net/core/sock.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'register') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "sockopt_capable",
+   "file": "net/core/sock.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `has_current_bpf_ctx`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "synchronize_hardirq",
+   "file": "kernel/irq/manage.c",
+   "route": "T2_MIRROR",
+   "reason": "census B: reads struct fields \u2014 needs a mirror for its struct family",
+   "status": "routed"
+  },
+  {
+   "func": "test_taint",
+   "file": "kernel/panic.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `test_bit`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "torture_shuffle_init",
+   "file": "kernel/torture.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (state/effect marker: 'alloc_') \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "torture_stutter_init",
+   "file": "kernel/torture.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `torture_create_kthread`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "vfs_pressure_ratio",
+   "file": "fs/dcache.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `mult_frac`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "vm_munmap",
+   "file": "mm/mmap.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `__vm_munmap`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "xas_try_split_min_order",
+   "file": "lib/xarray.c",
+   "route": "T1_KERNEL",
+   "reason": "pure + linkable \u2014 in-kernel differential, one batched boot",
+   "status": "verified_T1"
+  },
+  {
+   "func": "zstd_compress_bound",
+   "file": "lib/zstd/zstd_compress_module.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `ZSTD_compressBound`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "zstd_dstream_workspace_bound",
+   "file": "lib/zstd/zstd_decompress_module.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `ZSTD_estimateDStreamSize`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  },
+  {
+   "func": "zstd_is_error",
+   "file": "lib/zstd/zstd_decompress_module.c",
+   "route": "T3_EFFECT",
+   "reason": "effectful (calls non-pure `ZSTD_isError`) \u2014 per-fn effect trace owed",
+   "status": "routed"
+  }
+ ],
+ "spend": 0.004,
+ "verified": 9,
+ "wall_s": 445
+}

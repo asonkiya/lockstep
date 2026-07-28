@@ -49,3 +49,6 @@ dream/widerun/purity.json
 dream/exhaustive/out/
 dream/concgate/out/
 dream/formal/target/
+dream/router/cand/
+dream/router/router_probe.c
+dream/router/router-console.txt
