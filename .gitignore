@@ -63,3 +63,5 @@ dream/mmiogen/close_drivers_result.json
 dream/mmiogen/inkernel_out/
 .env
 *.env
+dream/tests/__pycache__/
+dream/tests/.pytest_cache/
