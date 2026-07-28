@@ -59,3 +59,5 @@ dream/router/driver_worklist_summary.json
 dream/router/router_driver_result.json
 dream/router/t2_driver_result.json
 dream/router/t3_driver_result.json
+dream/mmiogen/close_drivers_result.json
+dream/mmiogen/inkernel_out/
