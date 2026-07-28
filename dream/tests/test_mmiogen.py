@@ -372,14 +372,41 @@ def test_multi_local_does_not_swallow_effects():
         mh.extract(body, "f", defs)
 
 
-def test_multi_local_computed_offset_still_refuses():
-    """Even with multi-local decls allowed, a computed offset stays refused: the
-    xlp pattern `u32 pos, regset; ... readl(addr + regset)` — regset is not a
-    #define, so the offset is a phantom => refuse."""
+def test_multi_local_computed_offset_now_extracts_faithfully():
+    """The xlp bank-accessor pattern `u32 pos, regset; regset = (gpio/REGSZ)*4;
+    readl(addr + regset)` is now CLOSED, not refused: `regset` is a computed offset,
+    a PURE arithmetic expression of the pin + a resolvable #define, so it is tracked
+    symbolically and materialised as an expression over `p`. The record engine
+    records the actual per-pin runtime offset, so this is faithful — not a phantom.
+    (The old contract refused it; this capability replaces that limitation.)"""
     defs = {"XLP_GPIO_REGSZ": 32}
     body = (
-        "static void f(void __iomem *addr, unsigned gpio) { "
+        "static int f(void __iomem *addr, unsigned gpio) { "
         "u32 pos, regset; regset = (gpio / XLP_GPIO_REGSZ) * 4; "
+        "return readl(addr + regset); }"
+    )
+    ex = mh.extract(body, "f", defs)
+    # one computed-offset read; no phantom #define emitted for it
+    seq = _prog_seq(ex)
+    assert ("R", None) not in seq  # the R carries a CompOff name, not None
+    r_rows = [p for p in ex["program"] if p[0] == "R"]
+    assert len(r_rows) == 1
+    assert isinstance(r_rows[0][2], mh.CompOff)
+    # the materialised offset is the true bank expression over the pin `p`
+    assert "p / 32" in r_rows[0][2].c.replace("  ", " ")
+    # a computed offset carries NO int value and emits NO #define
+    assert r_rows[0][1] is None
+    assert ex["regs"] == {}
+
+
+def test_multi_local_opaque_offset_local_still_refuses():
+    """A local offset whose RHS references something NOT reducible to (pin,
+    resolvable-constants, arithmetic) — here an opaque helper call — must REFUSE:
+    recording a guessed offset would be an unsound trace."""
+    defs = {"XLP_GPIO_REGSZ": 32}
+    body = (
+        "static int f(void __iomem *addr, unsigned gpio) { "
+        "u32 regset; regset = bank_of(gpio) * 4; "
         "return readl(addr + regset); }"
     )
     with pytest.raises(mh.Unsupported):
@@ -414,3 +441,141 @@ def test_resolve_defines_ignores_non_integer():
     )
     defs = mh.resolve_defines(src)
     assert defs == {"GPIO_INT_EN": 0x20, "GPIO_DEC": 44}
+
+
+# --------------------------------------------------------------------------- #
+# 8. BANK-REGISTER ACCESSOR — base-as-param + computed offset + return value.
+#    This is the xlp gpio pattern: `readl(addr + (gpio/REGSZ)*4)` with `addr` a
+#    bare `void __iomem *` param and the offset a pin-derived bank expression.
+# --------------------------------------------------------------------------- #
+XLP = "drivers/gpio/gpio-xlp.c"
+
+
+def test_base_as_param_recognised():
+    """A bare `void __iomem *addr` PARAMETER is a valid register base (not only
+    `x->base`); an integer scalar param is the pin. parse_params surfaces both."""
+    iomem, pin = mh.parse_params("void __iomem *addr, unsigned gpio")
+    assert iomem == ["addr"]
+    assert pin == "gpio"
+
+
+def test_xlp_get_reg_computed_offset_closes():
+    """The real xlp_gpio_get_reg: base-as-param + computed bank offset + a
+    read-derived return. Must extract a SINGLE computed-offset read and a return,
+    with the offset materialised as the true bank expression over the pin — not a
+    constant collapse."""
+    src = _driver_src(XLP)
+    defs = mh.resolve_defines(src)
+    ex = mh.extract(src, "xlp_gpio_get_reg", defs)
+    kinds = [p[0] for p in ex["program"]]
+    assert kinds == ["R", "RET"], kinds
+    assert ex["returns_value"] is True
+    r = [p for p in ex["program"] if p[0] == "R"][0]
+    # offset is a CompOff carrying the bank expression (p/32)*4, NOT a #define
+    assert isinstance(r[2], mh.CompOff)
+    assert r[1] is None and ex["regs"] == {}
+    c = r[2].c.replace("  ", " ")
+    assert "p / 32" in c and "* 4" in c   # faithful bank arithmetic, pin-dependent
+
+
+@toolchain
+def test_xlp_get_reg_end_to_end_match_and_diverge(tmp_path):
+    """Full record/replay on the bank accessor: correct candidate MATCHes its own
+    C register+return trace; the mutant (perturbed read offset) DIVERGEs. Proves
+    the computed offset genuinely drives the recorded trace (non-vacuous)."""
+    out = str(tmp_path / "xlp_get")
+    ex = mh.generate(XLP, "xlp_gpio_get_reg", out)
+    assert ex["returns_value"] is True
+    v1, l1 = mh.gate("xlp_gpio_get_reg", out, "xlp_gpio_get_reg_cand.rs")
+    assert v1 == "MATCH", f"correct bank-accessor not MATCH: {l1}"
+    v2, l2 = mh.gate("xlp_gpio_get_reg", out, "xlp_gpio_get_reg_bad.rs")
+    assert v2 == "DIVERGE", f"bank-accessor mutant did not diverge (self-match hole!): {l2}"
+
+
+def test_xlp_set_reg_control_flow_still_refuses():
+    """xlp_gpio_set_reg has `if (state) value |= BIT(pos); else ...` — control
+    flow. Even though its base/offset shape is the newly-supported bank pattern,
+    the branch is unmodellable by a ';'-split, so it MUST still refuse. Coverage
+    must never come at the cost of the control-flow refusal."""
+    src = _driver_src(XLP)
+    defs = mh.resolve_defines(src)
+    with pytest.raises(mh.Unsupported):
+        mh.extract(src, "xlp_gpio_set_reg", defs)
+
+
+@toolchain
+def test_computed_offset_with_return_synthetic_diverges(tmp_path):
+    """A synthetic bank accessor whose return folds the read: end-to-end the return
+    comparison catches a corrupted return even when the register trace is identical
+    (the RET mutant path). Strengthens the oracle beyond the trace alone."""
+    defs = {"REGSZ": 16}
+    body = (
+        "static int f(void __iomem *addr, unsigned pin) { "
+        "u32 off; off = (pin / REGSZ) * 4; "
+        "return readl(addr + off) & 0xff; }"
+    )
+    ex = mh.extract(body, "f", defs)
+    assert [p[0] for p in ex["program"]] == ["R", "RET"]
+    out = str(tmp_path / "synth")
+    os.makedirs(out, exist_ok=True)
+    shutil.copy(os.path.join(mh.HERE, "record_engine.h"), out)
+    open(f"{out}/f_ref.c", "w").write(mh.emit_ref_c(ex))
+    open(f"{out}/f_cand.rs", "w").write(mh.emit_cand_rs(ex, False))
+    open(f"{out}/f_bad.rs", "w").write(mh.emit_cand_rs(ex, True))
+    open(f"{out}/f_probe.c", "w").write(mh.emit_probe(ex))
+    assert mh.gate("f", out, "f_cand.rs")[0] == "MATCH"
+    assert mh.gate("f", out, "f_bad.rs")[0] == "DIVERGE"
+
+
+def test_computed_offset_opaque_call_refuses():
+    """A computed-offset local whose RHS contains an opaque call
+    (`off = bank_stride(pin) * 4`) is NOT reducible to (pin, constants, arithmetic)
+    — the offset can't be materialised faithfully, so REFUSE (never guess)."""
+    defs = {"REGSZ": 16}
+    body = (
+        "static int f(void __iomem *addr, unsigned pin) { "
+        "u32 off; off = bank_stride(pin) * 4; return readl(addr + off); }"
+    )
+    with pytest.raises(mh.Unsupported):
+        mh.extract(body, "f", defs)
+
+
+def test_computed_offset_unresolved_const_refuses():
+    """A computed-offset local referencing an UNRESOLVED identifier (a #define that
+    isn't a resolvable integer) can't be folded to a numeric expression — REFUSE
+    rather than emit a wrong offset."""
+    defs = {}  # STRIDE not resolvable
+    body = (
+        "static int f(void __iomem *addr, unsigned pin) { "
+        "u32 off; off = (pin / STRIDE) * 4; return readl(addr + off); }"
+    )
+    with pytest.raises(mh.Unsupported):
+        mh.extract(body, "f", defs)
+
+
+def test_non_translatable_return_expr_refuses():
+    """A return expression with a residual opaque call
+    (`return some_fold(readl(addr + off))`) can't be faithfully translated to Rust
+    — REFUSE rather than emit a lossy/self-matching return."""
+    defs = {"REGSZ": 16}
+    body = (
+        "static int f(void __iomem *addr, unsigned pin) { "
+        "u32 off; off = (pin / REGSZ) * 4; "
+        "return some_fold(readl(addr + off)); }"
+    )
+    with pytest.raises(mh.Unsupported):
+        mh.extract(body, "f", defs)
+
+
+def test_value_returning_fn_with_unmodellable_return_refuses():
+    """A value-returning function whose return we can't model (here the return is a
+    bare pin passthrough with no read, but a struct deref appears) must not silently
+    fall back to a trace-only oracle that under-checks. If the return can't be
+    modelled faithfully, refuse."""
+    defs = {"REG": 0x20}
+    body = (
+        "static int f(struct s *g, unsigned pin) { "
+        "u32 val; val = readl(g->base + REG); return g->cache; }"
+    )
+    with pytest.raises(mh.Unsupported):
+        mh.extract(body, "f", defs)
