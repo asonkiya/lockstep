@@ -65,3 +65,4 @@ dream/mmiogen/inkernel_out/
 *.env
 dream/tests/__pycache__/
 dream/tests/.pytest_cache/
+dream/router/scale_result.json
