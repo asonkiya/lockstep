@@ -24,7 +24,9 @@ echo "[recorder:$mode] compiling Rust candidate + C harness..."
 rustc --edition 2021 -O --crate-type=staticlib "$CAND" -o /tmp/libcand.a 2>/tmp/rustc.log || { cat /tmp/rustc.log; exit 1; }
 cc -O2 "$G/recorder.c" /tmp/libcand.a -o /tmp/recorder
 echo "[recorder:$mode] record C trace -> replay to Rust -> compare:"
-/tmp/recorder; rc=$?
+# subtle mode DELIBERATELY diverges (recorder exits non-zero) — capture the code
+# without letting `set -e` abort before the verdict is printed
+if /tmp/recorder; then rc=0; else rc=$?; fi
 if [ "$mode" = correct ]; then
   [ $rc -eq 0 ] && echo "RECORDER GATE (correct): PASS (transplant replays the recording exactly)" || { echo "RECORDER GATE (correct): FAIL"; exit 1; }
 else

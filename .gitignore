@@ -52,3 +52,5 @@ dream/formal/target/
 dream/router/cand/
 dream/router/router_probe.c
 dream/router/router-console.txt
+dream/router/t2_result.json
+dream/router/t3_result.json
