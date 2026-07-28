@@ -108,6 +108,13 @@ def main() -> int:
     eff = sorted(set(eff))
     src = json.load(open(a.worklist)) if a.worklist else widerun.harvest()
     work = {w["sym"]: w for w in src}
+    # refuse a stale router pairing (the "wrong worklist" incident class)
+    import hashlib
+    sha = hashlib.sha256("\n".join(sorted(work)).encode()).hexdigest()[:16]
+    rr_sha = rr.get("worklist_sha")
+    if rr_sha is not None and rr_sha != sha:
+        raise SystemExit(f"[t3] router_result.json was produced from a DIFFERENT worklist "
+                         f"(router {rr_sha} vs harvested {sha}) — re-run router.py first")
 
     print(f"[t3] classifying {len(eff)} effectful functions...")
     rows: list[dict] = []

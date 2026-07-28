@@ -170,6 +170,27 @@ def gen_probe(func: str, rust_sym: str, ret: str, params: list[tuple[str, str]],
     return "\n".join(lines)
 
 
+def _delegated_symbols(w: str, objs: list[str]) -> list[str]:
+    """Undefined symbols of the candidate staticlib that the C TU (or its dep
+    objects) define — i.e. references the candidate could only satisfy by
+    calling the very C code it is supposed to replace."""
+    def _nm(args: list[str]) -> list[str]:
+        r = subprocess.run(["nm", *args], capture_output=True, text=True)
+        return r.stdout.splitlines()
+
+    undef = set()
+    for ln in _nm(["-u", f"{w}/libcand.a"]):
+        ln = ln.strip()
+        if ln and not ln.endswith(":"):  # skip per-member "member.o:" headers
+            undef.add(ln.split()[-1].lstrip("_"))
+    defined = set()
+    for ln in _nm(["-g", f"{w}/tu.o", *objs]):
+        parts = ln.split()
+        if len(parts) >= 3 and parts[-2] in ("T", "D", "S", "B", "W"):
+            defined.add(parts[-1].lstrip("_"))
+    return sorted(undef & defined)
+
+
 def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
         workdir: str | None = None, quiet: bool = False, probe_timeout: int = 120) -> dict:
     t0 = time.time()
@@ -209,6 +230,17 @@ def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
                        capture_output=True, text=True)
     if r.returncode:
         return {"verdict": "RUSTC_FAIL", "detail": r.stderr[:600]}
+
+    # Delegation gate: the candidate staticlib links against the shimmed TU, so
+    # a candidate that externs the C original (or any symbol the TU defines) and
+    # forwards to it would make the probe compare C with C — guaranteed MATCH.
+    # Undefined symbols of libcand.a must not intersect symbols defined by the
+    # C objects it links with. (Host staticlibs carry libc undefineds — those
+    # are fine; only TU-defined names are the attack surface.)
+    delegated = _delegated_symbols(w, objs)
+    if delegated:
+        return {"verdict": "DELEGATION",
+                "detail": f"candidate references TU-defined symbols: {delegated}"}
 
     r = subprocess.run(["cc", "-O2", f"-I{w}", f"{w}/probe.c", f"{w}/tu.o", *objs,
                         f"{w}/libcand.a", "-o", f"{w}/diff"], capture_output=True, text=True)

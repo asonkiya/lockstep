@@ -12,8 +12,9 @@ routing rules encode everything the project learned:
   census B (struct-reading)     -> T2_MIRROR      (mirror + differential, per struct family)
   A + pure + host-TU-compiles   -> T0_HOST        (ladder synth + hostdiff; boot-free, sound)
   A + pure|readonly + linkable  -> T1_KERNEL      (synth + ONE batched boot, in-kernel differential;
-                                                   sound: pure has no effects to miss, read-only's
-                                                   return-equivalence IS behavior-equivalence)
+                                                   pure has no effects to miss; read-only is checked
+                                                   at ONE state point and credited as
+                                                   verified_T1_at_boot_state, not full equivalence)
   A + pure|readonly, unlinkable -> T1_UNLINKABLE  (config gap — needs a bigger config, not a model)
   A + effectful + MMIO markers  -> T3_TRACE       (recorder; needs a per-driver recording)
   A + effectful otherwise       -> T3_EFFECT      (per-fn effect trace; quarantined)
@@ -58,6 +59,7 @@ from widerun72 import host_tu_ok  # noqa: E402
 KSRC = os.environ.get("KSRC", hostdiff.KSRC_DEFAULT)
 IMG, VOL, GATE = "cgir-kernel-gate", "cgir-kbuild", "crypto/lockstep_gate"
 MMIO = re.compile(r"\b(readl|writel|read[bwq]|write[bwq]|ioread|iowrite|in[bwl]|out[bwl])\b")
+CANARY = "lockstep_canary"
 PRELUDE = ("#![no_std]\n#![no_main]\n#[panic_handler]\n"
            "fn ph(_: &core::panic::PanicInfo) -> ! { loop {} }\n")
 
@@ -67,8 +69,12 @@ PRELUDE = ("#![no_std]\n#![no_main]\n#[panic_handler]\n"
 def kernel_symbols() -> set[str]:
     """Symbol set of the volume's last-built kernel (System.map) — one docker
     call. Linkability gates T1: no C symbol in the image = nothing to diff."""
+    # Globals only ($2 T/W): taking every row swept in `t`/`d` LOCALS, so a
+    # static fn looked linkable, the probe externed it, the link failed, and the
+    # WHOLE T1 batch came back verdict-less.
     r = subprocess.run(["docker", "run", "--rm", "-v", f"{VOL}:/build", IMG,
-                        "bash", "-c", "awk '{print $3}' /build/linux/System.map 2>/dev/null"],
+                        "bash", "-c",
+                        "awk '$2 ~ /^[TW]$/ {print $3}' /build/linux/System.map 2>/dev/null"],
                        capture_output=True, text=True)
     syms = set(r.stdout.split())
     if not syms:
@@ -96,8 +102,7 @@ def route_one(w: dict, pure_names: set, ksyms: set) -> tuple[str, str]:
     verdict, why = purity.classify(body, pure_names, w["sym"])
     readonly = verdict == "pure" or purity.recoverable_readonly(body, pure_names, w["sym"])
     if not readonly:
-        if MMIO.search(purity.mask(body)):
-            return "T3_TRACE", f"effectful + MMIO ({why}) — recorder oracle, needs a recording"
+        # (MMIO already routed to T3_TRACE above — anything here is non-MMIO effectful)
         return "T3_EFFECT", f"effectful ({why}) — per-fn effect trace owed"
     if verdict == "pure" and host_tu_ok(w["file"], w["sym"]):
         return "T0_HOST", "pure + TU compiles on host — boot-free differential"
@@ -112,7 +117,12 @@ def route_one(w: dict, pure_names: set, ksyms: set) -> tuple[str, str]:
 def run_t0(w: dict, local_attempts: int) -> dict:
     path, func = w["file"], w["sym"]
     src = open(os.path.join(KSRC, path)).read()
-    ret, params = hostdiff.parse_sig(src, func)
+    # parse_sig SystemExits on unmappable types (pointer args in a driver
+    # worklist) — that is an unroutable FUNCTION, not a dead run.
+    try:
+        ret, params = hostdiff.parse_sig(src, func)
+    except (SystemExit, Exception) as e:  # noqa: B014
+        return {"rung": None, "cost": 0.0, "error": f"unroutable signature: {e}"}
     _, sig_line = localbench.rust_sig(func, ret, params)
     csrc = localbench.context_of(src, func)
     out = {"rung": None, "cost": 0.0}
@@ -138,7 +148,10 @@ def t1_synth(w: dict, local_attempts: int) -> tuple[str, str | None, float]:
     Ladder discipline: local first, Haiku for the tail; the compile precheck is
     the container rustc (the real target), behavior judged by the boot."""
     src = open(os.path.join(KSRC, w["file"])).read()
-    ret, params = hostdiff.parse_sig(src, w["sym"])
+    try:
+        ret, params = hostdiff.parse_sig(src, w["sym"])
+    except (SystemExit, Exception):  # noqa: B014 — unmappable sig = skip, not crash
+        return w["sym"], None, 0.0
     _, sig_line = localbench.rust_sig(w["sym"], ret, params)
     csrc = localbench.context_of(src, w["sym"])
     cost, fb = 0.0, None
@@ -149,14 +162,24 @@ def t1_synth(w: dict, local_attempts: int) -> tuple[str, str | None, float]:
     def compiles(code: str | None = None) -> bool:
         if code is not None:
             open(cand, "w").write(PRELUDE + code)
+        # nm -u must be empty (bar compiler intrinsics): an undefined symbol —
+        # above all the C original's own name — means the candidate DELEGATES
+        # to the real implementation; linked in-kernel the differential would
+        # then compare C with C and pass anything.
         r = subprocess.run(["docker", "run", "--rm", "-v", f"{os.path.dirname(cand)}:/c", IMG,
                             "bash", "-c", f"rustc --target aarch64-unknown-none-softfloat --emit=obj "
-                            f"-C panic=abort -O /c/{w['sym']}.rs -o /tmp/x.o"],
+                            f"-C panic=abort -O /c/{w['sym']}.rs -o /tmp/x.o && nm -u /tmp/x.o"],
                            capture_output=True, text=True)
         nonlocal fb
         if r.returncode != 0:
             fb = "rustc: " + r.stderr[-300:]
-        return r.returncode == 0
+            return False
+        undef = {ln.split()[-1] for ln in r.stdout.splitlines() if ln.strip()}
+        undef -= {"memcpy", "memset", "memmove", "memcmp"}
+        if undef:
+            fb = f"candidate references external symbols (no externs allowed): {sorted(undef)}"
+            return False
+        return True
 
     # reuse a cached candidate if one exists and still compiles (cheap, deterministic reruns)
     if os.path.exists(cand) and compiles():
@@ -177,11 +200,20 @@ def t1_boot(t1_work: list[dict]) -> dict[str, tuple[str, int, int]]:
     """Install all T1 candidates + one probe, build ONE Image, boot ONCE, parse
     per-fn verdicts. This is the sweep/fleet machinery, parameterized."""
     externs, blocks = [], []
+    seen_exports: dict[str, str] = {}
     for w in t1_work:
         cargs = ", ".join(t for t in w["args"])
         # the candidate exports cgir_<sym-with-leading-underscores-stripped>
         # (localbench.rust_sig convention) — the probe MUST use the same name
         exp = "cgir_" + w["sym"].lstrip("_")
+        # `__foo` and `foo` both map to cgir_foo — two candidates in one batch
+        # would collide at link and the probe would diff the wrong pair. Drop
+        # the later one (it gets T1_no_verdict) rather than mislink.
+        if exp in seen_exports:
+            print(f"  [t1] export collision: {w['sym']} vs {seen_exports[exp]} both -> {exp}; "
+                  f"dropping {w['sym']} from this batch")
+            continue
+        seen_exports[exp] = w["sym"]
         externs += [f"{w['ret']} {w['sym']}({cargs});", f"{w['ret']} {exp}({cargs});"]
         na = len(w["args"])
         call = lambda pre, nm: f"{pre}{nm}(" + ",".join(f"i{k}" for k in range(na)) + ")"  # noqa: E731
@@ -191,24 +223,52 @@ def t1_boot(t1_work: list[dict]) -> dict[str, tuple[str, int, int]]:
                             for k in range(na))
         else:
             loops = ""  # 0-arg fn (reads globals) — one comparison
+        # verdict requires n>0: a loop that never ran must FAIL, not pass
         blocks.append(
             f'\t{{ unsigned long c=0,bad=0; long fb=-1;\n'
             f'\t  {loops}{{c++;if({call("", exp)}!={call("", w["sym"])}){{bad++;if(fb<0)fb=1;}}}}\n'
-            f'\t  pr_emerg("ROUTER: {w["sym"]} n=%lu bad=%lu verdict=%s\\n", c,bad, bad?"DIFF_FAIL":"DIFF_PASS"); }}')
+            f'\t  pr_emerg("ROUTER: {w["sym"]} n=%lu bad=%lu verdict=%s\\n", c,bad, (c&&!bad)?"DIFF_PASS":"DIFF_FAIL"); }}')
+
+    # in-loop negative control: a deliberately-wrong constant Rust vs a real C
+    # symbol from this batch. It MUST be rejected — a PASS or a missing line
+    # means the probe machinery is not actually comparing anything, so no PASS
+    # in this batch can be trusted. (Skip bool-return targets: a constant could
+    # legitimately match everywhere.)
+    canary_w = next((w for w in t1_work if w["ret"] != "bool" and w["args"]), None)
+    if canary_w is not None:
+        na = len(canary_w["args"])
+        cargs = ", ".join(canary_w["args"])
+        call = lambda nm: f"{nm}(" + ",".join(f"i{k}" for k in range(na)) + ")"  # noqa: E731
+        rng = {1: "i0<=2000", 2: "i0<=48", 3: "i0<=14"}.get(na, "i0<=8")
+        loops = "".join(f"for(long i{k}=1;{rng.replace('i0', f'i{k}')};i{k}++)" for k in range(na))
+        externs += [f"{canary_w['ret']} cgir_{CANARY}({cargs});"]
+        blocks.append(
+            f'\t{{ unsigned long c=0,bad=0;\n'
+            f'\t  {loops}{{c++;if({call("cgir_" + CANARY)}!={call(canary_w["sym"])}){{bad++;}}}}\n'
+            f'\t  pr_emerg("ROUTER: __{CANARY} n=%lu bad=%lu verdict=%s\\n", c,bad, (c&&!bad)?"DIFF_PASS":"DIFF_FAIL"); }}')
+        rust_params = [(t, f"a{i}") for i, t in enumerate(canary_w["args"])]
+        _, sig_line = localbench.rust_sig(CANARY, canary_w["ret"], rust_params)
+        rust_ret = localbench.C2RUST_TY[canary_w["ret"]]
+        open(os.path.join(HERE, "cand", f"__{CANARY}.rs"), "w").write(
+            PRELUDE + f'{sig_line} {{ 0x5A5A5A5A as {rust_ret} }}\n')
+
     probe = ("// SPDX-License-Identifier: GPL-2.0\n#include <linux/init.h>\n#include <linux/kernel.h>\n"
              "#include <linux/types.h>\n\n" + "\n".join(externs) +
              "\n\nstatic int __init router_init(void)\n{\n" + "\n".join(blocks) +
              '\n\tpr_emerg("ROUTER: done\\n");\n\treturn 0;\n}\nlate_initcall(router_init);\n')
     open(os.path.join(HERE, "router_probe.c"), "w").write(probe)
 
-    objs = " ".join(f"{w['sym']}_c.o" for w in t1_work)
+    build_syms = [w["sym"] for w in t1_work if w["sym"] in seen_exports.values()]
+    if canary_w is not None:
+        build_syms.append(f"__{CANARY}")
+    objs = " ".join(f"{s}_c.o" for s in build_syms)
     setup = (f"cd /build/linux && grep -q 'obj-y += lockstep_gate/' crypto/Makefile || "
              f"echo 'obj-y += lockstep_gate/' >> crypto/Makefile; mkdir -p {GATE} && cd {GATE} && "
              "rm -f *.c *.o *.o_shipped && cp /p/router_probe.c .; ")
-    for i, w in enumerate(t1_work):
-        loc = "" if i == 0 else f" && aarch64-linux-gnu-objcopy --wildcard --localize-symbol '*rust_begin_unwind*' {w['sym']}_c.o_shipped"
+    for i, s in enumerate(build_syms):
+        loc = "" if i == 0 else f" && aarch64-linux-gnu-objcopy --wildcard --localize-symbol '*rust_begin_unwind*' {s}_c.o_shipped"
         setup += (f"rustc --target aarch64-unknown-none-softfloat --emit=obj -C panic=abort "
-                  f"-C relocation-model=static -O /cand/{w['sym']}.rs -o {w['sym']}_c.o_shipped{loc}; ")
+                  f"-C relocation-model=static -O /cand/{s}.rs -o {s}_c.o_shipped{loc}; ")
     setup += f"printf 'obj-y := router_probe.o {objs}\\n' > Kbuild"
     r = subprocess.run(["docker", "run", "--rm", "-v", f"{VOL}:/build", "-v", f"{HERE}:/p:ro",
                         "-v", f"{os.path.join(HERE, 'cand')}:/cand:ro", IMG, "bash", "-euc", setup],
@@ -234,7 +294,19 @@ def t1_boot(t1_work: list[dict]) -> dict[str, tuple[str, int, int]]:
     for ln in con.splitlines():
         m = re.search(r"ROUTER: (\w+) n=(\d+) bad=(\d+) verdict=DIFF_(PASS|FAIL)", ln)
         if m:
-            verd[m.group(1)] = (m.group(4), int(m.group(2)), int(m.group(3)))
+            n = int(m.group(2))
+            # belt+braces with the probe's own n>0 check: never credit n=0
+            status = m.group(4) if n > 0 else "FAIL"
+            verd[m.group(1)] = (status, n, int(m.group(3)))
+    # canary judgment: the wrong-by-construction candidate must be REJECTED.
+    # A missing line or a PASS means the probe compares nothing this boot — void
+    # every PASS so a broken harness can't be read as verification.
+    if canary_w is not None:
+        cv = verd.pop(f"__{CANARY}", None)
+        if cv is None or cv[0] == "PASS":
+            print(f"  [t1] CANARY {'missing' if cv is None else 'PASSED'} — "
+                  f"probe not trustworthy, batch NOT credited")
+            return {s: ("NO_VERDICT_CANARY", -1, -1) for s in verd}
     return verd
 
 
@@ -250,6 +322,11 @@ def main() -> int:
     t_all, spend = time.time(), 0.0
 
     work = json.load(open(a.worklist)) if a.worklist else widerun.harvest()
+    # fingerprint the worklist so t2/t3 executors can refuse a stale pairing
+    # (the "wrong worklist" incident class)
+    import hashlib
+    worklist_sha = hashlib.sha256(
+        "\n".join(sorted(w["sym"] for w in work)).encode()).hexdigest()[:16]
     pn = set()
     for _ in range(3):  # purity fixpoint
         pn = {w["sym"] for w in work if purity.classify(w["body"], pn, w["sym"])[0] == "pure"}
@@ -268,41 +345,62 @@ def main() -> int:
         print(f"  {rt:14s} {len(routes[rt]):3d}  e.g. {', '.join(w['sym'] for w in routes[rt][:4])}")
     byrow = {r["func"]: r for r in rows}
 
-    # ---- execute T0 (boot-free) ----
-    t0 = routes.get("T0_HOST", [])
-    print(f"\n[router] T0_HOST: executing ladder + hostdiff on {len(t0)} fns (boot-free)...")
-    for w in t0:
-        res = run_t0(w, a.local_attempts)
-        spend += res["cost"]
-        byrow[w["sym"]]["status"] = f"verified_T0({res['rung']})" if res["rung"] else "T0_unsolved"
-        print(f"  {w['sym']:24s} -> {byrow[w['sym']]['status']}")
+    # bookkeeping must survive any mid-run crash — write what we have, always
+    def _dump() -> None:
+        v0 = sum(1 for r in rows if r["status"].startswith("verified_T0"))
+        v1 = sum(1 for r in rows if r["status"] == "verified_T1")
+        v1b = sum(1 for r in rows if r["status"] == "verified_T1_at_boot_state")
+        json.dump({"rows": rows, "spend": round(spend, 4), "worklist_sha": worklist_sha,
+                   "verified": v0 + v1, "verified_at_boot_state": v1b,
+                   "wall_s": round(time.time() - t_all)},
+                  open(a.out, "w"), indent=1)
 
-    # ---- execute T1 (one batched boot) ----
-    t1 = routes.get("T1_KERNEL", [])
-    if t1 and not a.skip_t1_boot:
-        print(f"\n[router] T1_KERNEL: synthesizing {len(t1)} candidates (ladder discipline)...")
-        good = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
-            for sym, rung, cost in ex.map(lambda w: t1_synth(w, a.local_attempts), t1):
-                spend += cost
-                if rung:
-                    good.append(sym)
-                    print(f"  {sym:24s} synth ok ({rung})")
-                else:
-                    byrow[sym]["status"] = "T1_synth_fail"
-                    print(f"  {sym:24s} synth FAILED")
-        t1_go = [w for w in t1 if w["sym"] in good]
-        if t1_go:
-            print(f"[router] T1_KERNEL: ONE boot verifying {len(t1_go)} candidates in-kernel...")
-            verd = t1_boot(t1_go)
-            for w in t1_go:
-                v = verd.get(w["sym"])
-                if v is None:
-                    byrow[w["sym"]]["status"] = "T1_no_verdict"
-                else:
-                    byrow[w["sym"]]["status"] = ("verified_T1" if v[0] == "PASS"
-                                                 else f"T1_rejected(bad={v[2]})")
-                print(f"  {w['sym']:24s} -> {byrow[w['sym']]['status']}")
+    try:
+        # ---- execute T0 (boot-free) ----
+        t0 = routes.get("T0_HOST", [])
+        print(f"\n[router] T0_HOST: executing ladder + hostdiff on {len(t0)} fns (boot-free)...")
+        for w in t0:
+            res = run_t0(w, a.local_attempts)
+            spend += res["cost"]
+            byrow[w["sym"]]["status"] = f"verified_T0({res['rung']})" if res["rung"] else "T0_unsolved"
+            print(f"  {w['sym']:24s} -> {byrow[w['sym']]['status']}")
+
+        # ---- execute T1 (one batched boot) ----
+        t1 = routes.get("T1_KERNEL", [])
+        if t1 and not a.skip_t1_boot:
+            print(f"\n[router] T1_KERNEL: synthesizing {len(t1)} candidates (ladder discipline)...")
+            good = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as ex:
+                for sym, rung, cost in ex.map(lambda w: t1_synth(w, a.local_attempts), t1):
+                    spend += cost
+                    if rung:
+                        good.append(sym)
+                        print(f"  {sym:24s} synth ok ({rung})")
+                    else:
+                        byrow[sym]["status"] = "T1_synth_fail"
+                        print(f"  {sym:24s} synth FAILED")
+            t1_go = [w for w in t1 if w["sym"] in good]
+            if t1_go:
+                print(f"[router] T1_KERNEL: ONE boot verifying {len(t1_go)} candidates in-kernel...")
+                verd = t1_boot(t1_go)
+                for w in t1_go:
+                    v = verd.get(w["sym"])
+                    if v is None:
+                        byrow[w["sym"]]["status"] = "T1_no_verdict"
+                    elif v[0] == "NO_VERDICT_CANARY":
+                        byrow[w["sym"]]["status"] = "T1_no_verdict_canary_failed"
+                    elif v[0] == "PASS":
+                        # A read-only fn is checked at ONE state point (boot).
+                        # That is not full behavior-equivalence — label it as
+                        # what it is.
+                        readonly = "read-only" in byrow[w["sym"]]["reason"]
+                        byrow[w["sym"]]["status"] = ("verified_T1_at_boot_state" if readonly
+                                                     else "verified_T1")
+                    else:
+                        byrow[w["sym"]]["status"] = f"T1_rejected(bad={v[2]})"
+                    print(f"  {w['sym']:24s} -> {byrow[w['sym']]['status']}")
+    finally:
+        _dump()
 
     # ---- dashboard ----
     print("\n=== UNIFIED ROUTER DASHBOARD ===")
@@ -312,13 +410,12 @@ def main() -> int:
         counts[key] = counts.get(key, 0) + 1
     v0 = sum(1 for r in rows if r["status"].startswith("verified_T0"))
     v1 = sum(1 for r in rows if r["status"] == "verified_T1")
-    print(f"  worklist {len(rows)} | VERIFIED {v0 + v1} (T0 {v0}, T1 {v1}) | spend ${spend:.4f} "
+    v1b = sum(1 for r in rows if r["status"] == "verified_T1_at_boot_state")
+    print(f"  worklist {len(rows)} | VERIFIED {v0 + v1} (T0 {v0}, T1 {v1}) "
+          f"| boot-state-only {v1b} | spend ${spend:.4f} "
           f"| wall {round(time.time() - t_all)}s")
     for k in sorted(counts):
         print(f"    {k:26s} {counts[k]}")
-    json.dump({"rows": rows, "spend": round(spend, 4),
-               "verified": v0 + v1, "wall_s": round(time.time() - t_all)},
-              open(a.out, "w"), indent=1)
     return 0
 
 

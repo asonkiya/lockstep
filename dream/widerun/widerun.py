@@ -114,8 +114,10 @@ def synth(w):
     prompt = ("Reimplement this Linux kernel function as freestanding no_std Rust "
               "(aarch64-unknown-none-softfloat), self-contained, no panics/externs/alloc, "
               "wrapping arithmetic, integer division only if the divisor is a nonzero "
-              "constant (else you cannot). If it reads any global/per-cpu/clock state you "
-              "cannot reproduce it — then just port the pure arithmetic.\n\n"
+              "constant (else you cannot). If it reads any global/per-cpu/clock state, "
+              "reply with exactly `// UNSUPPORTED` and nothing else — do NOT approximate "
+              "or freeze state; a frozen-state port can pass the boot-time differential "
+              "while being wrong at runtime.\n\n"
               f"```c\n{w['body']}\n```\n\nEmit ONLY Rust (no fences); prelude present, don't "
               f"repeat. First line `// leaf: cgir_{w['sym']}`, then:\n{rsig(w)}")
     fb, cost = None, 0.0
@@ -135,12 +137,53 @@ def synth(w):
     return w["sym"], False, cost
 
 
+# Undefined symbols a freestanding candidate object may legitimately carry
+# (compiler-emitted intrinsics). Anything else — above all the C original's
+# name — means the candidate DELEGATES instead of reimplementing: linked into
+# the kernel it would call the real C and the differential compares C with C.
+_INTRINSICS = {"memcpy", "memset", "memmove", "memcmp"}
+
+
 def _ok(sym):
     r = subprocess.run(["docker", "run", "--rm", "-v", f"{os.path.join(HERE,'cand')}:/w", IMG, "bash", "-c",
                         f"cd /w && rustc --target aarch64-unknown-none-softfloat --emit=obj -C panic=abort "
-                        f"-C relocation-model=static -O {sym}.rs -o /tmp/{sym}.o 2>/dev/null && nm /tmp/{sym}.o 2>/dev/null | grep -c cgir_{sym}"],
+                        f"-C relocation-model=static -O {sym}.rs -o /tmp/{sym}.o 2>/dev/null && nm /tmp/{sym}.o 2>/dev/null | grep -c cgir_{sym} "
+                        f"&& echo __UNDEF__ && nm -u /tmp/{sym}.o 2>/dev/null"],
                        capture_output=True, text=True)
-    return r.stdout.strip().split("\n")[-1] == "1"
+    head, sep, undef_out = r.stdout.partition("__UNDEF__")
+    if not sep or head.strip().split("\n")[-1] != "1":
+        return False
+    undef = {ln.split()[-1] for ln in undef_out.splitlines() if ln.strip()}
+    return not (undef - _INTRINSICS)
+
+
+CANARY = "lockstep_canary"
+
+
+def _canary_target(batch):
+    """The batch fn the canary diffs against (a deliberately-wrong constant
+    Rust vs the real C — expected DIFF_FAIL; a PASS or a missing line means the
+    probe machinery itself is broken and the whole batch must not be credited).
+    Skip bool returns (a constant could legitimately match everywhere)."""
+    for w in batch:
+        if w["ret"] != "bool":
+            return w
+    return None
+
+
+def canary_rs(w):
+    a = ", ".join(f"a{i}: {SCALAR[t]}" for i, t in enumerate(w["args"]))
+    return (PRELUDE + f'#[no_mangle]\npub extern "C" fn cgir_{CANARY}({a}) -> {SCALAR[w["ret"]]} '
+            f'{{ 0x5A5A5A5A as {SCALAR[w["ret"]]} }}\n')
+
+
+def _loop(sym_c, sym_rust, na):
+    call = lambda nm: f"{nm}(" + ",".join(f"i{k}" for k in range(na)) + ")"  # noqa: E731
+    if na == 1:
+        return f"for(long i0=0;i0<=1500;i0++){{c++;if({call(sym_rust)}!={call(sym_c)}){{bad++;}}}}"
+    if na == 2:
+        return f"for(long i0=1;i0<=40;i0++)for(long i1=1;i1<=40;i1++){{c++;if({call(sym_rust)}!={call(sym_c)}){{bad++;}}}}"
+    return f"for(long i0=1;i0<=12;i0++)for(long i1=1;i1<=12;i1++)for(long i2=1;i2<=12;i2++){{c++;if({call(sym_rust)}!={call(sym_c)}){{bad++;}}}}"
 
 
 def probe(batch):
@@ -148,19 +191,29 @@ def probe(batch):
     for w in batch:
         ca = ", ".join(w["args"])
         ext += [f"{w['ret']} {w['sym']}({ca});", f"{w['ret']} cgir_{w['sym']}({ca});"]
-        na = len(w["args"])
-        if na == 1:
-            lp = f"for(long i0=0;i0<=1500;i0++){{c++;if(cgir_{w['sym']}(i0)!={w['sym']}(i0)){{bad++;}}}}"
-        elif na == 2:
-            lp = f"for(long i0=1;i0<=40;i0++)for(long i1=1;i1<=40;i1++){{c++;if(cgir_{w['sym']}(i0,i1)!={w['sym']}(i0,i1)){{bad++;}}}}"
-        else:
-            lp = f"for(long i0=1;i0<=12;i0++)for(long i1=1;i1<=12;i1++)for(long i2=1;i2<=12;i2++){{c++;if(cgir_{w['sym']}(i0,i1,i2)!={w['sym']}(i0,i1,i2)){{bad++;}}}}"
-        blk.append(f'\t{{unsigned long c=0,bad=0;{lp} pr_emerg("WIDE: {w["sym"]} bad=%lu verdict=%s\\n",bad,bad?"FAIL":"PASS");}}')
+        lp = _loop(w["sym"], f"cgir_{w['sym']}", len(w["args"]))
+        # n>0 required: a loop that never ran must FAIL, not vacuously pass
+        blk.append(f'\t{{unsigned long c=0,bad=0;{lp} pr_emerg("WIDE: {w["sym"]} n=%lu bad=%lu verdict=%s\\n",c,bad,(c&&!bad)?"PASS":"FAIL");}}')
+    cw = _canary_target(batch)
+    if cw is not None:
+        ca = ", ".join(cw["args"])
+        ext += [f"{cw['ret']} cgir_{CANARY}({ca});"]
+        lp = _loop(cw["sym"], f"cgir_{CANARY}", len(cw["args"]))
+        # in-loop negative control: wrong-by-construction candidate vs the real
+        # C — the probe must REJECT it every batch, or nothing it says counts
+        blk.append(f'\t{{unsigned long c=0,bad=0;{lp} pr_emerg("WIDE: __{CANARY} n=%lu bad=%lu verdict=%s\\n",c,bad,(c&&!bad)?"PASS":"FAIL");}}')
     return ("// SPDX-License-Identifier: GPL-2.0\n#include <linux/init.h>\n#include <linux/kernel.h>\n#include <linux/types.h>\n\n"
             + "\n".join(ext) + "\n\nstatic int __init w_init(void){\n" + "\n".join(blk) + '\n\tpr_emerg("WIDE: done\\n");return 0;}\nlate_initcall(w_init);\n')
 
 
 def restore():
+    # DESTRUCTIVE: un-weaves the cumulative ratchet state on the volume (rust
+    # objects woven by rings 0/6, PTP mock config). Require explicit opt-in so
+    # a wide experiment can't silently reset the ratchet.
+    if os.environ.get("LOCKSTEP_ALLOW_RESTORE") != "1":
+        raise SystemExit("restore() would un-weave the ratchet volume state "
+                         "(woven rust objects, PTP mock). Set LOCKSTEP_ALLOW_RESTORE=1 "
+                         "to proceed deliberately.")
     files = "drivers/ptp/ptp_mock.c drivers/ptp/Makefile lib/math/int_sqrt.c lib/math/int_pow.c lib/hweight.c lib/Makefile lib/math/Makefile lib/math/lcm.c crypto/Makefile"
     subprocess.run(["docker", "run", "--rm", "-v", f"{VOL}:/build", "-v", f"{KSRC}:/src:ro", IMG, "bash", "-c",
                     f"cd /build/linux && for f in {files}; do cp /src/$f $f 2>/dev/null||true; done && rm -f drivers/ptp/*_regions.o_shipped lib/math/*_rust.o_shipped lib/*_rust.o_shipped && rm -rf crypto/lockstep_gate && make -s olddefconfig >/dev/null 2>&1||true"], capture_output=True)
@@ -174,11 +227,17 @@ def build_boot(batch, tag):
         if not cur:
             return {}, dropped
         open(os.path.join(HERE, "wide_probe.c"), "w").write(probe(cur))
-        objs = " ".join(f"{w['sym']}_c.o" for w in cur)
+        cw = _canary_target(cur)
+        if cw is not None:
+            open(os.path.join(HERE, "cand", f"__{CANARY}.rs"), "w").write(canary_rs(cw))
+        objs = " ".join(f"{w['sym']}_c.o" for w in cur) + (f" __{CANARY}_c.o" if cw else "")
         s = f"cd /build/linux && mkdir -p {GATE} && grep -q 'lockstep_gate/' crypto/Makefile||echo 'obj-y += lockstep_gate/'>>crypto/Makefile; cd {GATE} && rm -f *.c *.o *.o_shipped && cp /p/wide_probe.c .;"
-        for i, w in enumerate(cur):
-            loc = "" if i == 0 else f" && aarch64-linux-gnu-objcopy --wildcard --localize-symbol '*rust_begin_unwind*' {w['sym']}_c.o_shipped"
-            s += f"rustc --target aarch64-unknown-none-softfloat --emit=obj -C panic=abort -C relocation-model=static -O /cand/{w['sym']}.rs -o {w['sym']}_c.o_shipped{loc};"
+        rs_list = [(w["sym"], f"/cand/{w['sym']}.rs") for w in cur]
+        if cw is not None:
+            rs_list.append((f"__{CANARY}", f"/cand/__{CANARY}.rs"))
+        for i, (sym, rs) in enumerate(rs_list):
+            loc = "" if i == 0 else f" && aarch64-linux-gnu-objcopy --wildcard --localize-symbol '*rust_begin_unwind*' {sym}_c.o_shipped"
+            s += f"rustc --target aarch64-unknown-none-softfloat --emit=obj -C panic=abort -C relocation-model=static -O {rs} -o {sym}_c.o_shipped{loc};"
         s += f"printf 'obj-y := wide_probe.o {objs}\\n'>Kbuild"
         subprocess.run(["docker", "run", "--rm", "-v", f"{VOL}:/build", "-v", f"{HERE}:/p:ro", "-v", f"{os.path.join(HERE,'cand')}:/cand:ro", IMG, "bash", "-euc", s], capture_output=True)
         b = subprocess.run(["docker", "run", "--rm", "-v", f"{VOL}:/build", IMG, "bash", "-c",
@@ -205,9 +264,20 @@ def build_boot(batch, tag):
     open(os.path.join(HERE, f"wide-{tag}-console.txt"), "w").write(con)
     verd = {}
     for ln in con.splitlines():
-        m = re.search(r"WIDE: (\w+) bad=(\d+) verdict=(PASS|FAIL)", ln)
+        m = re.search(r"WIDE: (\w+) n=(\d+) bad=(\d+) verdict=(PASS|FAIL)", ln)
         if m:
-            verd[m.group(1)] = (m.group(3), int(m.group(2)))
+            status = m.group(4) if int(m.group(2)) > 0 else "FAIL"  # never credit n=0
+            verd[m.group(1)] = (status, int(m.group(3)))
+    # canary judgment: the wrong-by-construction candidate must be REJECTED.
+    # Missing line = probe never ran; PASS = probe compares nothing. Either way
+    # no PASS in this batch can be credited.
+    cw = _canary_target([w for w in batch if w["sym"] not in dropped])
+    if cw is not None:
+        cv = verd.pop(f"__{CANARY}", None)
+        if cv is None or cv[0] == "PASS":
+            print(f"  [{tag}] CANARY {'missing' if cv is None else 'PASSED'} — "
+                  f"probe not trustworthy, batch NOT credited")
+            return {s: ("NO_VERDICT_CANARY", -1) for s in verd}, dropped
     return verd, dropped
 
 
@@ -247,11 +317,15 @@ def main():
             print(f"  batch {bi+1} build unrecoverable"); continue
         allv.update(verd); alldrop.update(dropped)
         npass = sum(1 for v in verd.values() if v[0] == "PASS")
-        print(f"  batch {bi+1}: {npass}/{len(verd)} PASS, {len(dropped)} dropped")
+        ncanary = sum(1 for v in verd.values() if v[0] == "NO_VERDICT_CANARY")
+        note = f", {ncanary} voided (canary failed)" if ncanary else ""
+        print(f"  batch {bi+1}: {npass}/{len(verd)} PASS, {len(dropped)} dropped{note}")
     npass = sum(1 for v in allv.values() if v[0] == "PASS")
+    nvoid = sum(1 for v in allv.values() if v[0] == "NO_VERDICT_CANARY")
     result = {"harvested": len(harvested), "pure_routed": len(work), "quarantined": len(quarantined),
               "compiled": len(compiled), "boot_attempted": len(allv),
-              "verified_pass": npass, "rejected": len(allv) - npass, "dropped_unlinkable": len(alldrop),
+              "verified_pass": npass, "rejected": len(allv) - npass - nvoid,
+              "voided_canary_failed": nvoid, "dropped_unlinkable": len(alldrop),
               "synth_cost_usd": round(total, 4), "elapsed_min": round((time.time() - t0) / 60, 1),
               "pass_syms": sorted(k for k, v in allv.items() if v[0] == "PASS"),
               "reject_syms": sorted(k for k, v in allv.items() if v[0] == "FAIL")}

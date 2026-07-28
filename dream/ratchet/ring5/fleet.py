@@ -122,11 +122,19 @@ def synth_one(item):
             ["docker", "run", "--rm", "-v", f"{HERE}:/w", IMG, "bash", "-c",
              f"cd /w && rustc --target aarch64-unknown-none-softfloat --emit=obj "
              f"-C panic=abort -C relocation-model=static -O {item['obj']}.rs -o /tmp/{item['obj']}.o "
-             f"&& nm /tmp/{item['obj']}.o | grep -c {item['seam']}"],
+             f"&& nm /tmp/{item['obj']}.o | grep -c {item['seam']} "
+             f"&& echo __UNDEF__ && nm -u /tmp/{item['obj']}.o"],
             capture_output=True, text=True)
-        if rc.stdout.strip().split("\n")[-1] == "1":
+        head, sep, undef_out = rc.stdout.partition("__UNDEF__")
+        # undefined symbols => the candidate delegates to the C it should replace
+        undef = {ln.split()[-1] for ln in undef_out.splitlines() if ln.strip()}
+        undef -= {"memcpy", "memset", "memmove", "memcmp"}
+        if sep and head.strip().split("\n")[-1] == "1" and not undef:
             return item["seam"], True, cost
-        feedback = f"rustc: {(rc.stdout + rc.stderr)[:250]}"
+        if undef:
+            feedback = f"no extern references allowed, found: {sorted(undef)}"
+        else:
+            feedback = f"rustc: {(rc.stdout + rc.stderr)[:250]}"
     return item["seam"], False, cost
 
 

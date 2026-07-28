@@ -45,7 +45,14 @@ def sh(vol, script, mounts=None, capture=True):
 
 def restore_pristine(vol):
     """Reset a volume's tree to pristine C (undo any weave) so differential
-    gating has real C references."""
+    gating has real C references.
+
+    DESTRUCTIVE: this un-weaves cumulative ratchet state (rings 0/6 rust
+    objects, PTP mock config). Gated behind LOCKSTEP_ALLOW_RESTORE=1 so a
+    parallel run can't silently reset the ratchet."""
+    if os.environ.get("LOCKSTEP_ALLOW_RESTORE") != "1":
+        raise SystemExit(f"restore_pristine({vol}) would un-weave ratchet state. "
+                         "Set LOCKSTEP_ALLOW_RESTORE=1 to proceed deliberately.")
     files = ("drivers/ptp/ptp_mock.c drivers/ptp/Makefile lib/math/int_sqrt.c "
              "lib/math/int_pow.c lib/hweight.c lib/Makefile lib/math/Makefile "
              "lib/math/lcm.c crypto/Makefile")

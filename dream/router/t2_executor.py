@@ -141,6 +141,14 @@ def main() -> int:
     t2_syms = [r["func"] for r in rr["rows"] if r["route"] == "T2_MIRROR"]
     src_work = json.load(open(a.worklist)) if a.worklist else widerun.harvest()
     work = {w["sym"]: w for w in src_work}
+    # refuse a stale pairing: the router result must come from THIS worklist
+    # (the "wrong worklist" incident class)
+    import hashlib
+    sha = hashlib.sha256("\n".join(sorted(work)).encode()).hexdigest()[:16]
+    rr_sha = rr.get("worklist_sha")
+    if rr_sha is not None and rr_sha != sha:
+        raise SystemExit(f"[t2] router_result.json was produced from a DIFFERENT worklist "
+                         f"(router {rr_sha} vs harvested {sha}) — re-run router.py first")
     pn = set()
     for _ in range(3):
         pn = {w["sym"] for w in work.values() if purity.classify(w["body"], pn, w["sym"])[0] == "pure"}
@@ -148,7 +156,12 @@ def main() -> int:
     print(f"[t2] refining {len(t2_syms)} census-B routees...")
     rows, promote = [], []
     for sym in t2_syms:
-        w = work[sym]
+        w = work.get(sym)
+        if w is None:  # routed sym absent from this harvest — skip, don't crash
+            rows.append({"func": sym, "sub": "MISSING", "reason": "not in current worklist",
+                         "status": "skipped_missing"})
+            print(f"  {sym:26s} MISSING from worklist — skipped")
+            continue
         sub, why = refine(w, pn)
         row = {"func": sym, "sub": sub, "reason": why, "status": "routed"}
         if sub == "PARAM_STRUCT":
@@ -189,7 +202,9 @@ def main() -> int:
                 verd = router.t1_boot(good)
                 for w in good:
                     v = verd.get(w["sym"])
-                    st = "verified_T2->T1" if (v and v[0] == "PASS") else \
+                    # promoted fns are read-only global reads: the differential
+                    # samples ONE state point (boot) — label the credit as such
+                    st = "verified_T2->T1_at_boot_state" if (v and v[0] == "PASS") else \
                          (f"T1_rejected(bad={v[2]})" if v else "T1_no_verdict")
                     for r in rows:
                         if r["func"] == w["sym"]:

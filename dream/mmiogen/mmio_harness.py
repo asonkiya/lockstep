@@ -78,9 +78,21 @@ OUT_OF_TRACE = re.compile(r"\b(gpiochip_(?:enable|disable)_irq|gpiochip_(?:lock|
                           r"raw_spin_(?:lock|unlock)\w*|spin_(?:lock|unlock)\w*|irq_chip_\w+)\s*\(")
 
 
+CONTROL = re.compile(r"\b(if|else|for|while|switch|goto|do)\b")
+
+
 def extract(src: str, fn: str, defs: dict[str, int]) -> dict:
     body = func_body(src, fn)
     inner = body[body.index("{") + 1: body.rindex("}")]
+    # Splitting on ';' has no statement grammar: `if (cond) writel(...);` would
+    # extract as an UNCONDITIONAL write — and since both the C ref and the Rust
+    # candidate are emitted from the same lossy program, a wrong extraction
+    # replays identically against its own oracle and reports CLOSED. Any
+    # control flow => refuse, never guess.
+    masked = re.sub(r"/\*.*?\*/", " ", re.sub(r"//[^\n]*", "", inner), flags=re.DOTALL)
+    cm = CONTROL.search(masked)
+    if cm:
+        raise Unsupported(f"control flow `{cm.group(1)}` in body — ';'-split would erase it")
     # the statements after the struct prologue (drop lines that only plumb structs)
     stmts, out_of_trace = [], []
     for raw in inner.split(";"):

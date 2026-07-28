@@ -41,8 +41,10 @@ docker run --rm -v "$VOL":/build "$IMG" bash -c "
 " > "$OUT/ring2-console.txt"
 
 grep -E "BATCH_PROBE:" "$OUT/ring2-console.txt" || echo "  (no BATCH_PROBE)"
-pass=$(grep -c "verdict=DIFF_PASS" "$OUT/ring2-console.txt" || true)
-fail=$(grep -c "verdict=DIFF_FAIL" "$OUT/ring2-console.txt" || true)
+# Anchor to our own probe prefix: an unanchored grep counts verdict= lines from
+# any other probe woven into the same image, skewing the count.
+pass=$(grep "BATCH_PROBE:" "$OUT/ring2-console.txt" | grep -c "verdict=DIFF_PASS" || true)
+fail=$(grep "BATCH_PROBE:" "$OUT/ring2-console.txt" | grep -c "verdict=DIFF_FAIL" || true)
 echo "[ring2] leaves passing: $pass / 4  (failing: $fail)"
 : > "$OUT/ring2-verdicts.txt"
 for f in int_pow hweight32 hweight64 gcd; do

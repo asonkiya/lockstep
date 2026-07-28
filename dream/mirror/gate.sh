@@ -10,7 +10,10 @@ G="$(cd "$(dirname "$0")" && pwd)"; VOL=cgir-kbuild; IMG=cgir-kernel-gate; GATE=
 python3 "$G/generate.py"
 
 echo "=== (1) rustc: do the Rust const-asserts hold? (rustc agrees with the generator) ==="
-docker run --rm -v "$G":/g:ro "$IMG" bash -c \
+# bash -eo pipefail like leg (2): without it, `head`'s exit status wins the
+# pipeline and RUST_OK prints even when the const-asserts FAIL to compile —
+# leg (1) of the ABI-proof triangle was vacuous.
+docker run --rm -v "$G":/g:ro "$IMG" bash -eo pipefail -c \
   "cd /g && rustc --target aarch64-unknown-none-softfloat --crate-type=lib -C panic=abort out_mirrors.rs -o /tmp/m.rlib 2>&1 | head -6 && echo RUST_OK" \
   | tee /tmp/mir_rust.log
 grep -q RUST_OK /tmp/mir_rust.log && echo "  ✓ rustc-layout matches generator" || { echo "  ✗ rustc const-assert failed"; exit 1; }

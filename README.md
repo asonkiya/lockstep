@@ -45,6 +45,29 @@ course teaching everything here from first principles).
   (`dream/ladder/`, `dream/COSTDOWN.md`).
 - **Formal tier:** `__sw_hweight32`/`64` proven equal to spec over their FULL
   2^32/2^64 domains via Kani/CBMC in 0.09s (`dream/formal/`).
+- **One loop that routes the whole worklist:** the multi-tier router classifies
+  each function (census + purity + linkability) and sends it to the strongest
+  oracle it can *soundly* use — T0 boot-free hostdiff, T1 in-kernel differential,
+  T2 mirror, T3 recorder — then executes the two automatable tiers. On the
+  widerun's 72 functions it produced **9 sound verdicts (5 boot-free, 4 in one
+  shared boot) for $0.004, zero false passes**, with the rest routed and their
+  per-family artifact named rather than silently passed. Aimed at a
+  `drivers/{gpio,ptp,clk}` worklist (102 functions) the previously-empty deep
+  buckets fill: 40 route to the MMIO recorder, 40 to the struct mirror
+  (`dream/router/`, `router_result.json`, `DRIVER-RUN.md`). Soundness is
+  structural — nothing is placed in a weaker oracle than its class requires, so
+  the widerun's over-crediting bug is unrepresentable.
+- **Automated per-driver MMIO harness (mechanism demonstration):** a generator
+  extracts a real in-tree driver function's register program, seam-adapts it to
+  a C reference, and drives record/replay — both host-side and woven into a
+  booting kernel — where a deliberately wrong-register mutant is rejected on the
+  trace. It closes 3 of the router's 40 T3_TRACE routees on the clean
+  constant-offset pattern (the other 37 are an itemized extractor backlog).
+  **Caveat:** here the candidate is generator-emitted from the *same* extracted
+  register program as the reference, with non-vacuity shown only by the injected
+  mutant — this proves the harness *mechanism* (extract → record → replay →
+  reject-the-wrong-trace), not an independent model rewrite verified against an
+  oracle (`dream/mmiogen/`, `RESULTS.md`, `INKERNEL.md`).
 
 ## What's reusable outside this project
 
@@ -55,6 +78,8 @@ repo's targets:
 |---|---|---|
 | `dream/hostdiff/` | boot-free differential oracle: compile the real C TU with a shim, auto-generate a probe from the C signature, diff any Rust candidate — seconds | anyone verifying a C→Rust rewrite of pure functions |
 | `dream/recorder/` | record a driver's MMIO access trace once; replay every candidate against the frozen trace with **no device present** | driver migration where the hardware is the only oracle |
+| `dream/mmiogen/` | auto-generate a per-driver record/replay harness from real in-tree driver source: extract the register program → seam-adapted C ref → gate (host + in-kernel) | driver work wanting a harness without hand-scaffolding each function |
+| `dream/router/` | classify a worklist and route each function to its strongest *sound* oracle (T0-T3); execute the boot-free and one-boot tiers | anyone running a rewrite pipeline who needs soundness by construction |
 | `dream/mirror/` | generate `#[repr(C)]` struct mirrors from C headers, proven ABI-correct two independent ways (rustc const-asserts + `BUILD_BUG_ON`) | any FFI boundary that must be byte-exact |
 | `dream/cluster/` | weave a function *and its private static helpers* out of a C TU as one Rust object, verified at the exported boundary | any in-place C→Rust migration hitting `-Werror=unused-function` |
 | `dream/ladder/` | the c2rust → local model → API model escalation loop, gate-arbitrated | anyone who wants translation without an API bill |
@@ -72,9 +97,11 @@ rfc-export/   M5 — checkpatch-clean git-am-able RFC series emitter
 docs/         design.md (the original design), architecture + getting started
 dream/        the full-kernel ratchet and everything it learned:
   ratchet/      manifest + weaver + rings 0-9 (woven, booting Rust kernel states)
+  router/       the one loop: route each fn to its strongest sound oracle (T0-T3), run T0/T1
   diffgate/     in-kernel differential oracle (C _ref vs Rust, one kernel)
   sweep/ widerun/  the 24k census + production-scale runs + the purity router
   recorder/ mirror/ cluster/   the three critical-path libraries
+  mmiogen/      per-driver MMIO-record harness generator (extract → seam → record/replay)
   hostdiff/ localmodel/ ladder/  boot-free oracle + $0 synthesis
   concgate/ exhaustive/ formal/  concurrency gate, exhaustion, Kani/CBMC
   RESEARCH.md SWEEP.md PRIOR-ART.md COSTDOWN.md SUMMARY.md   the findings

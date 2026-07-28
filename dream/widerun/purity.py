@@ -59,6 +59,50 @@ NONCALL = {"if", "for", "while", "switch", "return", "sizeof", "do", "else",
            "int", "long", "unsigned", "u32", "u64", "s32", "s64", "void", "bool",
            "char", "short", "size_t", "typeof", "__typeof__"}
 
+# Tokens that are never state: keywords, types, qualifiers, literals.
+KEYWORDS = NONCALL | {
+    "break", "continue", "goto", "case", "default", "static", "inline", "const",
+    "volatile", "register", "signed", "float", "double", "struct", "union", "enum",
+    "u8", "u16", "s8", "s16", "uint8_t", "uint16_t", "uint32_t", "uint64_t",
+    "int8_t", "int16_t", "int32_t", "int64_t", "ssize_t", "true", "false", "NULL",
+    "__always_inline", "__maybe_unused", "__pure", "__attribute_const__",
+    "noinline", "__init", "__exit", "__force", "__user", "__iomem", "__must_check",
+}
+
+_DECL = re.compile(
+    r"\b(?:const\s+|unsigned\s+|signed\s+|volatile\s+|register\s+|static\s+)*"
+    r"(?:int|long|short|char|bool|size_t|ssize_t|unsigned|"
+    r"u8|u16|u32|u64|s8|s16|s32|s64|"
+    r"uint8_t|uint16_t|uint32_t|uint64_t|int8_t|int16_t|int32_t|int64_t)"
+    r"(?:\s+long)?(?:\s+int)?\s+(\w+(?:\s*,\s*\w+)*)"
+)
+
+# Writes that make a body effectful even without a kernel marker: assignment or
+# ++/-- on a bare identifier (postfix/prefix) or through an index. `==`, `<=`
+# etc. don't match; `.field`/`->field` are excluded here (handled elsewhere).
+_ASSIGN = re.compile(r"(?<![\w.>])([A-Za-z_]\w*)\s*(?:=[^=]|\+\+|--|[-+|&^]=|<<=|>>=)")
+_PREINC = re.compile(r"(?:\+\+|--)\s*([A-Za-z_]\w*)")
+_IDX_ASSIGN = re.compile(r"(?<![\w.>])([A-Za-z_]\w*)\s*\[[^\]]*\]\s*(?:=[^=]|[-+|&^]=)")
+
+
+def owned_names(body: str) -> set[str]:
+    """Parameter names + declared locals — the only identifiers a PURE scalar
+    leaf may read or write. Everything else is (potential) global state."""
+    b = mask(body)
+    hdr = b.find("{")
+    header, inner = (b[:hdr], b[hdr:]) if hdr > 0 else ("", b)
+    names: set[str] = set()
+    m = re.search(r"\(([^)]*)\)\s*$", header.strip())
+    if m:
+        for piece in m.group(1).split(","):
+            ids = re.findall(r"[A-Za-z_]\w*", piece)
+            if ids and piece.strip() != "void":
+                names.add(ids[-1])
+    for decl in _DECL.finditer(inner):
+        for n in decl.group(1).split(","):
+            names.add(n.strip())
+    return names
+
 
 # side-effect markers: writes state / has an observable effect. A read-only
 # function (reads state but writes/does nothing) can be checked by the in-kernel
@@ -80,7 +124,20 @@ EFFECT = re.compile(
 def has_effect(body: str) -> bool:
     b = mask(body)
     hdr = b.find("{")
-    return bool(EFFECT.search(b[hdr:] if hdr > 0 else b))
+    scan = b[hdr:] if hdr > 0 else b
+    if EFFECT.search(scan):
+        return True
+    # A write to anything that is not a param or declared local is an effect —
+    # the named-marker blocklist alone missed plain global writes (`counter++`,
+    # `total = total + x`), the exact class the router was built to quarantine.
+    owned = owned_names(body) | KEYWORDS
+    for m in _ASSIGN.finditer(scan):
+        if m.group(1) not in owned:
+            return True
+    for m in _PREINC.finditer(scan):
+        if m.group(1) not in owned:
+            return True
+    return any(m.group(1) not in owned for m in _IDX_ASSIGN.finditer(scan))
 
 
 def mask(s):
@@ -128,6 +185,30 @@ def classify(body: str, pure_names: set, own: str = "") -> tuple[str, str]:
         if c in NONCALL or c in PURE_CALL or c in pure_names or c == own:
             continue
         return "impure", f"calls non-pure `{c}`"
+    # WHITELIST, not blocklist: every remaining identifier must be a param, a
+    # declared local, or a known-pure name. A bare global (`counter`, a lookup
+    # table, an enum we can't see) is state — the docstring's "args + locals
+    # only" claim was not actually enforced, so `counter++; total += x` was
+    # classified pure and routed to the scalar differential, where an
+    # effect-dropping candidate passes. Anything unresolved => impure.
+    known = (
+        owned_names(body)
+        | KEYWORDS
+        | PURE_CALL
+        | set(CALL.findall(scan))  # call names are vetted by the loop above
+        | pure_names
+        | {own}
+    )
+    for ident in re.findall(r"\b[A-Za-z_]\w*\b", scan):
+        if ident in known:
+            continue
+        # ALL_CAPS = macro / enum / limit constant by kernel convention — a
+        # compile-time value, so READING it is pure (a wrong value in the Rust
+        # still fails the differential). Writes are caught by has_effect
+        # regardless of case. Lowercase unresolved (a table, a global) => state.
+        if re.fullmatch(r"[A-Z][A-Z0-9_]+", ident):
+            continue
+        return "impure", f"unresolved identifier `{ident}` (possible global state)"
     return "pure", "scalar arithmetic on args only"
 
 
