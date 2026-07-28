@@ -23,8 +23,8 @@ M3: PASS — cost=$0.0028, attempts=1
    inside the `SpinLock`, the whole critical section in one guard scope, exact C
    semantics (`buf[head % SIZE] = c; head += 1; count += 1`).
 
-Pipeline: `synthesize.py --live` — extract IR from the stock C (`m1/extract.py`
-on `m2/ring_stock.c`), build the prompt (IR + catalog + scaffold API), sample,
+Pipeline: `synthesize.py --live` — extract IR from the stock C (`extraction/extract.py`
+on `transplant/ring_stock.c`), build the prompt (IR + catalog + scaffold API), sample,
 install the candidate as `harness/src/region.rs`, gate. Up to k=3 attempts with
 failure feedback; 1 was needed.
 

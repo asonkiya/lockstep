@@ -21,7 +21,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 RATCHET = os.path.dirname(HERE)
 RING5 = os.path.join(RATCHET, "ring5")
-KSRC = "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux"
+KSRC = os.environ.get("KSRC", "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux")
 IMG = "cgir-kernel-gate"
 OUT = os.path.join(RATCHET, "out")
 sys.path.insert(0, RING5)

@@ -23,8 +23,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-sys.path.insert(0, os.path.join(REPO, "m3"))
-sys.path.insert(0, os.path.join(REPO, "m4"))
+sys.path.insert(0, os.path.join(REPO, "synthesis"))
+sys.path.insert(0, os.path.join(REPO, "kernel-gate"))
 from synthesize import CATALOG, _api_key, parse_candidate  # noqa: E402
 from synthesize_kernel import sabotage  # noqa: E402  (same markers)
 

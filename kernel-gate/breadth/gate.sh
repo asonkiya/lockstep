@@ -1,6 +1,6 @@
 #!/bin/bash
 # M4 breadth — in-kernel gate for the ptp_mock cluster transplant (4 regions).
-# Same discipline as the depth leg (m4/gate.sh): three legs, each = install in
+# Same discipline as the depth leg (kernel-gate/gate.sh): three legs, each = install in
 # crypto/lockstep_gate, incremental KCSAN Image build, QEMU SMP boot, verdicts
 # from the console. "probe-KCSAN" = reports naming lockstep_* symbols.
 #

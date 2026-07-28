@@ -21,7 +21,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-sys.path.insert(0, os.path.join(REPO, "m1"))
+sys.path.insert(0, os.path.join(REPO, "extraction"))
 from extract import _functions, _mask_comments, extract  # noqa: E402
 
 STOCK = os.path.join(HERE, "ptp_mock_stock.c")

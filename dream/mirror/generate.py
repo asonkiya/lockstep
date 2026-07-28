@@ -9,7 +9,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import mirror  # noqa: E402
 
-KSRC = "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux"
+KSRC = os.environ.get("KSRC", "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux")
 # (struct, defining header) — real kernel structs, mixed scalar/ptr/fnptr/align
 TARGETS = [
     ("clk_div_table", "include/linux/clk-provider.h"),

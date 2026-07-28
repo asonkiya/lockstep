@@ -17,10 +17,10 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
-sys.path.insert(0, os.path.join(REPO, "m5"))
+sys.path.insert(0, os.path.join(REPO, "rfc-export"))
 from emit import EXTERN_BLOCK, NEW_BODIES  # noqa: E402  (the verified shells)
 
-WINNER = os.path.join(REPO, "m4", "breadth", "winner_phc.rs")
+WINNER = os.path.join(REPO, "kernel-gate", "breadth", "winner_phc.rs")
 RING0 = os.path.join(HERE, "ring0")
 
 SEAMS = {

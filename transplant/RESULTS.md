@@ -2,7 +2,7 @@
 
 M2 transplants one critical section — the ring buffer's `ring_push`/`ring_count`
 from M1 — out of C and into a Rust `SpinLock<T>` guard, by hand, through the
-mechanical steps, and puts it through the gate. `python3 m2/gate.py` runs the
+mechanical steps, and puts it through the gate. `python3 transplant/gate.py` runs the
 whole proof; it is green.
 
 ## The transplant

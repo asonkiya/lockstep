@@ -1,51 +1,153 @@
 # Lockstep
 
-**Verified region-level transplant of concurrent C into Rust.**
+**Verified C→Rust rewriting of the Linux kernel — oracle-first.**
 
-The companion to [CGIR](https://github.com/asonkiya/llm-semantic-compilers).
-CGIR rewrites a codebase's pure-computational core, function by function,
-verified end-to-end. Lockstep targets the part CGIR deliberately cannot reach:
-the concurrent, stateful, memory-disciplined code that is most of an operating
-system by volume — where a function's meaning is its locking, ownership, and
-memory ordering, not its arithmetic.
+Lockstep is a research project and toolkit for migrating real kernel C to Rust
+where every accepted rewrite is **gated by a sound check**, never by trust in
+the generator. The generator (a transpiler, a local model, an API model — it
+doesn't matter) proposes; a battery of oracles disposes: bit-exact
+differentials against the original C, recorded MMIO traces for drivers,
+compile-time struct-layout proofs, KCSAN/lockdep race gates inside a booting
+kernel, and bounded model checking for the arithmetic core. Across every run in
+this repo, the false-pass count is **zero** — and that discipline, not the
+translation, is the project.
+
+Companion to [CGIR](https://github.com/asonkiya/llm-semantic-compilers) (the
+pure-function rewriter this grew out of) and
+[lockstep-course](https://github.com/asonkiya/lockstep-course) (a 16-lesson
+course teaching everything here from first principles).
+
+## Headline results (all reproducible from this repo)
+
+- **Real Rust in a booting Linux kernel:** in-tree C functions excised and
+  replaced by freestanding Rust objects, linked into vmlinux, boot-verified —
+  10/18 functions (55.6%) of the tracked set Rust across 5 source files at the
+  ratchet's last woven state, every one differentially equal to its C original
+  against the live kernel (`dream/ratchet/`).
+- **The sabotage always gets convicted:** every gate ships a negative control.
+  KCSAN has named a sabotaged Rust region in its racing stack while the clock
+  ran backwards 98×; a skip-the-status-poll driver rewrite that returns the
+  *identical value* was rejected on its register trace; a bug planted inside a
+  private helper was caught through the exported boundary.
+- **The census:** 24,194 real kernel functions classified — ~89% mechanically
+  reachable for this approach, ~11% entangled C-forever floor; and the deeper
+  split, **reachable ≠ verifiable** (~17% strongly provable / ~73% weakly /
+  ~11% by design unverifiable) — the "oracle wall" (`dream/SWEEP.md`,
+  `dream/RESEARCH.md`).
+- **Verification without booting:** `hostdiff` verifies a rewrite of a pure
+  kernel function against the *real kernel TU* on the host — 2M differential
+  cases in ~0.3s vs a ~247s boot cycle (~900×), same bit-exact oracle
+  (`dream/hostdiff/`).
+- **Synthesis is basically free:** a cheapest-first ladder (c2rust → local
+  14B model → API model) with the oracle as arbiter. Sound gates make
+  synthesizer quality a wall-clock knob, not a correctness knob; the
+  deterministic rung swept the fleet battery 8/8 at $0.0000
+  (`dream/ladder/`, `dream/COSTDOWN.md`).
+- **Formal tier:** `__sw_hweight32`/`64` proven equal to spec over their FULL
+  2^32/2^64 domains via Kani/CBMC in 0.09s (`dream/formal/`).
+
+## What's reusable outside this project
+
+Each tool is small, self-contained Python/shell, and generalizes past this
+repo's targets:
+
+| tool | what it does | for whom |
+|---|---|---|
+| `dream/hostdiff/` | boot-free differential oracle: compile the real C TU with a shim, auto-generate a probe from the C signature, diff any Rust candidate — seconds | anyone verifying a C→Rust rewrite of pure functions |
+| `dream/recorder/` | record a driver's MMIO access trace once; replay every candidate against the frozen trace with **no device present** | driver migration where the hardware is the only oracle |
+| `dream/mirror/` | generate `#[repr(C)]` struct mirrors from C headers, proven ABI-correct two independent ways (rustc const-asserts + `BUILD_BUG_ON`) | any FFI boundary that must be byte-exact |
+| `dream/cluster/` | weave a function *and its private static helpers* out of a C TU as one Rust object, verified at the exported boundary | any in-place C→Rust migration hitting `-Werror=unused-function` |
+| `dream/ladder/` | the c2rust → local model → API model escalation loop, gate-arbitrated | anyone who wants translation without an API bill |
+| `dream/widerun/purity.py` | conservative purity router: not-provably-pure = quarantined | keeping a value-differential pipeline sound |
+
+## Repository map
+
+```
+baseline/     M0 — boot real Linux under KCSAN+lockdep, capture the baseline
+extraction/   M1 — concurrency IR: which lock protects which field (TSan-crosschecked)
+transplant/   M2 — first hand transplant: SpinLock<T> region, loom-proven
+synthesis/    M3 — first model-synthesized region ($0.0028), gate rejects its own sabotage
+kernel-gate/  M4 — in-kernel gates: KCSAN convicts sabotage BY NAME (depth + breadth)
+rfc-export/   M5 — checkpatch-clean git-am-able RFC series emitter
+docs/         design.md (the original design), architecture + getting started
+dream/        the full-kernel ratchet and everything it learned:
+  ratchet/      manifest + weaver + rings 0-9 (woven, booting Rust kernel states)
+  diffgate/     in-kernel differential oracle (C _ref vs Rust, one kernel)
+  sweep/ widerun/  the 24k census + production-scale runs + the purity router
+  recorder/ mirror/ cluster/   the three critical-path libraries
+  hostdiff/ localmodel/ ladder/  boot-free oracle + $0 synthesis
+  concgate/ exhaustive/ formal/  concurrency gate, exhaustion, Kani/CBMC
+  RESEARCH.md SWEEP.md PRIOR-ART.md COSTDOWN.md SUMMARY.md   the findings
+```
+
+Every subdirectory has a `RESULTS.md` (or `RINGn.md`) with the measured
+numbers, and most have a `gate.sh` that reproduces them.
+
+## Quickstart (no kernel build required)
+
+The host-side gates run in seconds with just `cc`, `rustc`, and Python 3:
+
+```bash
+# the boot-free differential oracle: 7 real kernel fns, ~16M cases, ~10s
+KSRC=/path/to/linux bash dream/hostdiff/gate.sh
+
+# static-cluster weaving: orphan shown, avoided, boundary-verified
+KSRC=/path/to/linux bash dream/cluster/gate.sh
+
+# the MMIO trace recorder: record/replay, value-identical bug rejected on trace
+bash dream/recorder/gate.sh
+```
+
+`KSRC` points at any Linux source checkout (no build needed for these — the
+tools read the C source). The in-kernel gates (ratchet, diffgate, concgate,
+mirror's kernel leg) additionally need the containerized kbuild+QEMU harness —
+see [`docs/GETTING-STARTED.md`](docs/GETTING-STARTED.md).
 
 ## The idea in one paragraph
 
-A function boundary is the wrong seam for concurrent code: the invariants span it
-(a lock taken here protects a field touched there). So Lockstep's unit of rewrite
-is a **semantic region** — a critical section, an RCU epoch, an ownership span —
-transplanted into the Rust-for-Linux abstraction that *encodes* the invariant in
-its type system (a `SpinLock<T>` guard, an `Rcu<T>` pointer, a `KBox<T>`), and
-verified not by byte-identical output (wrong equivalence for concurrent code) but
-by a **dynamic sanitizer battery** — KCSAN, lockdep, KUnit, syzkaller — run
-stock-vs-transplant under adversarial load. A transplant is accepted only if it is
-race-clean and deadlock-clean where stock is, with the same functional behavior.
+A function boundary is the wrong seam for concurrent code: the invariants span
+it (a lock taken here protects a field touched there). So for concurrent
+regions Lockstep's unit of rewrite is a **semantic region** — a critical
+section, an RCU epoch — transplanted into the Rust-for-Linux abstraction that
+*encodes* the invariant in its type system (`SpinLock<T>`, `Rcu<T>`), and
+verified not by output comparison (wrong equivalence for concurrency) but by
+the kernel's own **dynamic sanitizer battery** — KCSAN, lockdep, KUnit — run
+stock-vs-transplant under load, accepting only "no new findings vs. baseline."
+For everything else — the pure and struct-reading majority — the C original is
+its own oracle, and the differentials/trace-replays above apply. The full
+design is [`docs/design.md`](docs/design.md); the honest accounting of what
+can never be reached is `dream/SWEEP.md`.
 
-## Why it's plausible now
+## Honest scope
 
-CGIR just proved the foundation: a cheap model produces correct, verified Rust
-rewrites of pure kernel functions at ~$0.007 each with zero false passes, and a
-Rust object now links into `vmlinux` and is verified **inside a booting Linux
-kernel** by the kernel's own execution — with a negative control that caught a
-vacuous gate before it could lie. Lockstep inherits that harness (containerized
-kbuild + QEMU) and that discipline (the wrong candidate is what proves the right
-one means something).
-
-## New to the concurrency side?
-
-The from-zero learning course (syllabus + conversational lessons with coding
-exercises) lives in its own repo: **[lockstep-course](https://github.com/asonkiya/lockstep-course)**.
-
-
-## Status
-
-**Design.** See [`docs/design.md`](docs/design.md) for the architecture, the
-concurrency-aware IR, the oracle stack, the milestone ladder (M0–M5), and — most
-importantly — the honest accounting of the hard problems and the ceiling.
+- The output is **unsafe-first** Rust (repr(C), raw pointers) — coverage first,
+  idiom later. Refinement to safe Rust is the optional second pass.
+- ~11% of the kernel (container_of webs, per-cpu, RCU-deref, ops tables) is
+  flagged **C-forever** by the census — the same residue a from-scratch Rust
+  kernel would keep.
+- "Verified" is always qualified: this repo distinguishes *bit-exact
+  differential* / *trace-equal* / *exhaustively proven* / *model-checked* /
+  *boot-attested*, and the purity router quarantines anything a value
+  differential would over-credit. A silent sanitizer is never treated as proof.
+- This is a private research ratchet, not an upstream submission (though
+  `rfc-export/` emits checkpatch-clean series if that day comes).
 
 ## Relationship to Rust-for-Linux
 
 R4L is the landing zone, not a competitor: humans design the safe abstractions;
 Lockstep applies them at scale to existing C, gated by the kernel's own
-sanitizers, emitting maintainer-reviewable patches. Where a region is too subtle
-for the machine, it falls back to exactly the human process R4L already runs.
+sanitizers. Where a region is too subtle for the machine, it falls back to
+exactly the human process R4L already runs.
+
+## Reading order
+
+1. `dream/SUMMARY.md` — the arc in one file
+2. `dream/RESEARCH.md` + `dream/SWEEP.md` — the denominator and the walls
+3. `dream/PRIOR-ART.md` — what everyone else does; the whitespace here
+4. `dream/COSTDOWN.md` — why the whole thing costs ~a lunch in tokens
+5. Or take the [course](https://github.com/asonkiya/lockstep-course) — 16
+   lessons whose exercises run these gates.
+
+## License
+
+MIT

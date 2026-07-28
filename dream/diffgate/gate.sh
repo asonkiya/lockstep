@@ -15,7 +15,7 @@
 set -euo pipefail
 G="$(cd "$(dirname "$0")" && pwd)"
 OUT="$G/out"; VOL=cgir-kbuild; IMG=cgir-kernel-gate; GATE=crypto/lockstep_gate
-WINNER="$(cd "$G/../.." && pwd)/m4/breadth/winner_phc.rs"
+WINNER="$(cd "$G/../.." && pwd)/kernel-gate/breadth/winner_phc.rs"
 mkdir -p "$OUT"
 
 wire() {

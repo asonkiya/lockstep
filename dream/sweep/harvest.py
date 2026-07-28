@@ -9,7 +9,7 @@ import os
 import re
 import sys
 
-KSRC = "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux"
+KSRC = os.environ.get("KSRC", "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux")
 DIRS = ["lib", "lib/math", "kernel/time", "crypto"]
 
 # scalar C types -> (rust type, probe C type, is_signed)

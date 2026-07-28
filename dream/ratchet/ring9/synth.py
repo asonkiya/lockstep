@@ -11,7 +11,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 RATCHET = os.path.dirname(HERE)
 REPO = os.path.dirname(os.path.dirname(RATCHET))
-sys.path.insert(0, os.path.join(REPO, "m3"))
+sys.path.insert(0, os.path.join(REPO, "synthesis"))
 from synthesize import _api_key, parse_candidate  # noqa: E402
 
 MODEL = "claude-haiku-4-5-20251001"

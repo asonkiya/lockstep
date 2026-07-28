@@ -32,7 +32,7 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
-BREADTH = os.path.join(REPO, "m4", "breadth")
+BREADTH = os.path.join(REPO, "kernel-gate", "breadth")
 OUT = os.path.join(HERE, "out")
 
 sys.path.insert(0, BREADTH)

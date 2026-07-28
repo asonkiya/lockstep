@@ -7,7 +7,7 @@ when the lock is dropped.** `./gate.sh all` runs the whole thing; it is green.
 
 ## The pipeline (all machinery, no hands on the code)
 
-1. **IR** — `m1/extract.py` on the original region: `protects = {ring.lock:
+1. **IR** — `extraction/extract.py` on the original region: `protects = {ring.lock:
    [buf, count, head]}`.
 2. **Synthesis** — `synthesize_kernel.py --live`: IR + R4L catalog + a fixed
    freestanding prelude (externs for the kernel's out-of-line

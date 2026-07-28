@@ -19,9 +19,9 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 RATCHET = os.path.join(os.path.dirname(HERE), "ratchet")
 REPO = os.path.dirname(os.path.dirname(HERE))
-KSRC = "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux"
+KSRC = os.environ.get("KSRC", "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux")
 IMG, VOL, GATE = "cgir-kernel-gate", "cgir-kbuild", "crypto/lockstep_gate"
-sys.path.insert(0, os.path.join(REPO, "m3"))
+sys.path.insert(0, os.path.join(REPO, "synthesis"))
 from synthesize import _api_key, parse_candidate  # noqa: E402
 
 MODEL = "claude-haiku-4-5-20251001"

@@ -175,29 +175,34 @@ region around it, and the boundary between "done" and "hard" is always explicit.
 Each rung is gated by a *dynamic* proof, mirroring how CGIR gated each of its rungs
 by a differential/whole-program result rather than a claim.
 
+> **Directory names.** The rungs M0–M5 live in named directories:
+> M0 = `baseline/`, M1 = `extraction/`, M2 = `transplant/`, M3 = `synthesis/`,
+> M4 = `kernel-gate/`, M5 = `rfc-export/`. The M-labels are kept below for the
+> narrative; the paths are the real folders.
+
 - **M0 — harness (mostly done in CGIR).** Boot a kernel under KCSAN + lockdep in
   the container; capture a clean baseline race/lock report under a KUnit load. This
   is rung 4's gate plus sanitizer configs. *Proof: stock is clean; the report is
   reproducible.*
-- **M1 — IR extraction. ✅ done (see `m1/RESULTS.md`).** Extract the concurrency IR
+- **M1 — IR extraction. ✅ done (see `extraction/RESULTS.md`).** Extract the concurrency IR
   (§3.1) for one small subsystem (candidate: a self-contained driver or `lib/` data
   structure with clear locking — e.g. an idr/xarray user, or a simple ring buffer).
   *Proof: the extracted `protects` map matches `lockdep`'s runtime lock-class
-  observations.* Delivered: `m1/extract.py` (lock structs, critical sections,
-  `protects` map, unprotected accesses) + `m1/crosscheck.py`, which proves the map
+  observations.* Delivered: `extraction/extract.py` (lock structs, critical sections,
+  `protects` map, unprotected accesses) + `extraction/crosscheck.py`, which proves the map
   against a ThreadSanitizer run of a ring buffer (userspace stand-in for
   KCSAN/lockdep) — `name`, the one field touched with no lock held, is exactly the
   field that races; the lock-protected fields do not. Swept real drivers
   (`ptp_mock`, two GPIO); limits (interprocedural helper accesses, `arch_spinlock`/
   pointer-lock/macro patterns) documented, not pretended. In-kernel lockdep
   realization deferred to M1.5/M2's gate.
-- **M2 — single-region transplant, hand-checked. ✅ done (see `m2/RESULTS.md`).**
+- **M2 — single-region transplant, hand-checked. ✅ done (see `transplant/RESULTS.md`).**
   Transplant one critical section to a `SpinLock<T>` guard by hand, through the
   pipeline's mechanical steps, and pass the M0 gate. *Proof: KCSAN/lockdep clean,
   KUnit green, negative control (a deliberately dropped lock) is REJECTED by KCSAN.*
   Delivered: the M1 ring buffer's `ring_push`/`ring_count` transplanted into a Rust
   `SpinLock<RingFields>` (R4L shape — fields owned by the lock, reached only through
-  a guard). `m2/gate.py` is green on all legs: stock C race-clean under TSan;
+  a guard). `transplant/gate.py` is green on all legs: stock C race-clean under TSan;
   transplant functional under real contention (exact count); **loom** proves the
   transplant data-race-free *exhaustively* (userspace KCSAN analog, stronger than
   sampling); the dropped-lock negative control is REJECTED for a genuine
@@ -205,9 +210,9 @@ by a differential/whole-program result rather than a claim.
   does not even compile (`E0616`, the invariant is type-enforced). In-kernel
   realization (real `kernel::sync::SpinLock<T>` under M0's QEMU+KCSAN, syzkaller as
   load) folded into M3's real-region work.
-- **M3 — model-synthesized transplant. ✅ done (see `m3/RESULTS.md`).** The model
+- **M3 — model-synthesized transplant. ✅ done (see `synthesis/RESULTS.md`).** The model
   selects the abstraction and produces the region rewrite from the IR + R4L
-  catalog; same gate. Delivered: `m3/synthesize.py` — IR (m1 extractor) + catalog
+  catalog; same gate. Delivered: `synthesis/synthesize.py` — IR (m1 extractor) + catalog
   (§3.2) + scaffold API → Haiku → `region.rs` → the M2 battery. **First attempt,
   $0.0028**: correct catalog selection (machine-checked), correct rewrite, all
   legs green, and the dropped-lock control rejected the model's own winner. All
@@ -221,7 +226,7 @@ by a differential/whole-program result rather than a claim.
 - **M4 — subsystem sweep.** Drive M3 across every region of one subsystem,
   dependency-ordered, the way CGIR swept SQLite. *Proof: N regions transplanted, a
   subsystem-level kselftest + syzkaller run clean vs stock.*
-  **Depth leg ✅ done (see `m4/RESULTS.md`): the in-kernel realization.** Haiku's
+  **Depth leg ✅ done (see `kernel-gate/RESULTS.md`): the in-kernel realization.** Haiku's
   region ($0.0020, attempt 1) compiled freestanding, linked into vmlinux (rung-4
   `.o_shipped` path), taking the kernel's REAL spinlock via out-of-line
   `_raw_spin_lock` — verified inside a booting SMP Linux under the M0
@@ -232,7 +237,7 @@ by a differential/whole-program result rather than a claim.
   lock) + 1,278 lost updates. Harness lesson: KCSAN samples (~1/4000 accesses) —
   the probe must pace the stress window or a fast racy transplant outruns the
   race oracle (run 1 vs run 2 in RESULTS).
-  **Breadth leg ✅ done (see `m4/breadth/RESULTS.md`): a REAL driver's whole
+  **Breadth leg ✅ done (see `kernel-gate/breadth/RESULTS.md`): a REAL driver's whole
   locked cluster.** `drivers/ptp/ptp_mock.c`'s four regions (adjfine/adjtime/
   settime64/gettime64, one spinlock, shared tc/cc) — extractor-driven worklist,
   Haiku 4/4 on attempt 1 ($0.0084), assembled into one object calling the
@@ -243,10 +248,10 @@ by a differential/whole-program result rather than a claim.
   `lockstep_phc_adjfine` in the racing stack** and a PTP clock that ran
   backwards 98 times. Remaining M4 scale-out: multi-cluster subsystems +
   syzkaller for syscall-facing regions.
-- **M5 — upstreamable output. ✅ done (see `m5/RESULTS.md`).** Emit transplants as
+- **M5 — upstreamable output. ✅ done (see `rfc-export/RESULTS.md`).** Emit transplants as
   Rust-for-Linux-shaped patches against a real subsystem, with the sanitizer
   evidence attached. *Proof: a patch that a human R4L maintainer would review —
-  the honest end state.* Delivered: `m5/emit.py` — a formatter over the M4
+  the honest end state.* Delivered: `rfc-export/emit.py` — a formatter over the M4
   breadth artifacts producing a git-am-able RFC series (cover letter with the
   gate table + the KCSAN conviction excerpt; the boot-verified Rust byte-
   identical as 0001; the verified C-shell topology as a real diff in 0002; the

@@ -19,7 +19,7 @@ honesty means measuring the delta, not pretending).
 ## Run
 
 ```bash
-./m0/baseline.sh /path/to/linux-src ./m0-out
+./baseline/baseline.sh /path/to/linux-src ./m0-out
 ```
 
 Reuses CGIR rung 4's container (`cgir-kernel-gate`) and kernel-tree volume

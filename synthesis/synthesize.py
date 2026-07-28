@@ -6,7 +6,7 @@ rewrite from the IR + R4L catalog; same gate. Proof: a cheap-model transplant of
 a real region passes the full battery; a wrong one is rejected."
 
 Pipeline per candidate (k attempts, cheap model):
-  IR (m1/extract.py on the stock C) + R4L catalog + scaffold API
+  IR (extraction/extract.py on the stock C) + R4L catalog + scaffold API
     -> prompt -> model -> region.rs
     -> gate: [selection check] [cargo build] [functional stress] [loom exhaustive]
   then the NEGATIVE CONTROL on the accepted winner: sabotage the scaffold's lock
@@ -33,9 +33,9 @@ REPO = os.path.dirname(HERE)
 HARNESS = os.path.join(HERE, "harness")
 REGION_RS = os.path.join(HARNESS, "src", "region.rs")
 LIB_RS = os.path.join(HARNESS, "src", "lib.rs")
-STOCK_C = os.path.join(REPO, "m2", "ring_stock.c")
+STOCK_C = os.path.join(REPO, "transplant", "ring_stock.c")
 
-sys.path.insert(0, os.path.join(REPO, "m1"))
+sys.path.insert(0, os.path.join(REPO, "extraction"))
 from extract import extract  # noqa: E402
 
 MODEL = "claude-haiku-4-5-20251001"

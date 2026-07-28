@@ -24,8 +24,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(REPO, "m1"))
-sys.path.insert(0, os.path.join(REPO, "m3"))
+sys.path.insert(0, os.path.join(REPO, "extraction"))
+sys.path.insert(0, os.path.join(REPO, "synthesis"))
 from extract import extract  # noqa: E402
 from synthesize import CATALOG, _api_key, parse_candidate  # noqa: E402
 
@@ -36,7 +36,7 @@ STOCK_C = os.path.join(HERE, "probe", "lockstep_target.c")
 # The IR comes from the ORIGINAL pre-transplant region (lock embedded in the
 # struct, m1-extractable). lockstep_target.c is the kbuild shim form of the same
 # region (lock passed opaquely), which the extractor rightly can't attribute.
-IR_SOURCE_C = os.path.join(REPO, "m2", "ring_stock.c")
+IR_SOURCE_C = os.path.join(REPO, "transplant", "ring_stock.c")
 WINNER = os.path.join(HERE, "winner_kernel.rs")
 
 # The fixed prelude — the freestanding stand-in for kernel::sync::SpinLock's

@@ -19,7 +19,7 @@ import os
 import re
 import sys
 
-KSRC = "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux"
+KSRC = os.environ.get("KSRC", "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux")
 SUBSYS = ["drivers", "lib", "fs", "net", "kernel", "mm", "crypto", "block", "sound"]
 PER_SUBSYS_FILES = 220  # stratified cap per subsystem for speed + balance
 
