@@ -74,6 +74,44 @@ static inline int fls64(u64 x)         { return x ? 64 - __builtin_clzll(x) : 0;
 #define static_branch_likely(k)   (1)
 #define static_branch_unlikely(k) (0)
 
+/* UAPI-stable constants: fcntl O_* flags (asm-generic, arm64) and errno values.
+ * These are ABI-frozen — identical across every arch and kernel version — so
+ * hardcoding them is FAITHFUL, not a config assumption. (Config-DEPENDENT
+ * constants like XA_CHUNK_SHIFT are deliberately NOT here — those route to the
+ * in-kernel gate where the real value is used.) */
+#define O_RDONLY   00000000
+#define O_WRONLY   00000001
+#define O_RDWR     00000002
+#define O_CREAT    00000100
+#define O_EXCL     00000200
+#define O_TRUNC    00001000
+#define O_APPEND   00002000
+#define O_NONBLOCK 00004000
+#define O_DSYNC    00010000
+#define O_DIRECT   00040000
+#define O_LARGEFILE 00100000
+#define O_DIRECTORY 00200000
+#define O_NOFOLLOW  00400000
+#define O_CLOEXEC  02000000
+#define EPERM 1
+#define ENOENT 2
+#define EIO 5
+#define EBADF 9
+#define EAGAIN 11
+#define ENOMEM 12
+#define EACCES 13
+#define EFAULT 14
+#define EBUSY 16
+#define EEXIST 17
+#define ENODEV 19
+#define EINVAL 22
+#define ENFILE 23
+#define ENOSPC 28
+#define EROFS 30
+#define ERANGE 34
+#define ENOSYS 38
+#define EOPNOTSUPP 95
+
 /* sanity traps (a pure fn hitting these on host = real divergence anyway) */
 #define BUG()           abort()
 #define BUG_ON(c)       do { if (c) abort(); } while (0)

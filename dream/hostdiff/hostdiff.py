@@ -86,6 +86,36 @@ def shim_tu(path: str, ksrc: str, protos: str = "") -> str:
     return f'#include "kshim.h"\n{protos}\n' + src
 
 
+def minimal_tu(path: str, ksrc: str, func: str, protos: str = "") -> str:
+    """Function-scoped TU: the target function + its transitive file-static
+    callees + the file's #define constants, and NOTHING else. Drops the sibling
+    functions and struct/typedef definitions that pollute a whole-TU compile
+    (a pure leaf trapped in a struct-heavy file). Sound: the function text is the
+    real, byte-identical source — only its context shrinks; if a needed symbol is
+    now missing the compile fails and the caller falls back to skipping (never a
+    wrong reference). Raises if the function/cluster can't be isolated.
+    """
+    import sys as _sys
+    _sys.path.insert(0, os.path.join(HERE, "..", "cluster"))
+    import cluster  # noqa: E402
+    src = open(os.path.join(ksrc, path)).read()
+    fns = cluster.functions(src)
+    if func not in fns:
+        raise KeyError(func)
+    members = cluster.static_cluster(src, func)   # entry + transitive static callees
+    # OBJECT-LIKE #define constants only: `#define NAME value` on one line, NAME
+    # followed by whitespace (so `NAME(x)` function-like macros are excluded) and
+    # no `\` line-continuation (multi-line/stringizing macros are pollution). A
+    # pure scalar leaf needs at most a numeric/expression constant.
+    defines = "\n".join(
+        f"#define {n} {v.rstrip()}"
+        for n, v in re.findall(r"(?m)^[ \t]*#[ \t]*define[ \t]+(\w+)[ \t]+([^\\\n][^\n]*)$", src)
+        if not v.rstrip().endswith("\\")
+    )
+    body = "\n\n".join(fns[m]["text"] for m in members)
+    return f'#include "kshim.h"\n{defines}\n{protos}\n{body}\n'
+
+
 def extern_protos(src: str) -> str:
     """Prototypes for every non-static function a dep TU defines."""
     out = []
@@ -216,7 +246,20 @@ def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
     r = subprocess.run(["cc", "-O2", f"-I{w}", "-c", f"{w}/tu.c", "-o", f"{w}/tu.o"],
                        capture_output=True, text=True)
     if r.returncode:
-        return {"verdict": "CC_TU_FAIL", "detail": r.stderr[:400]}
+        # fallback: function-scoped extraction — drop sibling/struct pollution and
+        # compile just the target function (+ its file-static callees). Only adds
+        # reach; the whole-TU path above is tried first and unchanged. Sound
+        # because the function text is the real source (see minimal_tu).
+        scoped = False
+        try:
+            open(f"{w}/tu.c", "w").write(minimal_tu(path, ksrc, func, "\n".join(protos)))
+            r2 = subprocess.run(["cc", "-O2", f"-I{w}", "-c", f"{w}/tu.c", "-o", f"{w}/tu.o"],
+                                capture_output=True, text=True)
+            scoped = r2.returncode == 0
+        except Exception:
+            scoped = False
+        if not scoped:
+            return {"verdict": "CC_TU_FAIL", "detail": r.stderr[:400]}
 
     ret, params = parse_sig(open(os.path.join(ksrc, path)).read(), func)
     try:

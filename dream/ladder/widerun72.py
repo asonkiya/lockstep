@@ -40,18 +40,29 @@ KSRC = os.environ.get("KSRC", hostdiff.KSRC_DEFAULT)
 
 
 def host_tu_ok(path: str, func: str) -> bool:
-    """Can the real kernel TU be compiled standalone with the host shim? If not,
-    hostdiff can't build the reference for ANY candidate, so no rung is
-    host-verifiable — the limit is shim/header coverage, not the model."""
+    """Can hostdiff build a C reference for `func` on the host? True if the whole
+    TU compiles with the shim OR — the function-scoped fallback — just the
+    function + its file-static callees + constants do. Mirrors hostdiff.run's
+    own two-step (whole-TU, then minimal_tu), so the router routes to T0 exactly
+    what hostdiff can actually verify. The limit is now genuine (the function
+    itself needs an untranslatable type), not sibling/struct pollution."""
+    import shutil
     import subprocess
     import tempfile
     w = tempfile.mkdtemp(prefix=f"tucheck_{func}_", dir="/private/tmp")
-    import shutil
     shutil.copy(os.path.join(HERE, "..", "hostdiff", "kshim.h"), w)
-    open(f"{w}/tu.c", "w").write(hostdiff.shim_tu(path, KSRC))
-    r = subprocess.run(["cc", "-O0", f"-I{w}", "-fsyntax-only", f"{w}/tu.c"],
-                       capture_output=True, text=True)
-    return r.returncode == 0
+
+    def _compiles(src: str) -> bool:
+        open(f"{w}/tu.c", "w").write(src)
+        return subprocess.run(["cc", "-O0", f"-I{w}", "-fsyntax-only", f"{w}/tu.c"],
+                              capture_output=True, text=True).returncode == 0
+
+    if _compiles(hostdiff.shim_tu(path, KSRC)):
+        return True
+    try:
+        return _compiles(hostdiff.minimal_tu(path, KSRC, func))
+    except Exception:
+        return False
 
 
 def main() -> int:
