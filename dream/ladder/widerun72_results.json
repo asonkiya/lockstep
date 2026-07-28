@@ -1,0 +1,812 @@
+{
+ "rows": [
+  {
+   "func": "__kfifo_max_r",
+   "file": "lib/kfifo.c",
+   "pure": true,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "__node_distance",
+   "file": "mm/numa_memblks.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "__refrigerator",
+   "file": "kernel/freezer.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "__sw_hweight16",
+   "file": "lib/hweight.c",
+   "pure": true,
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "status": "verified_T0",
+   "secs": 1.4
+  },
+  {
+   "func": "__sw_hweight32",
+   "file": "lib/hweight.c",
+   "pure": true,
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "status": "verified_T0",
+   "secs": 0.8
+  },
+  {
+   "func": "__sw_hweight8",
+   "file": "lib/hweight.c",
+   "pure": true,
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "status": "verified_T0",
+   "secs": 0.7
+  },
+  {
+   "func": "add_cpu",
+   "file": "kernel/cpu.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "blk_mq_num_online_queues",
+   "file": "block/blk-mq-cpumap.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "blk_mq_num_possible_queues",
+   "file": "block/blk-mq-cpumap.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "capable",
+   "file": "kernel/capability.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "cper_severity_to_aer",
+   "file": "drivers/pci/pcie/aer.c",
+   "pure": true,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "cpu_is_hotpluggable",
+   "file": "drivers/base/cpu.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "cpumask_local_spread",
+   "file": "lib/cpumask.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "cs5535_gpio_isset",
+   "file": "drivers/gpio/gpio-cs5535.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "cs5535_gpio_set_irq",
+   "file": "drivers/gpio/gpio-cs5535.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "disable_hardirq",
+   "file": "kernel/irq/manage.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "fuse_req_hash",
+   "file": "fs/fuse/dev.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "gcd",
+   "file": "lib/math/gcd.c",
+   "pure": false,
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "status": "host_attested",
+   "secs": 0.8
+  },
+  {
+   "func": "generic_check_addressable",
+   "file": "fs/libfs.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "generic_handle_irq",
+   "file": "kernel/irq/irqdesc.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "generic_handle_irq_safe",
+   "file": "kernel/irq/irqdesc.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "get_unused_fd_flags",
+   "file": "fs/file.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "int_pow",
+   "file": "lib/math/int_pow.c",
+   "pure": true,
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "status": "verified_T0",
+   "secs": 0.7
+  },
+  {
+   "func": "int_sqrt",
+   "file": "lib/math/int_sqrt.c",
+   "pure": true,
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "status": "verified_T0",
+   "secs": 0.8
+  },
+  {
+   "func": "int_sqrt64",
+   "file": "lib/math/int_sqrt.c",
+   "pure": true,
+   "rung": null,
+   "cost": 0.003632,
+   "log": {
+    "c2rust": "skip: transpiled fn int_sqrt64 not in output",
+    "local": [
+     "RUSTC_FAIL",
+     "RUSTC_FAIL"
+    ],
+    "haiku": [
+     "LINK_FAIL",
+     "RUSTC_FAIL"
+    ]
+   },
+   "secs": 22.1
+  },
+  {
+   "func": "intlog10",
+   "file": "lib/math/int_log.c",
+   "pure": false,
+   "rung": "c2rust",
+   "cost": 0.0,
+   "log": {
+    "c2rust": "MATCH"
+   },
+   "status": "host_attested",
+   "secs": 0.9
+  },
+  {
+   "func": "ipi_send_single",
+   "file": "kernel/irq/ipi.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "irq_check_status_bit",
+   "file": "kernel/irq/manage.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "irq_has_action",
+   "file": "kernel/irq/manage.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "irq_inject_interrupt",
+   "file": "kernel/irq/resend.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "irq_percpu_is_enabled",
+   "file": "kernel/irq/manage.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "irq_set_irq_type",
+   "file": "kernel/irq/chip.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "irq_set_irq_wake",
+   "file": "kernel/irq/manage.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "irq_set_parent",
+   "file": "kernel/irq/manage.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "kcpustat_field_idle",
+   "file": "kernel/sched/cputime.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "kcpustat_field_iowait",
+   "file": "kernel/sched/cputime.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "lcm",
+   "file": "lib/math/lcm.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "lcm_not_zero",
+   "file": "lib/math/lcm.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "memory_add_physaddr_to_nid",
+   "file": "mm/numa_memblks.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "memory_group_register_dynamic",
+   "file": "drivers/base/memory.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "memory_group_register_static",
+   "file": "drivers/base/memory.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "neigh_rand_reach_time",
+   "file": "net/core/neighbour.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "nfs4_stat_to_errno",
+   "file": "fs/nfs_common/common.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "nfs_check_flags",
+   "file": "fs/nfs/file.c",
+   "pure": true,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "numa_nearest_node",
+   "file": "mm/mempolicy.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "o2hb_check_node_heartbeating_from_callback",
+   "file": "fs/ocfs2/cluster/heartbeat.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "pci_bus_find_emul_domain_nr",
+   "file": "drivers/pci/pci.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "pci_rebar_bytes_to_size",
+   "file": "drivers/pci/rebar.c",
+   "pure": true,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "phys_to_target_node",
+   "file": "mm/numa_memblks.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "poll_state_synchronize_rcu",
+   "file": "kernel/rcu/tiny.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "probe_irq_mask",
+   "file": "kernel/irq/autoprobe.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "probe_irq_off",
+   "file": "kernel/irq/autoprobe.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "rcu_get_gpwrap_count",
+   "file": "kernel/rcu/tree.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "remove_cpu",
+   "file": "kernel/cpu.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "remove_memory",
+   "file": "mm/memory_hotplug.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "snd_dma_pointer",
+   "file": "sound/core/isadma.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "snd_pcm_rate_bit_to_rate",
+   "file": "sound/core/pcm_misc.c",
+   "pure": true,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "snd_pcm_rate_mask_intersect",
+   "file": "sound/core/pcm_misc.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "snd_pcm_rate_to_rate_bit",
+   "file": "sound/core/pcm_misc.c",
+   "pure": true,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "snd_seq_event_port_detach",
+   "file": "sound/core/seq/seq_ports.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "sock_load_diag_module",
+   "file": "net/core/sock.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "sockopt_capable",
+   "file": "net/core/sock.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "synchronize_hardirq",
+   "file": "kernel/irq/manage.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "test_taint",
+   "file": "kernel/panic.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "torture_shuffle_init",
+   "file": "kernel/torture.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "torture_stutter_init",
+   "file": "kernel/torture.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "vfs_pressure_ratio",
+   "file": "fs/dcache.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.1
+  },
+  {
+   "func": "vm_munmap",
+   "file": "mm/mmap.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "xas_try_split_min_order",
+   "file": "lib/xarray.c",
+   "pure": true,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "zstd_compress_bound",
+   "file": "lib/zstd/zstd_compress_module.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "zstd_dstream_workspace_bound",
+   "file": "lib/zstd/zstd_decompress_module.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  },
+  {
+   "func": "zstd_is_error",
+   "file": "lib/zstd/zstd_decompress_module.c",
+   "pure": false,
+   "rung": null,
+   "cost": 0.0,
+   "log": {
+    "precheck": "CC_TU_FAIL (shim gap \u2014 not host-verifiable)"
+   },
+   "secs": 0.0
+  }
+ ],
+ "spend": 0.003632
+}
