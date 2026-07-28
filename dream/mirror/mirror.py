@@ -47,7 +47,9 @@ def norm(t):
 
 
 def parse_struct(src, name):
-    m = re.search(rf"\bstruct\s+{re.escape(name)}\s*\{{(.*?)\n\}};", src, re.DOTALL)
+    # closing `}` may carry trailing attributes before `;`
+    # (e.g. `} ____cacheline_internodealigned_in_smp;`, `} __packed;`)
+    m = re.search(rf"\bstruct\s+{re.escape(name)}\s*\{{(.*?)\n\}}[ \t\w()]*;", src, re.DOTALL)
     if not m:
         raise Unsupported(f"struct {name} not found")
     body = m.group(1)
