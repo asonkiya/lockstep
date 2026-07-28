@@ -91,19 +91,23 @@ def prove_recorder() -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--router", default=os.path.join(HERE, "router_result.json"))
+    ap.add_argument("--worklist", help="JSON worklist bodies (default: widerun.harvest())")
     ap.add_argument("--out", default=os.path.join(HERE, "t3_result.json"))
     ap.add_argument("--skip-recorder", action="store_true")
     a = ap.parse_args()
 
-    rr = json.load(open(os.path.join(HERE, "router_result.json")))
-    eff = [r["func"] for r in rr["rows"] if r["route"] == "T3_EFFECT"]
+    rr = json.load(open(a.router))
+    # driver routing puts MMIO in T3_TRACE; scalar routing lumps effectful in T3_EFFECT
+    eff = [r["func"] for r in rr["rows"] if r["route"] in ("T3_EFFECT", "T3_TRACE")]
     # the T2 executor rerouted its EFFECTFUL routees here too
     t2 = os.path.join(HERE, "t2_result.json")
     if os.path.exists(t2):
         t2d = json.load(open(t2))
         eff += [r["func"] for r in t2d["rows"] if r["sub"] in ("EFFECTFUL", "T3_EFFECT")]
     eff = sorted(set(eff))
-    work = {w["sym"]: w for w in widerun.harvest()}
+    src = json.load(open(a.worklist)) if a.worklist else widerun.harvest()
+    work = {w["sym"]: w for w in src}
 
     print(f"[t3] classifying {len(eff)} effectful functions...")
     rows: list[dict] = []
@@ -134,8 +138,12 @@ def main() -> int:
           f"T3_EFFECT {len(effect)} (per-fn)")
     print(f"  recorder mechanism: "
           f"{'PROVEN (correct MATCH + value-identical bug DIVERGE on trace)' if rec.get('correct',{}).get('rc')==0 and rec.get('subtle',{}).get('rc')==0 else 'not run'}")
-    print(f"  finding: this scalar-leaf harvest has {len(trace)} MMIO fns — the recorder's "
-          f"population is drivers/, which needs a driver-scoped worklist")
+    if trace:
+        print(f"  finding: {len(trace)} recordable-MMIO driver fns — the recorder's target "
+              f"population, present because this is a driver-scoped worklist")
+    else:
+        print(f"  finding: 0 MMIO fns — the recorder's population is drivers/, which a "
+              f"scalar-leaf harvest doesn't sample; needs a driver-scoped worklist")
     json.dump({"rows": rows, "trace": trace, "effect_categories": cats,
                "recorder": rec}, open(a.out, "w"), indent=1)
     return 0

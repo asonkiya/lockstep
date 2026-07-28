@@ -54,3 +54,8 @@ dream/router/router_probe.c
 dream/router/router-console.txt
 dream/router/t2_result.json
 dream/router/t3_result.json
+dream/router/driver_worklist.json
+dream/router/driver_worklist_summary.json
+dream/router/router_driver_result.json
+dream/router/t2_driver_result.json
+dream/router/t3_driver_result.json

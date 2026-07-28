@@ -84,12 +84,43 @@ def refine(w: dict, pure_names: set) -> tuple[str, str]:
     return "T3_EFFECT", "reads global via opaque path — reroute T3_EFFECT"
 
 
-def auto_mirror(struct: str) -> tuple[str, str]:
-    """(status, detail): run the generator on a real struct, mirrorable/refused."""
-    hdr = STRUCT_HEADER.get(struct)
-    if not hdr or not os.path.exists(os.path.join(KSRC, hdr)):
-        return "unknown-header", f"no header mapping for struct {struct}"
-    src = open(os.path.join(KSRC, hdr)).read()
+_DEF_CACHE: dict[str, str | None] = {}
+
+
+def find_struct_def(struct: str, near_file: str | None = None) -> str | None:
+    """Locate `struct X { ... }` anywhere in the tree (headers OR a driver's own
+    .c). Prefer a mapping, then the defining .c file, then a tree grep."""
+    if struct in _DEF_CACHE:
+        return _DEF_CACHE[struct]
+    cands = []
+    if struct in STRUCT_HEADER:
+        cands.append(STRUCT_HEADER[struct])
+    if near_file:
+        cands.append(near_file)  # driver-local structs live in the .c
+    for rel in cands:
+        p = os.path.join(KSRC, rel)
+        if os.path.exists(p) and re.search(rf"\bstruct\s+{re.escape(struct)}\s*\{{", open(p, errors="ignore").read()):
+            _DEF_CACHE[struct] = open(p, errors="ignore").read()
+            return _DEF_CACHE[struct]
+    # bounded tree grep (include/ + drivers/)
+    try:
+        r = __import__("subprocess").run(
+            ["grep", "-rlm1", f"struct {struct} {{",
+             os.path.join(KSRC, "include"), os.path.join(KSRC, "drivers")],
+            capture_output=True, text=True, timeout=30)
+        f = r.stdout.split("\n")[0].strip()
+        _DEF_CACHE[struct] = open(f, errors="ignore").read() if f else None
+    except Exception:
+        _DEF_CACHE[struct] = None
+    return _DEF_CACHE[struct]
+
+
+def auto_mirror(struct: str, near_file: str | None = None) -> tuple[str, str]:
+    """(status, detail): resolve the struct's definition anywhere in the tree and
+    run the generator — mirrorable / refused / not-found."""
+    src = find_struct_def(struct, near_file)
+    if not src:
+        return "not-found", f"struct {struct} definition not located"
     try:
         m = mirror.mirror(src, struct)
         return "mirrorable", f"size={m['size']}, {len(m['fields'])} fields"
@@ -101,12 +132,15 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-boot", action="store_true")
     ap.add_argument("--local-attempts", type=int, default=1)
+    ap.add_argument("--router", default=os.path.join(HERE, "router_result.json"))
+    ap.add_argument("--worklist", help="JSON worklist bodies (default: widerun.harvest())")
     ap.add_argument("--out", default=os.path.join(HERE, "t2_result.json"))
     a = ap.parse_args()
 
-    rr = json.load(open(os.path.join(HERE, "router_result.json")))
+    rr = json.load(open(a.router))
     t2_syms = [r["func"] for r in rr["rows"] if r["route"] == "T2_MIRROR"]
-    work = {w["sym"]: w for w in widerun.harvest()}
+    src_work = json.load(open(a.worklist)) if a.worklist else widerun.harvest()
+    work = {w["sym"]: w for w in src_work}
     pn = set()
     for _ in range(3):
         pn = {w["sym"] for w in work.values() if purity.classify(w["body"], pn, w["sym"])[0] == "pure"}
@@ -119,8 +153,9 @@ def main() -> int:
         row = {"func": sym, "sub": sub, "reason": why, "status": "routed"}
         if sub == "PARAM_STRUCT":
             st = struct_param(open(os.path.join(KSRC, w["file"])).read(), sym)
-            ms, md = auto_mirror(st)
-            row["status"] = f"T2_mirror_ready({st})" if ms == "mirrorable" else f"T2_blocked({st}: {md[:40]})"
+            ms, md = auto_mirror(st, w["file"])
+            row["struct"] = st
+            row["status"] = f"T2_mirror_ready({st})" if ms == "mirrorable" else f"T2_blocked({st}: {md[:36]})"
         elif sub == "PURE_GLOBAL":
             promote.append(w)
         rows.append(row)

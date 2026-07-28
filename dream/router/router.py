@@ -83,6 +83,12 @@ def route_one(w: dict, pure_names: set, ksyms: set) -> tuple[str, str]:
     tier = census.classify(body)
     if tier == "D":
         return "C_FOREVER", "census D: entangled (container_of/per-cpu/RCU/list)"
+    # MMIO wins over B/C: a register program's correctness IS its access trace,
+    # regardless of whether it also reads a struct field or takes a lock — that's
+    # the recorder's whole premise (Ring 3/4). Checked before B so driver ops
+    # land on the recorder, not the mirror.
+    if MMIO.search(purity.mask(body)):
+        return "T3_TRACE", "MMIO register program — recorder oracle (record once, replay)"
     if tier == "C":
         return "TC_REGION", "census C: takes a lock — region machinery (concgate class)"
     if tier == "B":
@@ -179,8 +185,12 @@ def t1_boot(t1_work: list[dict]) -> dict[str, tuple[str, int, int]]:
         externs += [f"{w['ret']} {w['sym']}({cargs});", f"{w['ret']} {exp}({cargs});"]
         na = len(w["args"])
         call = lambda pre, nm: f"{pre}{nm}(" + ",".join(f"i{k}" for k in range(na)) + ")"  # noqa: E731
-        rng = {1: "i0<=2000", 2: "i0<=48", 3: "i0<=14"}[na]
-        loops = "".join(f"for(long i{k}={1 if na>1 else 0};{rng.replace('i0', f'i{k}')};i{k}++)" for k in range(na))
+        if na:
+            rng = {1: "i0<=2000", 2: "i0<=48", 3: "i0<=14"}.get(na, "i0<=8")
+            loops = "".join(f"for(long i{k}={1 if na > 1 else 0};{rng.replace('i0', f'i{k}')};i{k}++)"
+                            for k in range(na))
+        else:
+            loops = ""  # 0-arg fn (reads globals) — one comparison
         blocks.append(
             f'\t{{ unsigned long c=0,bad=0; long fb=-1;\n'
             f'\t  {loops}{{c++;if({call("", exp)}!={call("", w["sym"])}){{bad++;if(fb<0)fb=1;}}}}\n'
@@ -234,11 +244,12 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-t1-boot", action="store_true")
     ap.add_argument("--local-attempts", type=int, default=1)
+    ap.add_argument("--worklist", help="JSON worklist [{sym,file,ret,args,body}]; default = widerun.harvest()")
     ap.add_argument("--out", default=os.path.join(HERE, "router_result.json"))
     a = ap.parse_args()
     t_all, spend = time.time(), 0.0
 
-    work = widerun.harvest()
+    work = json.load(open(a.worklist)) if a.worklist else widerun.harvest()
     pn = set()
     for _ in range(3):  # purity fixpoint
         pn = {w["sym"] for w in work if purity.classify(w["body"], pn, w["sym"])[0] == "pure"}
