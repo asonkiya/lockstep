@@ -25,6 +25,7 @@ Toolchain-gated tests (generate/gate) skip cleanly if rustc/cc are missing.
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import sys
 
@@ -576,6 +577,145 @@ def test_value_returning_fn_with_unmodellable_return_refuses():
     body = (
         "static int f(struct s *g, unsigned pin) { "
         "u32 val; val = readl(g->base + REG); return g->cache; }"
+    )
+    with pytest.raises(mh.Unsupported):
+        mh.extract(body, "f", defs)
+
+
+# --------------------------------------------------------------------------- #
+# 9. READ-MODIFY-WRITE WITH A NAMED LOCAL — the most common register-write idiom.
+#    `stat = readl(base + OFF); stat &= ~(MASK << SHIFT); stat |= in << SHIFT;
+#     writel(stat, base + OFF)`. Closing this needs: the read to assign its REAL
+#    bare-name target (not a hardcoded `val`), that target DECLARED, the input
+#    scalar param mapped to the pin `p`, and the mask/shift #defines used in the
+#    compute EMITTED as constants. Faithful or refuse — never a self-matching leak.
+# --------------------------------------------------------------------------- #
+ORION = "arch/arm/plat-orion/pcie.c"
+
+
+def test_rmw_named_local_extracts_and_declares(tmp_path):
+    """The orion pattern: RMW into the named local `stat` on PCIE_STAT_OFF. It must
+    extract R(OFF) [C] [C] W(OFF), record `stat` as a declared local, map the input
+    `nr` -> `p`, and collect the mask/shift #defines used in the compute."""
+    src = _driver_src(ORION)
+    defs = mh.resolve_defines(src)
+    ex = mh.extract(src, "orion_pcie_set_local_bus_nr", defs)
+    assert _prog_seq(ex) == [
+        ("R", "PCIE_STAT_OFF"), ("C", None), ("C", None), ("W", "PCIE_STAT_OFF"),
+    ]
+    assert ex["input"] == "nr"
+    assert ex["locals"] == ["stat"]        # the read/compute target, declared
+    # the mask + shift constants the compute references are collected for emission
+    assert ex["const_defs"] == {"PCIE_STAT_BUS_MASK": 0xff, "PCIE_STAT_BUS_OFFS": 8}
+    _assert_no_phantom_resolve(ex)
+    # emitted programs must DECLARE the local (both languages), map input -> p, and
+    # emit the compute constants — nothing referenced may be undeclared.
+    c = mh.emit_ref_c(ex)
+    rs = mh.emit_cand_rs(ex, False)
+    assert "uint32_t stat = 0" in c and "let mut stat: u32 = 0" in rs
+    assert "#define PCIE_STAT_BUS_MASK" in c and "const PCIE_STAT_BUS_MASK" in rs
+    assert re.search(r"\bnr\b", rs) is None      # input fully substituted to p
+    assert "p << PCIE_STAT_BUS_OFFS" in rs.replace("(", " ").replace(")", " ")
+
+
+@toolchain
+def test_rmw_named_local_end_to_end_orion(tmp_path):
+    """Full record/replay on the real orion RMW: correct MATCHes its own C register
+    trace, wrong-register control DIVERGEs (non-vacuous). This is the emit-gap close
+    the whole change exists for."""
+    out = str(tmp_path / "orion")
+    ex = mh.generate(ORION, "orion_pcie_set_local_bus_nr", out)
+    v1, l1 = mh.gate("orion_pcie_set_local_bus_nr", out, "orion_pcie_set_local_bus_nr_cand.rs")
+    assert v1 == "MATCH", f"correct RMW candidate not MATCH: {l1}"
+    v2, l2 = mh.gate("orion_pcie_set_local_bus_nr", out, "orion_pcie_set_local_bus_nr_bad.rs")
+    assert v2 == "DIVERGE", f"RMW mutant did not diverge (self-match hole!): {l2}"
+
+
+def test_read_into_non_val_local_declared():
+    """A read into a local NOT named `val` (`tmp = readl(...)`) must record `tmp` as
+    a declared local so the subsequent write of `tmp` resolves — the old emitter
+    hardcoded `val` and left `tmp` undeclared (E0425)."""
+    defs = {"REG": 0x20}
+    body = (
+        "static void f(void __iomem *base) { "
+        "u32 tmp; tmp = readl(base + REG); writel(tmp, base + REG); }"
+    )
+    ex = mh.extract(body, "f", defs)
+    assert _prog_seq(ex) == [("R", "REG"), ("W", "REG")]
+    assert ex["locals"] == ["tmp"]
+    rs = mh.emit_cand_rs(ex, False)
+    assert "let mut tmp: u32 = 0" in rs
+    assert "tmp = reg_read(REG)" in rs
+    _assert_no_phantom_resolve(ex)
+
+
+def test_input_param_mapped_to_pin():
+    """The single non-iomem scalar param (the driven input) is mapped to `p` in
+    every emitted expression; without it the param name would be undeclared."""
+    defs = {"REG": 0x20, "SHIFT": 4}
+    body = (
+        "static void f(void __iomem *base, int nr) { "
+        "u32 v; v = readl(base + REG); v |= nr << SHIFT; writel(v, base + REG); }"
+    )
+    ex = mh.extract(body, "f", defs)
+    assert ex["input"] == "nr"
+    c, rs = mh.emit_ref_c(ex), mh.emit_cand_rs(ex, False)
+    # `nr` never survives — it is the pin `p` in both languages
+    assert re.search(r"\bnr\b", c) is None
+    assert re.search(r"\bnr\b", rs) is None
+    assert "p << SHIFT" in c.replace("(", " ").replace(")", " ")
+
+
+def test_compute_constant_emitted():
+    """A #define used ONLY in a compute/value expression (not as an access offset)
+    must still be emitted as a constant — else the Rust references an unknown name.
+    Only referenced #defines are emitted (nothing phantom)."""
+    defs = {"REG": 0x20, "USED_MASK": 0x3f, "UNUSED_MASK": 0x99}
+    body = (
+        "static void f(void __iomem *base) { "
+        "u32 v; v = readl(base + REG); v &= USED_MASK; writel(v, base + REG); }"
+    )
+    ex = mh.extract(body, "f", defs)
+    assert ex["const_defs"] == {"USED_MASK": 0x3f}   # UNUSED_MASK not emitted
+    rs = mh.emit_cand_rs(ex, False)
+    assert "const USED_MASK: u32 = 0x3f" in rs
+    assert "UNUSED_MASK" not in rs
+
+
+def test_write_to_struct_field_refuses():
+    """A read/compute whose TARGET is struct/global state (`g->cache`, not a bare
+    local) is an unmodellable effect AND would leak `->` into invalid Rust. Refuse
+    rather than emit a broken/lossy program."""
+    defs = {"REG": 0x20}
+    read_tgt = (
+        "static void f(struct s *g) { "
+        "g->cache = readl(g->base + REG); writel(1, g->base + REG); }"
+    )
+    with pytest.raises(mh.Unsupported):
+        mh.extract(read_tgt, "f", defs)
+
+
+def test_unresolved_identifier_in_compute_refuses():
+    """A compute/value expression referencing an identifier that is neither a
+    declared local, the input, nor a resolvable #define (`stat |= nr << MYSTERY`)
+    is possible hidden state — REFUSE rather than emit an undeclared reference."""
+    defs = {"REG": 0x20}
+    body = (
+        "static void f(void __iomem *base, int nr) { "
+        "u32 stat; stat = readl(base + REG); stat |= nr << MYSTERY; "
+        "writel(stat, base + REG); }"
+    )
+    with pytest.raises(mh.Unsupported):
+        mh.extract(body, "f", defs)
+
+
+def test_opaque_call_in_value_refuses():
+    """A written VALUE containing an opaque call (`writel(helper(stat), ...)`) can't
+    be faithfully modelled — REFUSE (only BIT/hwirq are structurally translated)."""
+    defs = {"REG": 0x20}
+    body = (
+        "static void f(void __iomem *base) { "
+        "u32 stat; stat = readl(base + REG); writel(helper(stat), base + REG); }"
     )
     with pytest.raises(mh.Unsupported):
         mh.extract(body, "f", defs)

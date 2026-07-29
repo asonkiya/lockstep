@@ -295,6 +295,75 @@ def _mk_comp_off(toks: list[str], disp: str) -> CompOff:
     return CompOff(_off_expr_c(toks), _off_expr_rs(toks), disp)
 
 
+# Identifiers that are legal *functions/macros* inside a value/compute expression:
+# they are translated structurally by _expr_c/_expr_rs (BIT -> shift, the hwirq
+# accessor -> p). Anything else that isn't a local / input / #define REFUSES.
+_KNOWN_CALLS = {"BIT", "irqd_to_hwirq", "readl"}
+# Scan expressions atom-by-atom: a numeric literal (0x.. or decimal) is consumed
+# WHOLE so identifier matching can never land inside `0x2`; a run of
+# identifier-chars is a real identifier; everything else (operators, punctuation)
+# is a single char. An identifier immediately followed by `(` is a call.
+_EXPR_ATOM = re.compile(
+    r"((?:0[xX][0-9a-fA-F]+|\d+)(?:[uUlL]+)?)|([A-Za-z_]\w*)|(.)", re.DOTALL)
+
+
+def _strip_decl_type(lhs: str) -> str:
+    """A read/assign LHS may be a combined declaration `u32 stat` (type + name) or a
+    bare `stat`. Strip a leading scalar-type prefix so the target is the bare local
+    name; a non-type-prefixed LHS (a struct deref etc.) is returned unchanged and
+    will be caught by the bare-local check."""
+    lhs = lhs.replace("const", " ").strip()
+    words = lhs.split()
+    if len(words) >= 2 and re.fullmatch(r"\w+", words[-1]) \
+            and all(_SCALAR_WORD.match(w) or w == "*" for w in words[:-1]):
+        return words[-1]
+    return lhs
+
+
+def _bare_local(name: str) -> bool:
+    """True iff `name` is a single bare identifier — a modellable local. A target
+    carrying `->`, a `.field`, or an `[index]` is a write to struct/global state:
+    not a local, an unmodellable effect, and (left un-refused) it would leak the
+    `->` into the emitted Rust as invalid syntax."""
+    return bool(re.fullmatch(r"[A-Za-z_]\w*", name.strip()))
+
+
+def _collect_and_check_expr(expr: str, input_name: str | None,
+                            locals_: set[str], defs: dict[str, int],
+                            used_defs: set[str]) -> None:
+    """Walk every identifier in a value/compute expression and classify it:
+    a declared local, the input param, `p`/`val`, a resolvable #define (recorded
+    into `used_defs` so it gets emitted), or one of the structurally-translated
+    known calls (BIT/hwirq/readl). ANY other identifier — an opaque call, an
+    unresolved macro, a struct field — is possible hidden state and REFUSES, so we
+    never emit an expression that references something we can't faithfully model.
+
+    Validation runs on the SAME text the emitter produces: the known structural
+    forms (`BIT(x)` -> shift, `irqd_to_hwirq(...)` -> `p`, the input param -> `p`)
+    are applied first, so their inner tokens (e.g. the `irq_data *d`) are already
+    gone and only genuinely-free identifiers are checked."""
+    expr = _expr_c(expr, input_name)
+    for m in _EXPR_ATOM.finditer(expr):
+        num, ident = m.group(1), m.group(2)
+        if num is not None or ident is None:
+            continue  # numeric literal or a bare operator/punctuation char
+        after = expr[m.end():].lstrip()
+        if after.startswith("("):
+            if ident not in _KNOWN_CALLS:
+                raise Unsupported(f"opaque call {ident}(...) in expr {expr!r}")
+            continue
+        if ident in ("p", "val"):
+            continue
+        if input_name is not None and ident == input_name:
+            continue
+        if ident in locals_:
+            continue
+        if ident in defs:
+            used_defs.add(ident)
+            continue
+        raise Unsupported(f"unresolvable identifier {ident!r} in expr {expr!r}")
+
+
 def extract(src: str, fn: str, defs: dict[str, int]) -> dict:
     ret_type, param_text = func_sig(src, fn)
     iomem_bases, pin = parse_params(param_text)
@@ -365,8 +434,13 @@ def extract(src: str, fn: str, defs: dict[str, int]) -> dict:
             continue
         stmts.append(s)
 
-    # every access must be the clean base+OFFSET shape; collect the program
+    # every access must be the clean base+OFFSET shape; collect the program.
+    # `locals_` is the set of named read/compute-target locals (other than the
+    # pre-declared accumulator `val`); each must be a BARE identifier (a write to a
+    # struct field / global refuses). `used_defs` accumulates every #define an
+    # expression references so the emitter materialises exactly those constants.
     prog = []
+    locals_: set[str] = set()
     for s in stmts:
         # `return <expr>` — a value-returning function whose result is derived from
         # the reads. The read(s) inside must be lifted to `val`; the returned
@@ -380,6 +454,13 @@ def extract(src: str, fn: str, defs: dict[str, int]) -> dict:
             off_name, off_val = _resolve_access(s, "readl", defs, aliases,
                                                 iomem_bases, symbols)
             lhs = s.split("=")[0].strip() if "=" in s else "val"
+            # `u32 stat = readl(...)` — a combined declaration+read: strip the scalar
+            # type prefix down to the bare local name (still a declared local).
+            lhs = _strip_decl_type(lhs)
+            if lhs != "val":
+                if not _bare_local(lhs):
+                    raise Unsupported(f"read into non-local state {lhs!r}: {s!r}")
+                locals_.add(lhs)
             prog.append(("R", off_val, off_name, lhs))
         elif "writel" in s:
             off_name, off_val = _resolve_access(s, "writel", defs, aliases,
@@ -387,7 +468,12 @@ def extract(src: str, fn: str, defs: dict[str, int]) -> dict:
             wm = WR_ALIAS.search(s)
             prog.append(("W", off_val, off_name, wm.group(1).strip()))
         elif re.match(r"\w+\s*(&=|\|=|\^=|=)", s):
-            prog.append(("C", None, None, s))   # a compute on val
+            tgt = re.split(r"&=|\|=|\^=|=", s, maxsplit=1)[0].strip()
+            if tgt != "val":
+                if not _bare_local(tgt):
+                    raise Unsupported(f"compute into non-local state {tgt!r}: {s!r}")
+                locals_.add(tgt)
+            prog.append(("C", None, None, s))   # a compute on a named local
         else:
             raise Unsupported(f"unmodellable statement: {s!r}")
     if not any(p[0] in ("R", "W") for p in prog):
@@ -397,8 +483,24 @@ def extract(src: str, fn: str, defs: dict[str, int]) -> dict:
         # a value-returning function whose return we couldn't model faithfully:
         # comparing only the trace would UNDER-check (miss a wrong return). Refuse.
         raise Unsupported(f"value-returning fn {fn} with no modellable return")
+    # SECOND PASS — now that every named local is known, validate that every
+    # identifier used in a compute / written value / return residue resolves to a
+    # local, the input, `p`/`val`, or a #define; collect the #defines referenced so
+    # only-and-exactly those constants are emitted. Any other identifier REFUSES.
+    used_defs: set[str] = set()
+    for kind, _off, _name, expr in prog:
+        if kind == "C":
+            rhs = re.split(r"&=|\|=|\^=|=", expr, maxsplit=1)[1]
+            _collect_and_check_expr(rhs, pin, locals_, defs, used_defs)
+        elif kind == "W":
+            _collect_and_check_expr(expr, pin, locals_, defs, used_defs)
+        # RET rows carry already-translated (c, rs) text validated at _handle_return
+        # time; R rows target a bare local (validated above) with no free identifier.
+    reg_names = {p[2] for p in prog if isinstance(p[1], int)}
+    const_defs = {n: defs[n] for n in used_defs if n not in reg_names}
     return {"fn": fn, "program": prog, "out_of_trace": out_of_trace,
-            "returns_value": has_ret,
+            "returns_value": has_ret, "input": pin,
+            "locals": sorted(locals_), "const_defs": const_defs,
             "regs": {p[2]: p[1] for p in prog if isinstance(p[1], int)}}
 
 
@@ -577,11 +679,40 @@ def _resolve_access(s: str, op: str, defs: dict[str, int], aliases: dict[str, in
     return f"{off_name}_PLUS_{base_off:x}", base_off + off_val
 
 
-def _expr_c(e: str) -> str:
-    """value expr -> C over the pin input `p` (BIT(hwirq)->(1u<<p))."""
-    e = re.sub(r"BIT\s*\(\s*irqd_to_hwirq\([^)]*\)\s*\)", "(1u<<p)", e)
+def _sub_input(e: str, input_name: str | None) -> str:
+    """Substitute the (single, non-iomem) input scalar parameter -> the harness pin
+    `p`, as a whole-word replacement, in a value/compute/access expression."""
+    if input_name and input_name != "p":
+        e = re.sub(r"\b" + re.escape(input_name) + r"\b", "p", e)
+    return e
+
+
+def _bit_expand(e: str, one: str) -> str:
+    """Expand every `BIT(<balanced-expr>)` to `(<one> << (<balanced-expr>))`,
+    matching a balanced parenthesised argument (so `BIT(p + SHIFT)` is handled, not
+    only the single-word `BIT(REG)` form). `<one>` carries the language's literal
+    suffix. Repeats until no `BIT(` remains so nested/multiple BITs are all covered."""
+    while True:
+        m = re.search(r"\bBIT\s*\(", e)
+        if not m:
+            return e
+        close = _balanced_call(e, e.index("(", m.start()))
+        inner = e[e.index("(", m.start()) + 1: close]
+        e = e[:m.start()] + f"({one} << ({inner}))" + e[close + 1:]
+
+
+def _strip_int_suffix(e: str) -> str:
+    """Drop C integer-literal suffixes (`0U`, `1UL`, `~0U`) so the literal is a
+    plain integer Rust infers as u32 in context — `0U` is not valid Rust."""
+    return re.sub(r"\b(0[xX][0-9a-fA-F]+|\d+)[uUlL]+\b", r"\1", e)
+
+
+def _expr_c(e: str, input_name: str | None = None) -> str:
+    """value expr -> C over the pin input `p` (BIT(hwirq)->(1u<<p)); the input
+    scalar param name is mapped to `p`."""
     e = re.sub(r"irqd_to_hwirq\s*\([^)]*\)", "p", e)
-    e = re.sub(r"BIT\s*\(\s*(\w+)\s*\)", r"(1u<<(\1))", e)
+    e = _bit_expand(e, "1u")
+    e = _sub_input(e, input_name)
     return e
 
 
@@ -602,29 +733,39 @@ def _returns(ex: dict) -> bool:
 def emit_ref_c(ex: dict) -> str:
     # the engine (state + reg_read/reg_write) lives ONLY in the probe TU so the
     # trace is shared; the ref just declares the seam extern
+    inp = ex.get("input")
     lines = ["#include <stdint.h>",
              "extern uint32_t reg_read(uint32_t off);",
              "extern void reg_write(uint32_t off, uint32_t val);"]
     for n, v in sorted(ex["regs"].items(), key=lambda x: x[1]):
         lines.append(f"#define {n} 0x{v:x}u")
+    # constants referenced in compute/value expressions (masks, shifts) — only the
+    # #defines actually used, so nothing phantom is emitted.
+    for n, v in sorted(ex.get("const_defs", {}).items(), key=lambda x: (x[1], x[0])):
+        lines.append(f"#define {n} 0x{v:x}u")
     rty = "uint32_t" if _returns(ex) else "void"
     lines += ["", f"{rty} {ex['fn']}_ref(uint32_t p)", "{", "\tuint32_t val = 0; (void)val;",
               "\t(void)p;"]
+    # declare every named read/compute-target local so its references resolve.
+    for nm in ex.get("locals", []):
+        lines.append(f"\tuint32_t {nm} = 0; (void){nm};")
     for kind, off, name, expr in ex["program"]:
         if kind == "R":
-            lines.append(f"\t{_expr_c(expr)} = reg_read({_off_c(name)});")
+            lines.append(f"\t{_expr_c(expr, inp)} = reg_read({_off_c(name)});")
         elif kind == "W":
-            lines.append(f"\treg_write({_off_c(name)}, {_expr_c(expr)});")
+            lines.append(f"\treg_write({_off_c(name)}, {_expr_c(expr, inp)});")
         elif kind == "RET":
             lines.append(f"\treturn {expr[0]};")   # expr = (c_text, rs_text)
         else:  # compute
-            lines.append(f"\t{_expr_c(expr)};")
+            lines.append(f"\t{_expr_c(expr, inp)};")
     lines.append("}")
     return "\n".join(lines)
 
 
 def _reg_consts_rs(ex: dict) -> str:
-    return "\n".join(f"const {n}: u32 = 0x{v:x};" for n, v in sorted(ex["regs"].items(), key=lambda x: x[1]))
+    items = list(sorted(ex["regs"].items(), key=lambda x: x[1]))
+    items += list(sorted(ex.get("const_defs", {}).items(), key=lambda x: (x[1], x[0])))
+    return "\n".join(f"const {n}: u32 = 0x{v:x};" for n, v in items)
 
 
 def _mutant_surface(ex: dict) -> str:
@@ -645,24 +786,29 @@ def emit_cand_rs(ex: dict, mutate: bool = False) -> str:
     (one offset bumped, or the return value corrupted) that runs the SAME shape but
     produces a WRONG trace/return — proving the oracle is non-vacuous."""
     surf = _mutant_surface(ex) if mutate else None
+    inp = ex.get("input")
     rty = " -> u32" if _returns(ex) else ""
     L = ['extern "C" { fn reg_read(off: u32) -> u32; fn reg_write(off: u32, val: u32); }',
          _reg_consts_rs(ex), "",
          f'#[no_mangle]\npub extern "C" fn cgir_{ex["fn"]}(p: u32){rty} {{',
          "    let mut val: u32 = 0; let _ = val; let _ = p;"]
+    # declare every named read/compute-target local (mirrors the C ref's decls).
+    for nm in ex.get("locals", []):
+        L.append(f"    let mut {nm}: u32 = 0; let _ = {nm};")
     w_seen = r_seen = 0
     for kind, off, name, expr in ex["program"]:
         if kind == "R":
             tgt = _off_rs(name)
             if mutate and surf == "R" and r_seen == 0:
                 tgt = f"({tgt} ^ 0x4)"   # BUG: read the wrong register offset
-            L.append(f"    unsafe {{ val = reg_read({tgt}); }}")
+            dst = expr if expr != "val" else "val"
+            L.append(f"    unsafe {{ {dst} = reg_read({tgt}); }}")
             r_seen += 1
         elif kind == "W":
             tgt = _off_rs(name)
             if mutate and surf == "W" and w_seen == 0:
                 tgt = f"({tgt} ^ 0x4)"   # BUG: write the wrong register offset
-            L.append(f"    unsafe {{ reg_write({tgt}, {_expr_rs(expr)}); }}")
+            L.append(f"    unsafe {{ reg_write({tgt}, {_expr_rs(expr, inp)}); }}")
             w_seen += 1
         elif kind == "RET":
             rv = expr[1]  # rs text
@@ -670,17 +816,17 @@ def emit_cand_rs(ex: dict, mutate: bool = False) -> str:
                 rv = f"(({rv}) ^ 1)"     # BUG: corrupt the returned value
             L.append(f"    return {rv};")
         else:
-            L.append(f"    {_expr_rs(expr)};")
+            L.append(f"    {_expr_rs(expr, inp)};")
     L.append("}")
     return "\n".join(L)
 
 
-def _expr_rs(e: str) -> str:
-    e = re.sub(r"BIT\s*\(\s*irqd_to_hwirq\([^)]*\)\s*\)", "(1u32<<p)", e)
+def _expr_rs(e: str, input_name: str | None = None) -> str:
     e = re.sub(r"irqd_to_hwirq\s*\([^)]*\)", "p", e)
-    e = re.sub(r"BIT\s*\(\s*(\w+)\s*\)", r"(1u32<<(\1))", e)
+    e = _bit_expand(e, "1u32")
+    e = _strip_int_suffix(e)           # `0U` -> `0` (Rust infers u32)
     e = e.replace("~", "!")            # C bitwise-not -> Rust !
-    e = re.sub(r"\bval\b", "val", e)
+    e = _sub_input(e, input_name)
     return e
 
 
