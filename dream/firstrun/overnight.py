@@ -13,7 +13,7 @@ PHASE 2 (ONE batched Docker build + QEMU boot):
   Rust set. Phase 1 results are already banked; a Phase-2 hiccup can't lose them.
 
 GUARDS (all env-overridable):
-  BUDGET_CAP=6.0     hard ceiling on Haiku $ (balance ~$17); Haiku is SKIPPED once
+  BUDGET_CAP=7.5     hard ceiling on Haiku $ (balance ~$7.75); Haiku is SKIPPED once
                      hit — never exceeded. Local Qwen + templates are $0.
   RUNTIME_CAP_H=7    wall-clock ceiling; stop gracefully + report.
   WORKERS=4          of 12 cores; launch under `nice` so the machine stays usable.
@@ -46,7 +46,7 @@ import widerun             # noqa: E402  (harvest, SCALAR, rsig, build_boot, pro
 import template_synth      # noqa: E402
 import gpio_family         # noqa: E402
 
-BUDGET_CAP = float(os.environ.get("BUDGET_CAP", "6.0"))
+BUDGET_CAP = float(os.environ.get("BUDGET_CAP", "7.5"))
 RUNTIME_CAP_H = float(os.environ.get("RUNTIME_CAP_H", "7"))
 WORKERS = int(os.environ.get("WORKERS", "4"))
 N_LEAVES = int(os.environ.get("N_LEAVES", "80"))

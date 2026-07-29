@@ -5,7 +5,7 @@ in the morning.
 
 ## Prerequisites (verify before launching)
 
-- **API balance topped up** (~$10 added → ~$17). The run caps Haiku at **$6**.
+- **API balance** ~$7.75 (no top-up needed). The run caps Haiku at **$7.5**.
 - **ollama running** with `qwen2.5-coder:7b` (the $0 local rung). Check: `ollama ps`.
   If the ollama app isn't running, local synth fails and everything falls to Haiku
   (still capped — just less gets done for the money).
@@ -31,7 +31,7 @@ lock you out.
 
 | var | default | meaning |
 |---|---|---|
-| `BUDGET_CAP` | `6.0` | hard $ ceiling on Haiku; skipped once hit (never exceeded) |
+| `BUDGET_CAP` | `7.5` | hard $ ceiling on Haiku; skipped once hit (never exceeded) |
 | `RUNTIME_CAP_H` | `7` | wall-clock ceiling, then graceful stop + report |
 | `WORKERS` | `4` | concurrent synth workers (of 12 cores) |
 | `N_LEAVES` | `80` | scalar exported leaves to attempt |
