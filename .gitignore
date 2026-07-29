@@ -66,3 +66,5 @@ dream/mmiogen/inkernel_out/
 dream/tests/__pycache__/
 dream/tests/.pytest_cache/
 dream/router/scale_result.json
+dream/mmiogen/overnight_out/
+dream/mmiogen/overnight_out.log
