@@ -71,3 +71,9 @@ dream/mmiogen/overnight_out.log
 dream/overnight/reports/
 dream/overnight/suite_nohup.log
 dream/mirror/out/probe.c
+dream/firstrun/verified/
+dream/firstrun/progress.json
+dream/firstrun/run.log
+dream/firstrun/REPORT.md
+dream/firstrun/nohup.out
+dream/firstrun/cand/
