@@ -95,6 +95,25 @@ def test_guard_is_nonvacuous_static_assert_form(probed):
     assert "BUILD_BUG_ON" not in m["c_guard"]
 
 
+def test_multi_declarator_pointers_not_dropped(probed):
+    # `struct X *a, *b, *c;` must produce THREE pointer fields, not one — the
+    # greedy pointer regex used to swallow *a, *b and keep only *c (a silent
+    # too-small struct). Also mixed scalar multi-declarators.
+    src = ("struct s {\n"
+           "\tint head;\n"
+           "\tstruct s *parent, *sibling, *child;\n"
+           "\tunsigned long flags, desc;\n"
+           "\tint tail;\n"
+           "};")
+    m = mirror.mirror(src, "s")
+    rows = {f: o for _, f, o in m["fields"]}
+    assert list(rows) == ["head", "parent", "sibling", "child", "flags", "desc", "tail"]
+    # head@0; ptr trio 8/16/24; flags@32 desc@40; tail@48; size 56
+    assert rows == {"head": 0, "parent": 8, "sibling": 16, "child": 24,
+                    "flags": 32, "desc": 40, "tail": 48}
+    assert m["size"] == 56
+
+
 def test_probe_cache_is_present_and_sane():
     # the committed probe output exists and has the expected shape.
     sizes = mirror._load_primitive_sizes()

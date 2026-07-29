@@ -296,40 +296,60 @@ def parse_struct(src, name):
         if fp:
             fields.append(("__ptr__", fp.group(1), None))
             continue
-        # plain pointer:  type *name
-        pm = re.match(r"(.+?)\*\s*([A-Za-z_]\w*)$", decl)
-        if pm:
-            fields.append(("__ptr__", pm.group(2), None))
-            continue
 
-        # array:  type name[SIZE]  (SIZE = literal OR resolvable object-like #define)
-        am = re.match(r"(.+?\b)([A-Za-z_]\w*)\s*\[\s*(.+?)\s*\]$", decl)
-        if am:
-            base, fname, size_tok = norm(am.group(1)), am.group(2), am.group(3).strip()
-            n = _resolve_define(size_tok, src)
-            if n is None or n <= 0:
-                raise Unsupported(f"array {fname}[{size_tok!r}]: size not a "
-                                  f"resolvable literal/#define")
-            # a by-value nested-struct array (struct Y name[N]) also handled here
-            sm2 = re.match(r"struct\s+([A-Za-z_]\w*)$", base)
-            if sm2:
-                fields.append(("__nested__", fname, (sm2.group(1), n)))
-            else:
-                fields.append((base, fname, n))
-            continue
-
-        # nested struct BY VALUE:  struct Y name
-        nm = re.match(r"struct\s+([A-Za-z_]\w*)\s+([A-Za-z_]\w*)$", decl)
-        if nm:
-            fields.append(("__nested__", nm.group(2), (nm.group(1), None)))
-            continue
-
-        # scalar:  type name
-        sm = re.match(r"(.+?\b)([A-Za-z_]\w*)$", decl)
-        if not sm:
-            raise Unsupported(f"unparsable field {decl!r}")
-        fields.append((norm(sm.group(1)), sm.group(2), None))
+        # multi-declarator sharing a base type:  `struct resource *a, *b, *c` or
+        # `int x, y`. Split into per-declarator decls (the greedy pointer/scalar
+        # regexes below would otherwise swallow all but the last and DROP the
+        # earlier fields — a silent too-small struct).
+        for one in _split_multi_decl(decl):
+            fields.append(_field_from_decl(one, src))
     return fields
+
+
+def _split_multi_decl(decl):
+    """`base d1, d2, ...` -> [`base d1`, `base d2`, ...]; single decl -> [decl].
+    Only splits top-level commas (struct fields have none inside []/() after the
+    function-pointer form is already handled)."""
+    if "," not in decl:
+        return [decl]
+    parts = [p.strip() for p in decl.split(",")]
+    m = re.match(r"(.*?)(\**\s*[A-Za-z_]\w*(?:\s*\[.+\])?)$", parts[0])
+    if not m or not m.group(1).strip():
+        return [decl]  # can't isolate a shared base -> leave as-is (may refuse later)
+    base = m.group(1).strip()
+    return [parts[0]] + [f"{base} {p}" for p in parts[1:]]
+
+
+def _field_from_decl(decl, src):
+    """Parse ONE declarator into a field descriptor (raises Unsupported)."""
+    # plain / typed pointer:  type *name  (also **name)
+    pm = re.match(r"(.+?)\*+\s*([A-Za-z_]\w*)$", decl)
+    if pm:
+        return ("__ptr__", pm.group(2), None)
+
+    # array:  type name[SIZE]  (SIZE = literal OR resolvable object-like #define)
+    am = re.match(r"(.+?\b)([A-Za-z_]\w*)\s*\[\s*(.+?)\s*\]$", decl)
+    if am:
+        base, fname, size_tok = norm(am.group(1)), am.group(2), am.group(3).strip()
+        n = _resolve_define(size_tok, src)
+        if n is None or n <= 0:
+            raise Unsupported(f"array {fname}[{size_tok!r}]: size not a "
+                              f"resolvable literal/#define")
+        sm2 = re.match(r"struct\s+([A-Za-z_]\w*)$", base)
+        if sm2:
+            return ("__nested__", fname, (sm2.group(1), n))
+        return (base, fname, n)
+
+    # nested struct BY VALUE:  struct Y name
+    nm = re.match(r"struct\s+([A-Za-z_]\w*)\s+([A-Za-z_]\w*)$", decl)
+    if nm:
+        return ("__nested__", nm.group(2), (nm.group(1), None))
+
+    # scalar:  type name
+    sm = re.match(r"(.+?\b)([A-Za-z_]\w*)$", decl)
+    if not sm:
+        raise Unsupported(f"unparsable field {decl!r}")
+    return (norm(sm.group(1)), sm.group(2), None)
 
 
 # --------------------------------------------------------------------------
