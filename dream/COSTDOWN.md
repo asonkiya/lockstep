@@ -182,6 +182,41 @@ keep the same boots; there are just radically fewer paid ones.
 5. **Oracle A1 free worker** — provision once, run the cron ratchet. *A second
    always-on lane for $0.*
 
+## 6. Lever 6 — template synthesis: $0, NO model, for idiom-recognizable families
+
+The GPIO family result (`dream/family/RESULTS.md`) showed driver register logic
+factors into a few IDIOMS, and a new driver in a known idiom costs only its offset
+table. So for idiom-recognizable drivers the Rust transplant is a **deterministic
+instantiation of the idiom template + offsets — no LLM call at all** (`dream/family/
+template_synth.py`). This removes the model from the majority of the driver mass
+(e.g. the ~41 bgpio drivers behind `gpio-mmio.c`): `$0.006/fn → $0.000/fn`.
+
+Soundness is unchanged — template synth emits only the candidate; the trace-oracle
+gate still checks it against the REAL driver's C reference, so a mis-recognized
+idiom / wrong offset table `DIFF_FAIL`s and the ladder falls back to c2rust/model
+(proven: `test_template_synth.py` — right offsets `DIFF_PASS`, swapped `DIFF_FAIL`).
+So the ladder gains a rung ABOVE c2rust: **template ($0) → c2rust ($0) → local
+($0) → Haiku (tail)**. The token bill for the driver mass is now dominated by the
+tail-of-the-tail custom-logic drivers, not the shared-library core.
+
+## 7. Lever 7 — orchestration economy (the agent's OWN token bill)
+
+The pipeline's lifetime synth spend is ~$0.25; a long Opus *orchestration* session
+dwarfs it. So the largest real saving is how the agent works, not how the pipeline
+synthesizes:
+
+- **Cheap model for mechanical work.** Census scans, reach measurements, grep-shaped
+  exploration → **Haiku** subagents; reserve Opus for design + hard reasoning. A
+  Haiku scan agent is ~1/15th the cost and just as good at tallying a census.
+- **Measure once, persist, never recompute.** Save worklists/census/results to
+  `dream/*/` (e.g. `reach_accepted.json`) and *check disk before launching a scan*.
+- **Sample + honestly extrapolate** over full 100k-fn passes when a bounded sample
+  answers (drivers-at-8% → ×12).
+- **Terse I/O.** Subagent prompts ask for terse returns; a 90k-token transcript is
+  pure cost when a tally was wanted. Keep commit messages / reports lean.
+- **Don't subagent what a 5-line grep answers; don't re-read files already in
+  context.**
+
 ## refs
 
 - Pricing/caching/batch: platform.claude.com/docs pricing.md, prompt-caching.md,

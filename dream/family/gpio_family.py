@@ -306,9 +306,17 @@ def _emit_sources(cfg: dict, workdir: str, wrong: bool) -> None:
     open(os.path.join(workdir, "cand.rs"), "w").write(cand)
 
 
-def close(name: str, wrong: bool = False, workdir: str | None = None) -> tuple[str, str]:
-    """Build + run the trace-oracle for one driver. Returns (verdict, output)."""
+def close(name: str, wrong: bool = False, workdir: str | None = None,
+          cand_override: str | None = None) -> tuple[str, str]:
+    """Build + run the trace-oracle for one driver. Returns (verdict, output).
+
+    cand_override replaces the driver's Rust candidate — used to verify a
+    template-synthesized ($0, no model) candidate against the REAL C reference,
+    the cheapest rung of the synth ladder. Soundness is unchanged: the C
+    reference is still the real driver, so a mis-templated candidate DIFF_FAILs."""
     cfg = dict(DRIVERS[name]); cfg["_name"] = name
+    if cand_override is not None:
+        cfg["cand_rs"] = cand_override
     wd = workdir or tempfile.mkdtemp()
     os.makedirs(wd, exist_ok=True)
     _emit_sources(cfg, wd, wrong)
