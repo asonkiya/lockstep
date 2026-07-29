@@ -14,18 +14,19 @@ in the morning.
   `/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux` must still exist overnight.
   If unsure, set `KSRC=` to a stable kernel source path in the command below.
 
-## Launch (run this, then go to bed)
+## Launch (run this, then get to work)
 
 ```bash
 cd /Users/aryaman/Documents/Programming/lockstep
-KSRC=/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux \
-  nohup nice -n 15 python3 dream/firstrun/overnight.py \
-  > dream/firstrun/nohup.out 2>&1 &
-echo "started pid $!"
+./dream/firstrun/run.sh
 ```
 
-`nice -n 15` + 4 of 12 cores → the machine stays usable if you're on it; it won't
-lock you out.
+Runs preflight checks (KSRC, API key, ollama, docker, cc/rustc), then launches the
+run DETACHED (`nohup` + `nice -15`, 4 of 12 cores → the machine stays usable, no
+lock-out) and prints the pid + watch/stop commands. Safe to close the terminal.
+
+- `DRY_RUN=1 ./dream/firstrun/run.sh` — preflight only, don't launch.
+- `BUDGET_CAP=5 N_LEAVES=120 ./dream/firstrun/run.sh` — override any default.
 
 ## Defaults (override with env vars before the command)
 
