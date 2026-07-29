@@ -1,0 +1,629 @@
+[
+ {
+  "file": "lib/linear_ranges.c",
+  "fn": "linear_range_get_value",
+  "structs": [
+   "linear_range"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "lib/ts_fsm.c",
+  "fn": "match_token",
+  "structs": [
+   "ts_fsm_token"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "lib/win_minmax.c",
+  "fn": "minmax_subwin_update",
+  "structs": [
+   "minmax",
+   "minmax_sample"
+  ],
+  "branches": 4
+ },
+ {
+  "file": "lib/bitmap-str.c",
+  "fn": "bitmap_check_region",
+  "structs": [
+   "region"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "kernel/resource.c",
+  "fn": "resource_clip",
+  "structs": [
+   "resource"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "kernel/trace/trace_events_trigger.c",
+  "fn": "event_trigger_count",
+  "structs": [
+   "event_trigger_data"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "kernel/trace/blktrace.c",
+  "fn": "act_log_check",
+  "structs": [
+   "blk_trace"
+  ],
+  "branches": 3
+ },
+ {
+  "file": "kernel/irq/irqdomain.c",
+  "fn": "irq_domain_translate_twothreecell",
+  "structs": [
+   "irq_fwspec"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "kernel/locking/lockdep.c",
+  "fn": "lock_time_inc",
+  "structs": [
+   "lock_time"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "kernel/locking/lockdep.c",
+  "fn": "lock_time_add",
+  "structs": [
+   "lock_time"
+  ],
+  "branches": 3
+ },
+ {
+  "file": "kernel/bpf/log.c",
+  "fn": "bpf_vlog_update_len_max",
+  "structs": [
+   "bpf_verifier_log"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "mm/hugetlb.c",
+  "fn": "subpool_is_free",
+  "structs": [
+   "hugepage_subpool"
+  ],
+  "branches": 3
+ },
+ {
+  "file": "mm/percpu.c",
+  "fn": "pcpu_block_update",
+  "structs": [
+   "pcpu_block_md"
+  ],
+  "branches": 11
+ },
+ {
+  "file": "mm/sparse-vmemmap.c",
+  "fn": "vmem_altmap_nr_free",
+  "structs": [
+   "vmem_altmap"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "mm/damon/stat.c",
+  "fn": "damon_stat_idletime",
+  "structs": [
+   "damon_region"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "fs/d_path.c",
+  "fn": "prepend_char",
+  "structs": [
+   "prepend_buffer"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "fs/fs_struct.c",
+  "fn": "replace_path",
+  "structs": [
+   "path"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "fs/dcache.c",
+  "fn": "d_op_flags",
+  "structs": [
+   "dentry_operations"
+  ],
+  "branches": 8
+ },
+ {
+  "file": "fs/btrfs/backref.c",
+  "fn": "prelim_ref_compare",
+  "structs": [
+   "prelim_ref"
+  ],
+  "branches": 12
+ },
+ {
+  "file": "fs/btrfs/backref.c",
+  "fn": "btrfs_backref_iter_is_inline_ref",
+  "structs": [
+   "btrfs_backref_iter"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "fs/btrfs/free-space-cache.c",
+  "fn": "io_ctl_unmap_page",
+  "structs": [
+   "btrfs_io_ctl"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "fs/btrfs/ref-verify.c",
+  "fn": "comp_refs",
+  "structs": [
+   "ref_entry"
+  ],
+  "branches": 8
+ },
+ {
+  "file": "fs/btrfs/relocation.c",
+  "fn": "get_cluster_boundary_end",
+  "structs": [
+   "file_extent_cluster"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "fs/btrfs/bio.c",
+  "fn": "next_repair_mirror",
+  "structs": [
+   "btrfs_failed_bio"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "fs/btrfs/defrag.c",
+  "fn": "compare_inode_defrag",
+  "structs": [
+   "inode_defrag"
+  ],
+  "branches": 4
+ },
+ {
+  "file": "fs/nfs/nfs4idmap.c",
+  "fn": "idmap_userns",
+  "structs": [
+   "idmap"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "fs/fuse/file.c",
+  "fn": "fuse_get_res_by_io",
+  "structs": [
+   "fuse_io_priv"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "fs/gfs2/rgrp.c",
+  "fn": "rs_cmp",
+  "structs": [
+   "gfs2_blkreserv"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "fs/ext4/dir.c",
+  "fn": "is_fake_dir_entry",
+  "structs": [
+   "ext4_dir_entry_2"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "fs/smb/client/readdir.c",
+  "fn": "cifs_entry_is_dot",
+  "structs": [
+   "cifs_dirent"
+  ],
+  "branches": 10
+ },
+ {
+  "file": "fs/ntfs/runlist.c",
+  "fn": "ntfs_are_rl_mergeable",
+  "structs": [
+   "runlist_element"
+  ],
+  "branches": 5
+ },
+ {
+  "file": "fs/ntfs/runlist.c",
+  "fn": "ntfs_rle_lcn_contiguous",
+  "structs": [
+   "runlist_element"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "fs/ntfs/runlist.c",
+  "fn": "ntfs_rle_contain",
+  "structs": [
+   "runlist_element"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "fs/jffs2/compr_rubin.c",
+  "fn": "pushbit",
+  "structs": [
+   "pushpull"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "fs/ocfs2/extent_map.c",
+  "fn": "ocfs2_ei_is_contained",
+  "structs": [
+   "ocfs2_extent_map_item"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "fs/ocfs2/stack_user.c",
+  "fn": "fs_protocol_compare",
+  "structs": [
+   "ocfs2_protocol_version"
+  ],
+  "branches": 3
+ },
+ {
+  "file": "fs/ocfs2/reservations.c",
+  "fn": "ocfs2_resv_end",
+  "structs": [
+   "ocfs2_alloc_reservation"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "fs/ocfs2/dlm/dlmdomain.c",
+  "fn": "dlm_protocol_compare",
+  "structs": [
+   "dlm_protocol_version"
+  ],
+  "branches": 3
+ },
+ {
+  "file": "block/blk-mq.c",
+  "fn": "blk_plug_max_rq_count",
+  "structs": [
+   "blk_plug"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "security/keys/trusted-keys/trusted_tee.c",
+  "fn": "optee_ctx_match",
+  "structs": [
+   "tee_ioctl_version_data"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "security/selinux/ss/services.c",
+  "fn": "unmap_class",
+  "structs": [
+   "selinux_map"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "net/ipv4/fou_core.c",
+  "fn": "gue_encap_hlen",
+  "structs": [
+   "ip_tunnel_encap"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "net/ipv4/tcp_illinois.c",
+  "fn": "alpha",
+  "structs": [
+   "illinois"
+  ],
+  "branches": 3
+ },
+ {
+  "file": "net/ipv4/tcp_westwood.c",
+  "fn": "update_rtt_min",
+  "structs": [
+   "westwood"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/acpi/arm64/iort.c",
+  "fn": "arm_smmu_v3_is_combined_irq",
+  "structs": [
+   "acpi_iort_smmu_v3"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/acpi/arm64/iort.c",
+  "fn": "arm_smmu_v3_resource_size",
+  "structs": [
+   "acpi_iort_smmu_v3"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/clk/aspeed/clk-ast2600.c",
+  "fn": "get_reset_reg",
+  "structs": [
+   "aspeed_clk_gate"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/clk/aspeed/clk-ast2600.c",
+  "fn": "get_clock_reg",
+  "structs": [
+   "aspeed_clk_gate"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/clk/clk_test.c",
+  "fn": "clk_dummy_maximize_rate",
+  "structs": [
+   "clk_rate_request"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/clk/clk_test.c",
+  "fn": "clk_dummy_minimize_rate",
+  "structs": [
+   "clk_rate_request"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/edac/armada_xp_edac.c",
+  "fn": "axp_mc_calc_address",
+  "structs": [
+   "axp_mc_drvdata"
+  ],
+  "branches": 5
+ },
+ {
+  "file": "drivers/gpu/drm/msm/disp/dpu1/dpu_hw_top.c",
+  "fn": "_setup_mdp_ops",
+  "structs": [
+   "dpu_hw_mdp_ops",
+   "dpu_mdss_version"
+  ],
+  "branches": 4
+ },
+ {
+  "file": "drivers/gpu/drm/panthor/panthor_fw.c",
+  "fn": "compare_csg",
+  "structs": [
+   "panthor_fw_csg_control_iface"
+  ],
+  "branches": 4
+ },
+ {
+  "file": "drivers/gpu/drm/xe/xe_guc_capture.c",
+  "fn": "guc_capture_buf_cnt",
+  "structs": [
+   "__guc_capture_bufstate"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/gpu/drm/xe/xe_guc_capture.c",
+  "fn": "guc_capture_buf_cnt_to_end",
+  "structs": [
+   "__guc_capture_bufstate"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/infiniband/sw/rxe/rxe_resp.c",
+  "fn": "get_rkey_violation_state",
+  "structs": [
+   "rxe_pkt_info"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/md/dm-vdo/indexer/geometry.c",
+  "fn": "uds_chapters_to_expire",
+  "structs": [
+   "index_geometry"
+  ],
+  "branches": 4
+ },
+ {
+  "file": "drivers/media/i2c/gc08a3.c",
+  "fn": "gc08a3_enum_mbus_code",
+  "structs": [
+   "v4l2_subdev_mbus_code_enum"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/i2c/ov02c10.c",
+  "fn": "ov02c10_enum_mbus_code",
+  "structs": [
+   "v4l2_subdev_mbus_code_enum"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/i2c/ov2740.c",
+  "fn": "ov2740_enum_mbus_code",
+  "structs": [
+   "v4l2_subdev_mbus_code_enum"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/i2c/ov7251.c",
+  "fn": "ov7251_enum_mbus_code",
+  "structs": [
+   "v4l2_subdev_mbus_code_enum"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/i2c/rdacm20.c",
+  "fn": "rdacm20_enum_mbus_code",
+  "structs": [
+   "v4l2_subdev_mbus_code_enum"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/i2c/tw9900.c",
+  "fn": "tw9900_enum_mbus_code",
+  "structs": [
+   "v4l2_subdev_mbus_code_enum"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/pci/cx23885/cx23885-417.c",
+  "fn": "vidioc_enum_fmt_vid_cap",
+  "structs": [
+   "v4l2_fmtdesc"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/pci/cx88/cx88-blackbird.c",
+  "fn": "vidioc_enum_fmt_vid_cap",
+  "structs": [
+   "v4l2_fmtdesc"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/pci/saa7164/saa7164-encoder.c",
+  "fn": "saa7164_s_tuner",
+  "structs": [
+   "v4l2_tuner"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/pci/saa7164/saa7164-encoder.c",
+  "fn": "vidioc_enum_fmt_vid_cap",
+  "structs": [
+   "v4l2_fmtdesc"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/pci/tw5864/tw5864-video.c",
+  "fn": "tw5864_enum_fmt_vid_cap",
+  "structs": [
+   "v4l2_fmtdesc"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/platform/chips-media/coda/coda-bit.c",
+  "fn": "coda_iram_alloc",
+  "structs": [
+   "coda_iram_info"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/platform/mediatek/jpeg/mtk_jpeg_dec_parse.c",
+  "fn": "read_byte",
+  "structs": [
+   "mtk_jpeg_stream"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/media/platform/mediatek/mdp3/mtk-mdp3-regs.c",
+  "fn": "mdp_check_scaling_ratio",
+  "structs": [
+   "mdp_limit",
+   "v4l2_rect"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "drivers/mfd/max14577.c",
+  "fn": "maxim_charger_calc_reg_current",
+  "structs": [
+   "maxim_charger_current"
+  ],
+  "branches": 3
+ },
+ {
+  "file": "drivers/net/ethernet/chelsio/cxgb4vf/sge.c",
+  "fn": "txq_advance",
+  "structs": [
+   "sge_txq"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/pci/setup-cardbus.c",
+  "fn": "pci_cardbus_resource_alignment",
+  "structs": [
+   "resource"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "drivers/staging/fbtft/fbtft-core.c",
+  "fn": "fbtft_merge_fbtftops",
+  "structs": [
+   "fbtft_ops"
+  ],
+  "branches": 17
+ },
+ {
+  "file": "drivers/usb/host/ohci-s3c2410.c",
+  "fn": "s3c2410_usb_set_power",
+  "structs": [
+   "s3c2410_hcd_info"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "drivers/vhost/net.c",
+  "fn": "vhost_net_buf_get_ptr",
+  "structs": [
+   "vhost_net_buf"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "drivers/video/fbdev/pm3fb.c",
+  "fn": "pm3fb_depth",
+  "structs": [
+   "fb_var_screeninfo"
+  ],
+  "branches": 1
+ }
+]
