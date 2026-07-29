@@ -23,12 +23,16 @@ TARGETS = [
     ("timecounter", "include/linux/timecounter.h"),
     ("ieee80211_mu_edca_param_set", "include/linux/ieee80211-he.h"),
     ("fb_blit_caps", "include/linux/fb.h"),
+    # opaque-primitive sizing (probe_primitives.py): raw_spinlock_t + atomic_t
+    # by value, so every trailing offset depends on the in-kernel-probed lock
+    # size — a wrong probe fails the kernel BUILD_BUG_ON below.
+    ("ratelimit_state", "include/linux/ratelimit_types.h"),
 ]
 # headers the kernel BUILD_BUG_ON guard must #include to see the real layouts.
 # ieee80211-he.h is a `#include "..."` split of linux/ieee80211.h, so include
 # the umbrella header rather than the fragment.
 KHEADERS = ["linux/clk-provider.h", "linux/timecounter.h",
-            "linux/ieee80211.h", "linux/fb.h"]
+            "linux/ieee80211.h", "linux/fb.h", "linux/ratelimit.h"]
 
 
 def main():
@@ -51,10 +55,12 @@ def main():
 
     open(os.path.join(HERE, "out_mirrors.rs"), "w").write("\n".join(rust))
     inc = "\n".join(f"#include <{h}>" for h in KHEADERS)
+    # Guards are file-scope static_asserts (see emit_c_guard): unconditional at
+    # compile time, unlike BUILD_BUG_ON in an unreferenced (DCE'd) function.
     cfile = ("// SPDX-License-Identifier: GPL-2.0\n"
              "#include <linux/build_bug.h>\n#include <linux/kernel.h>\n#include <linux/stddef.h>\n"
-             + inc + "\n\nstatic void __maybe_unused mirror_layout_guards(void)\n{\n"
-             + "\n".join(guards) + "\n}\n")
+             + inc + "\n\n"
+             + "\n".join(guards) + "\n")
     os.makedirs(os.path.join(HERE, "out"), exist_ok=True)
     open(os.path.join(HERE, "out", "guards.c"), "w").write(cfile)
     print(f"\n{len(ok)} mirrors generated, {len(refused)} refused")

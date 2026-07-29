@@ -1,0 +1,114 @@
+{
+  "atomic64_t": [
+    8,
+    8
+  ],
+  "atomic_long_t": [
+    8,
+    8
+  ],
+  "atomic_t": [
+    4,
+    4
+  ],
+  "raw_spinlock_t": [
+    64,
+    8
+  ],
+  "refcount_t": [
+    4,
+    4
+  ],
+  "rwlock_t": [
+    64,
+    8
+  ],
+  "seqcount_t": [
+    48,
+    8
+  ],
+  "seqlock_t": [
+    120,
+    8
+  ],
+  "spinlock_t": [
+    64,
+    8
+  ],
+  "struct callback_head": [
+    16,
+    8
+  ],
+  "struct completion": [
+    88,
+    8
+  ],
+  "struct delayed_work": [
+    168,
+    8
+  ],
+  "struct hlist_head": [
+    8,
+    8
+  ],
+  "struct hlist_node": [
+    16,
+    8
+  ],
+  "struct hrtimer": [
+    80,
+    8
+  ],
+  "struct kref": [
+    4,
+    4
+  ],
+  "struct list_head": [
+    16,
+    8
+  ],
+  "struct llist_head": [
+    8,
+    8
+  ],
+  "struct llist_node": [
+    8,
+    8
+  ],
+  "struct mutex": [
+    136,
+    8
+  ],
+  "struct rb_node": [
+    24,
+    8
+  ],
+  "struct rb_root": [
+    8,
+    8
+  ],
+  "struct rcu_head": [
+    16,
+    8
+  ],
+  "struct rw_semaphore": [
+    144,
+    8
+  ],
+  "struct semaphore": [
+    80,
+    8
+  ],
+  "struct timer_list": [
+    80,
+    8
+  ],
+  "struct work_struct": [
+    72,
+    8
+  ],
+  "wait_queue_head_t": [
+    80,
+    8
+  ]
+}

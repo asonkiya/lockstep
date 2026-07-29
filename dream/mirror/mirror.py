@@ -28,6 +28,7 @@ Host-sound extensions (config-independent, gate-validated):
 from __future__ import annotations
 
 import glob
+import json
 import os
 import re
 import sys
@@ -74,6 +75,44 @@ OPAQUE_KERNEL_TYPES = {
 # depth cap for recursive nested-struct mirroring (defensive; C forbids a
 # struct containing itself by value, so real nesting is shallow).
 _MAX_DEPTH = 16
+
+
+def _load_primitive_sizes():
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "primitive_sizes.json")
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return {}
+
+
+# In-kernel-probed sizes for the opaque primitives (see probe_primitives.py),
+# keyed by the SAME strings as OPAQUE_KERNEL_TYPES: {ctype: [size, align]}.
+# Empty if never probed -> those fields stay REFUSED (the sound default). When a
+# primitive IS here, it is emitted as an alignment-matching integer array of the
+# probed size, so the parent struct's field offsets are correct; the parent's
+# BUILD_BUG_ON(sizeof/offsetof) then RE-CERTIFIES the whole layout against the
+# real kernel, so a stale or wrong probe value cannot pass the gate. The probe
+# and the gate build the SAME .config, so they are consistent by construction.
+PRIMITIVE_SIZES = _load_primitive_sizes()
+
+_ALIGN_INT = {1: "u8", 2: "u16", 4: "u32", 8: "u64"}
+
+
+def _opaque_field(ctype):
+    """(rust_type, size, align) for a probed opaque primitive, or None to refuse
+    (unprobed, or a shape we won't lay out soundly)."""
+    v = PRIMITIVE_SIZES.get(ctype)
+    if not v:
+        return None
+    size, align = v
+    elem = _ALIGN_INT.get(align)
+    if elem is None or size <= 0 or size % align != 0:
+        return None  # unexpected shape -> refuse (sound); the gate is not risked
+    count = size // align
+    rty = elem if count == 1 else f"[{elem}; {count}]"
+    return rty, size, align
 
 
 class Unsupported(Exception):
@@ -325,17 +364,37 @@ def _layout(fields, src, near_file, depth):
     extras = []  # list of dicts: {name, rust, c_guard} for nested structs
     for ctype, fname, arr in fields:
         if ctype in OPAQUE_KERNEL_TYPES:
-            raise Unsupported(
-                f"field {fname}: {ctype} is an opaque kernel type "
-                f"(config-dependent / needs in-kernel sizeof) — refused")
+            opq = _opaque_field(ctype)
+            if opq is None:
+                raise Unsupported(
+                    f"field {fname}: {ctype} is an opaque kernel type "
+                    f"(config-dependent — run probe_primitives.py to size it) — refused")
+            rty, sz, al = opq
+            if arr is not None:
+                rty, sz = f"[{rty}; {arr}]", sz * arr
+            off = (off + al - 1) // al * al
+            rows.append((rty, fname, off))
+            off += sz
+            align = max(align, al)
+            continue
         if ctype == "__ptr__":
             rty, sz, al = PTR
         elif ctype == "__nested__":
             yname, ycount = arr  # arr repurposed: (struct-name, count-or-None)
             if f"struct {yname}" in OPAQUE_KERNEL_TYPES:
-                raise Unsupported(
-                    f"field {fname}: struct {yname} is an opaque kernel type "
-                    f"(config-dependent / needs in-kernel sizeof) — refused")
+                opq = _opaque_field(f"struct {yname}")
+                if opq is None:
+                    raise Unsupported(
+                        f"field {fname}: struct {yname} is an opaque kernel type "
+                        f"(config-dependent — run probe_primitives.py to size it) — refused")
+                rty, sz, al = opq
+                if ycount is not None:
+                    rty, sz = f"[{rty}; {ycount}]", sz * ycount
+                off = (off + al - 1) // al * al
+                rows.append((rty, fname, off))
+                off += sz
+                align = max(align, al)
+                continue
             inner = _mirror_nested(yname, src, near_file, depth)
             rty, sz, al = inner["rust_type"], inner["size"], inner["align"]
             extras.append(inner)
@@ -388,9 +447,21 @@ def emit_rust(name, rows, size):
 
 
 def emit_c_guard(name, rows, size):
-    lines = [f"\tBUILD_BUG_ON(sizeof(struct {name}) != {size});"]
+    # File-scope static_assert, NOT BUILD_BUG_ON inside a function: sizeof and
+    # offsetof are integer constant expressions, so _Static_assert fires
+    # UNCONDITIONALLY at compile time. BUILD_BUG_ON placed in a
+    # `static __maybe_unused` function is dead-code-eliminated at the kernel's
+    # -O2 (the function is never called) and the assertion silently vanishes —
+    # a wrong size then passes the build (verified by negative control). For
+    # opaque primitives the kernel leg is the ONLY non-vacuous check (the rustc
+    # leg builds the mirror from the same probed size, so it is internally
+    # consistent regardless), so this must not depend on the function being
+    # emitted.
+    lines = [f'static_assert(sizeof(struct {name}) == {size}, '
+             f'"{name}: size mismatch vs real kernel");']
     for _, fn, off in rows:
-        lines.append(f"\tBUILD_BUG_ON(offsetof(struct {name}, {fn}) != {off});")
+        lines.append(f'static_assert(offsetof(struct {name}, {fn}) == {off}, '
+                     f'"{name}.{fn}: offset mismatch vs real kernel");')
     return "\n".join(lines)
 
 

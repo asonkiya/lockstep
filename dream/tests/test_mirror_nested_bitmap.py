@@ -116,9 +116,10 @@ def test_nested_struct_of_scalars_real_mirrors_with_correct_layout():
     assert "pub struct Ieee80211MuEdcaParamSet" in m["rust"]
     assert "size_of::<Ieee80211HeMuEdcaParamAcRec>() == 3" in m["rust"]
     assert "size_of::<Ieee80211MuEdcaParamSet>() == 13" in m["rust"]
-    # the C guard carries the nested struct's BUILD_BUG_ONs too
-    assert "sizeof(struct ieee80211_he_mu_edca_param_ac_rec) != 3" in m["c_guard"]
-    assert "offsetof(struct ieee80211_mu_edca_param_set, ac_vo) != 10" in m["c_guard"]
+    # the C guard carries the nested struct's static_asserts too (file-scope,
+    # non-DCE-able == form — not the vacuous BUILD_BUG_ON-in-a-function form)
+    assert "sizeof(struct ieee80211_he_mu_edca_param_ac_rec) == 3" in m["c_guard"]
+    assert "offsetof(struct ieee80211_mu_edca_param_set, ac_vo) == 10" in m["c_guard"]
 
 
 def test_nested_struct_of_scalars_synthetic_packs_correctly():
@@ -224,8 +225,11 @@ def test_fixed_array_size_from_define_macro():
 # ============================================================================
 
 
-def test_refuses_spinlock_field():
-    # a config-dependent kernel primitive has no host-known sizeof -> REFUSE.
+def test_refuses_spinlock_field_when_unprobed(monkeypatch):
+    # a config-dependent kernel primitive has no host-known sizeof; UNTIL it is
+    # probed in-kernel it must REFUSE (the sound default). See
+    # test_mirror_opaque_primitive.py for the probed-and-mirrors path.
+    monkeypatch.setattr(M, "PRIMITIVE_SIZES", {})
     src = textwrap.dedent(
         """
         struct haslock {
@@ -242,8 +246,9 @@ def test_refuses_spinlock_field():
 
 @pytest.mark.parametrize("prim", ["struct mutex m", "atomic_t ct",
                                   "struct list_head node", "wait_queue_head_t wq"])
-def test_refuses_config_dependent_primitives(prim):
-    # each of these needs an in-kernel sizeof; the host generator must REFUSE.
+def test_refuses_config_dependent_primitives_when_unprobed(monkeypatch, prim):
+    # each needs an in-kernel sizeof; with no probe table the generator REFUSES.
+    monkeypatch.setattr(M, "PRIMITIVE_SIZES", {})
     src = f"struct s {{\n    unsigned int a;\n    {prim};\n    unsigned int b;\n}};\n"
     with pytest.raises(M.Unsupported):
         M.mirror(src, "s")
