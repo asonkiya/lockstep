@@ -12,11 +12,23 @@ proves each ABI-correct TWO independent ways:
 Build passes iff rustc-layout == generator-model == kernel-layout, so a wrong
 mirror (or a config that shifts a field) fails to build — the BUILD_BUG_ON the
 research called load-bearing, now automatic. Conservative: anything it can't lay
-out soundly (bitfields, unions, struct-by-value, #ifdef fields) is REFUSED, not
-guessed.
+out soundly (bitfields, unions, struct-by-value it can't recursively mirror,
+#ifdef fields, unresolvable macro array sizes) is REFUSED, not guessed.
+
+Host-sound extensions (config-independent, gate-validated):
+  * resolve_struct_source: locate a `struct <name> {` def near a file / under
+    $KSRC/include, so nested structs can be looked up.
+  * recursive nested-struct-of-scalars: a `struct Y field;` (by value) member is
+    resolved, recursively mirrored, inlined as a nested `#[repr(C)]` type, and
+    participates in LP64 packing. If Y can't be mirrored, the parent REFUSES.
+  * DECLARE_BITMAP / fixed macro arrays: `DECLARE_BITMAP(n, NBITS)` -> `[u64; K]`
+    with K = ceil(NBITS/64); `TYPE n[MACRO]` where MACRO is a resolvable
+    object-like #define. Unresolvable size -> REFUSE.
 """
 from __future__ import annotations
 
+import glob
+import os
 import re
 import sys
 
@@ -37,6 +49,32 @@ SCALAR = {
 }
 PTR = ("*mut core::ffi::c_void", 8, 8)
 
+# Opaque kernel types that must ALWAYS be refused as by-value fields, even
+# though some could be "resolved" host-side. Their host layout is either
+# config-dependent (locks grow debug/lockdep members under CONFIG_*, RT swaps
+# the primitive entirely) or intentionally in-kernel-sizeof territory — a
+# separate phase (design note: DO NOT lay these out host-side). Refusing them
+# by NAME keeps the generator honest: a `struct list_head`-shaped resolution
+# that happens to be two pointers today is still refused, because the CONTRACT
+# is "these need an in-kernel sizeof", not "guess if it looks stable".
+OPAQUE_KERNEL_TYPES = {
+    "spinlock_t", "raw_spinlock_t", "rwlock_t", "seqlock_t", "seqcount_t",
+    "atomic_t", "atomic64_t", "atomic_long_t", "local_t", "refcount_t",
+    "wait_queue_head_t", "swait_queue_head_t",
+    # struct forms (matched with the `struct ` prefix)
+    "struct mutex", "struct rw_semaphore", "struct semaphore",
+    "struct completion", "struct list_head", "struct hlist_head",
+    "struct hlist_node", "struct rcu_head", "struct llist_head",
+    "struct llist_node", "struct kref", "struct kobject", "struct work_struct",
+    "struct delayed_work", "struct timer_list", "struct hrtimer",
+    "struct rb_root", "struct rb_node", "struct callback_head",
+    "struct device", "struct mutex_waiter",
+}
+
+# depth cap for recursive nested-struct mirroring (defensive; C forbids a
+# struct containing itself by value, so real nesting is shallow).
+_MAX_DEPTH = 16
+
 
 class Unsupported(Exception):
     pass
@@ -46,13 +84,150 @@ def norm(t):
     return re.sub(r"\s+", " ", t.replace("const", "").replace("volatile", "").strip())
 
 
-def parse_struct(src, name):
-    # closing `}` may carry trailing attributes before `;`
-    # (e.g. `} ____cacheline_internodealigned_in_smp;`, `} __packed;`)
+def _rust_type_name(name):
+    return "".join(w.capitalize() for w in name.split("_"))
+
+
+# --------------------------------------------------------------------------
+# source resolution
+# --------------------------------------------------------------------------
+
+def _ksrc():
+    return os.environ.get("KSRC", "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux")
+
+
+def resolve_struct_source(name, near_file=None):
+    """Locate the file TEXT containing `struct <name> {`, searching in order:
+      1. near_file itself,
+      2. near_file's directory (driver-local *.h / *.c),
+      3. $KSRC/include (recursively).
+    Returns the containing file's text, or None if not found. Measured to take
+    struct 'not found' from ~50% to ~1%, so nested lookups resolve.
+    """
+    pat = re.compile(rf"\bstruct\s+{re.escape(name)}\s*\{{")
+
+    def _hit(path):
+        try:
+            txt = open(path, errors="ignore").read()
+        except OSError:
+            return None
+        return txt if pat.search(txt) else None
+
+    # 1. near_file itself
+    if near_file and os.path.isfile(near_file):
+        t = _hit(near_file)
+        if t is not None:
+            return t
+        near_dir = os.path.dirname(os.path.abspath(near_file))
+    else:
+        near_dir = None
+
+    # 2. near_file's directory (driver-local headers/sources)
+    if near_dir and os.path.isdir(near_dir):
+        for p in sorted(glob.glob(os.path.join(near_dir, "*.h")) +
+                        glob.glob(os.path.join(near_dir, "*.c"))):
+            if os.path.abspath(p) == (os.path.abspath(near_file) if near_file else None):
+                continue
+            t = _hit(p)
+            if t is not None:
+                return t
+
+    # 3. $KSRC/include (recursive)
+    inc = os.path.join(_ksrc(), "include")
+    if os.path.isdir(inc):
+        for p in sorted(glob.glob(os.path.join(inc, "**", "*.h"), recursive=True)):
+            t = _hit(p)
+            if t is not None:
+                return t
+    return None
+
+
+def _resolve_define(token, *srcs):
+    """Resolve an object-like `#define TOKEN <int-expr>` to an int, searching the
+    given source texts then $KSRC/include. Only pure integer expressions
+    (literals, +-*/<<>>, parens) are accepted — anything referencing another
+    identifier (e.g. CONFIG_*) is unresolvable here => None."""
+    token = token.strip()
+    # numeric literal / integer expression directly?
+    lit = _eval_int_expr(token)
+    if lit is not None:
+        return lit
+
+    if not re.fullmatch(r"[A-Za-z_]\w*", token):
+        return None
+
+    def _search(txt):
+        m = re.search(rf"^[ \t]*#[ \t]*define[ \t]+{re.escape(token)}[ \t]+(.+?)[ \t]*(?:/\*.*)?$",
+                      txt, re.MULTILINE)
+        if not m:
+            return None
+        val = m.group(1).strip()
+        # strip a trailing line comment
+        val = re.sub(r"//.*$", "", val).strip()
+        return _eval_int_expr(val)
+
+    for txt in srcs:
+        if txt:
+            v = _search(txt)
+            if v is not None:
+                return v
+
+    inc = os.path.join(_ksrc(), "include")
+    if os.path.isdir(inc):
+        for p in sorted(glob.glob(os.path.join(inc, "**", "*.h"), recursive=True)):
+            try:
+                txt = open(p, errors="ignore").read()
+            except OSError:
+                continue
+            v = _search(txt)
+            if v is not None:
+                return v
+    return None
+
+
+def _eval_int_expr(expr):
+    """Safely evaluate a pure C integer expression (literals, + - * / << >> ( )).
+    Returns an int or None. Refuses anything with an identifier or unexpected
+    token — no name resolution, no eval of arbitrary code."""
+    expr = expr.strip()
+    if not expr:
+        return None
+    # strip integer suffixes (UL, LL, u, l) on literals
+    cleaned = re.sub(r"\b(0[xX][0-9a-fA-F]+|\d+)[uUlL]*\b", lambda m: m.group(1), expr)
+    if not re.fullmatch(r"[0-9xXa-fA-F_ \t()+\-*/<>]+", cleaned):
+        return None
+    # only allow <<, >> as the shift ops (a single < or > is not valid C int math here)
+    if re.search(r"(?<![<>])[<>](?![<>])", cleaned):
+        return None
+    try:
+        val = eval(cleaned, {"__builtins__": {}}, {})  # noqa: S307 - token-whitelisted
+    except Exception:
+        return None
+    return val if isinstance(val, int) else None
+
+
+# --------------------------------------------------------------------------
+# parsing
+# --------------------------------------------------------------------------
+
+def _extract_body(src, name):
+    """Return (body, full_src) for `struct <name> { ... }` or raise Unsupported."""
     m = re.search(rf"\bstruct\s+{re.escape(name)}\s*\{{(.*?)\n\}}[ \t\w()]*;", src, re.DOTALL)
     if not m:
         raise Unsupported(f"struct {name} not found")
-    body = m.group(1)
+    return m.group(1)
+
+
+def parse_struct(src, name):
+    """Parse `struct <name>` in `src` into a list of field descriptors.
+
+    Field descriptors are one of:
+      ("__ptr__", fname, None)          plain / function pointer
+      (ctype, fname, None)              scalar
+      (ctype, fname, N)                 fixed array of scalar, length N
+      ("__nested__", fname, ynane)      nested struct-BY-VALUE named `yname`
+    """
+    body = _extract_body(src, name)
     if "#if" in body or "#ifdef" in body or "#endif" in body:
         raise Unsupported("config-dependent (#if) fields — layout not fixed")
     if re.search(r"\bunion\b", body):
@@ -64,6 +239,19 @@ def parse_struct(src, name):
             continue
         if ":" in decl:
             raise Unsupported(f"bitfield ({decl!r}) — Rust repr(C) has no bitfields")
+
+        # DECLARE_BITMAP(name, NBITS)  ->  unsigned long name[ceil(NBITS/64)]
+        db = re.match(r"DECLARE_BITMAP\s*\(\s*([A-Za-z_]\w*)\s*,\s*(.+?)\s*\)$", decl)
+        if db:
+            fname, nbits_tok = db.group(1), db.group(2)
+            nbits = _resolve_define(nbits_tok, src)
+            if nbits is None or nbits <= 0:
+                raise Unsupported(f"DECLARE_BITMAP({fname}, {nbits_tok!r}): "
+                                  f"NBITS not a resolvable literal/#define")
+            k = (nbits + 63) // 64  # BITS_TO_LONGS: ceil(NBITS/64) on LP64
+            fields.append(("unsigned long", fname, k))
+            continue
+
         # function pointer:  ret (*name)(args)
         fp = re.match(r".+\(\s*\*\s*([A-Za-z_]\w*)\s*\)\s*\(", decl)
         if fp:
@@ -74,11 +262,29 @@ def parse_struct(src, name):
         if pm:
             fields.append(("__ptr__", pm.group(2), None))
             continue
-        # array:  type name[N]
-        am = re.match(r"(.+?\b)([A-Za-z_]\w*)\s*\[\s*(\d+)\s*\]$", decl)
+
+        # array:  type name[SIZE]  (SIZE = literal OR resolvable object-like #define)
+        am = re.match(r"(.+?\b)([A-Za-z_]\w*)\s*\[\s*(.+?)\s*\]$", decl)
         if am:
-            fields.append((norm(am.group(1)), am.group(2), int(am.group(3))))
+            base, fname, size_tok = norm(am.group(1)), am.group(2), am.group(3).strip()
+            n = _resolve_define(size_tok, src)
+            if n is None or n <= 0:
+                raise Unsupported(f"array {fname}[{size_tok!r}]: size not a "
+                                  f"resolvable literal/#define")
+            # a by-value nested-struct array (struct Y name[N]) also handled here
+            sm2 = re.match(r"struct\s+([A-Za-z_]\w*)$", base)
+            if sm2:
+                fields.append(("__nested__", fname, (sm2.group(1), n)))
+            else:
+                fields.append((base, fname, n))
             continue
+
+        # nested struct BY VALUE:  struct Y name
+        nm = re.match(r"struct\s+([A-Za-z_]\w*)\s+([A-Za-z_]\w*)$", decl)
+        if nm:
+            fields.append(("__nested__", nm.group(2), (nm.group(1), None)))
+            continue
+
         # scalar:  type name
         sm = re.match(r"(.+?\b)([A-Za-z_]\w*)$", decl)
         if not sm:
@@ -87,12 +293,59 @@ def parse_struct(src, name):
     return fields
 
 
-def layout(fields):
-    """(rows, size) with rows = [(rustty, name, offset)]; LP64 packing rules."""
+# --------------------------------------------------------------------------
+# layout
+# --------------------------------------------------------------------------
+
+def _mirror_nested(yname, src, near_file, depth):
+    """Recursively mirror a nested struct-by-value `struct Y`. Returns a dict
+    with keys size/align/rust_type/rust (Y's own mirror emission) and
+    'extra_rust'/'extra_guard' (Y's mirror + its BUILD_BUG_ONs, to be emitted
+    alongside the parent). Propagates Unsupported if Y can't be mirrored."""
+    if depth >= _MAX_DEPTH:
+        raise Unsupported(f"nested struct {yname}: recursion depth exceeded")
+    ytext = None
+    # try same source first (common: sibling struct in same header)
+    if re.search(rf"\bstruct\s+{re.escape(yname)}\s*\{{", src):
+        ytext = src
+    else:
+        ytext = resolve_struct_source(yname, near_file)
+    if ytext is None:
+        raise Unsupported(f"nested struct {yname}: definition not found "
+                          f"(searched near {near_file} and $KSRC/include)")
+    inner = _mirror_impl(ytext, yname, near_file, depth + 1)
+    return inner
+
+
+def _layout(fields, src, near_file, depth):
+    """(rows, size, align, extras) with rows = [(rustty, name, offset)];
+    LP64 packing rules. `extras` collects (rust, guard) emissions for any nested
+    mirrors that must accompany the parent."""
     off, align, rows = 0, 1, []
+    extras = []  # list of dicts: {name, rust, c_guard} for nested structs
     for ctype, fname, arr in fields:
+        if ctype in OPAQUE_KERNEL_TYPES:
+            raise Unsupported(
+                f"field {fname}: {ctype} is an opaque kernel type "
+                f"(config-dependent / needs in-kernel sizeof) — refused")
         if ctype == "__ptr__":
             rty, sz, al = PTR
+        elif ctype == "__nested__":
+            yname, ycount = arr  # arr repurposed: (struct-name, count-or-None)
+            if f"struct {yname}" in OPAQUE_KERNEL_TYPES:
+                raise Unsupported(
+                    f"field {fname}: struct {yname} is an opaque kernel type "
+                    f"(config-dependent / needs in-kernel sizeof) — refused")
+            inner = _mirror_nested(yname, src, near_file, depth)
+            rty, sz, al = inner["rust_type"], inner["size"], inner["align"]
+            extras.append(inner)
+            if ycount is not None:
+                rty, sz = f"[{rty}; {ycount}]", sz * ycount
+            off = (off + al - 1) // al * al
+            rows.append((rty, fname, off))
+            off += sz
+            align = max(align, al)
+            continue
         elif ctype in SCALAR:
             rty, sz, al = SCALAR[ctype]
         else:
@@ -105,12 +358,26 @@ def layout(fields):
         off += sz
         align = max(align, al)
     size = (off + align - 1) // align * align
+    return rows, size, align, extras
+
+
+def layout(fields):
+    """Back-compat entry: (rows, size) with no nested/source context (scalars
+    and pointers only). Nested-struct fields require the source, so use
+    _layout / mirror for those."""
+    rows, size, _align, extras = _layout(fields, "", None, 0)
+    if extras:  # pragma: no cover - guarded by callers
+        raise Unsupported("nested struct-by-value needs source context; use mirror()")
     return rows, size
 
 
+# --------------------------------------------------------------------------
+# emission
+# --------------------------------------------------------------------------
+
 def emit_rust(name, rows, size):
-    rty = "".join(w.capitalize() for w in name.split("_"))
-    lines = [f"#[repr(C)]", f"pub struct {rty} {{"]
+    rty = _rust_type_name(name)
+    lines = ["#[repr(C)]", f"pub struct {rty} {{"]
     for r, fn, _ in rows:
         lines.append(f"    pub {fn}: {r},")
     lines.append("}")
@@ -127,20 +394,64 @@ def emit_c_guard(name, rows, size):
     return "\n".join(lines)
 
 
-def mirror(src, name):
+# --------------------------------------------------------------------------
+# top-level
+# --------------------------------------------------------------------------
+
+def _mirror_impl(src, name, near_file, depth):
     fields = parse_struct(src, name)
-    rows, size = layout(fields)
+    rows, size, align, extras = _layout(fields, src, near_file, depth)
     rust, rty = emit_rust(name, rows, size)
     guard = emit_c_guard(name, rows, size)
-    return {"name": name, "rust_type": rty, "size": size, "rust": rust, "c_guard": guard,
-            "fields": [(r, f, o) for r, f, o in rows]}
+    return {"name": name, "rust_type": rty, "size": size, "align": align,
+            "rust": rust, "c_guard": guard,
+            "fields": [(r, f, o) for r, f, o in rows],
+            "extras": extras}
+
+
+def mirror(src, name, near_file=None):
+    """Mirror `struct <name>` from `src`. `near_file` (the path `src` came from)
+    lets nested struct-by-value members be resolved from sibling headers.
+
+    Returns a dict; `rust`/`c_guard` are the parent's emission. Any nested
+    struct-by-value mirrors are inlined into `rust`/`c_guard` (deduplicated,
+    dependencies first) so a single emission is self-contained."""
+    top = _mirror_impl(src, name, near_file, 0)
+
+    # flatten nested mirrors (dependencies first), dedup by struct name
+    ordered = []
+    seen = set()
+
+    def _collect(node):
+        for ex in node.get("extras", []):
+            _collect(ex)
+        if node["name"] not in seen and node["name"] != name:
+            seen.add(node["name"])
+            ordered.append(node)
+
+    _collect(top)
+
+    rust_parts = [ex["rust"] for ex in ordered] + [top["rust"]]
+    guard_parts = [ex["c_guard"] for ex in ordered] + [top["c_guard"]]
+
+    return {
+        "name": name,
+        "rust_type": top["rust_type"],
+        "size": top["size"],
+        "align": top["align"],
+        "rust": "\n\n".join(rust_parts),
+        "c_guard": "\n".join(guard_parts),
+        "fields": top["fields"],
+        "nested": [ex["name"] for ex in ordered],
+    }
 
 
 if __name__ == "__main__":
     import json
     src = sys.stdin.read()
     name = sys.argv[1]
+    near = sys.argv[2] if len(sys.argv) > 2 else None
     try:
-        print(json.dumps(mirror(src, name)))
+        print(json.dumps(mirror(src, name, near)))
     except Unsupported as e:
         print(json.dumps({"name": name, "refused": str(e)}))

@@ -10,23 +10,35 @@ sys.path.insert(0, HERE)
 import mirror  # noqa: E402
 
 KSRC = os.environ.get("KSRC", "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux")
-# (struct, defining header) — real kernel structs, mixed scalar/ptr/fnptr/align
+# (struct, defining header) — real kernel structs, mixed scalar/ptr/fnptr/align.
+# The last two exercise the host-sound extensions:
+#   * ieee80211_mu_edca_param_set embeds ieee80211_he_mu_edca_param_ac_rec
+#     BY VALUE (recursive nested-struct-of-scalars, both mirrored + guarded);
+#   * fb_blit_caps has two DECLARE_BITMAP(...) members with #define'd NBITS
+#     (fixed [u64; K] arrays) plus scalar tail.
 TARGETS = [
     ("clk_div_table", "include/linux/clk-provider.h"),
     ("clk_duty", "include/linux/clk-provider.h"),
     ("cyclecounter", "include/linux/timecounter.h"),
     ("timecounter", "include/linux/timecounter.h"),
+    ("ieee80211_mu_edca_param_set", "include/linux/ieee80211-he.h"),
+    ("fb_blit_caps", "include/linux/fb.h"),
 ]
-KHEADERS = ["linux/clk-provider.h", "linux/timecounter.h"]
+# headers the kernel BUILD_BUG_ON guard must #include to see the real layouts.
+# ieee80211-he.h is a `#include "..."` split of linux/ieee80211.h, so include
+# the umbrella header rather than the fragment.
+KHEADERS = ["linux/clk-provider.h", "linux/timecounter.h",
+            "linux/ieee80211.h", "linux/fb.h"]
 
 
 def main():
     rust = ["#![no_std]", "#![allow(dead_code)]", ""]
     guards, ok, refused = [], [], []
     for name, hdr in TARGETS:
-        src = open(os.path.join(KSRC, hdr)).read()
+        path = os.path.join(KSRC, hdr)
+        src = open(path).read()
         try:
-            m = mirror.mirror(src, name)
+            m = mirror.mirror(src, name, near_file=path)
         except mirror.Unsupported as e:
             refused.append((name, str(e)))
             print(f"REFUSED {name}: {e}")
