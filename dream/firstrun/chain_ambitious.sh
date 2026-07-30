@@ -5,7 +5,10 @@
 set -uo pipefail
 cd "$(dirname "$0")/../.."                          # -> lockstep repo root
 export KSRC="${KSRC:-/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux}"
-export PATH="$HOME/.cargo/bin:/opt/homebrew/bin:$PATH"
+# NB: do NOT prepend /opt/homebrew/bin — it shadows the .venv python3 (which has
+# `anthropic`) with Homebrew's (which doesn't), silently killing the Haiku rung.
+# The inherited PATH already has the venv python + rustc via ~/.cargo/bin.
+export PATH="$HOME/.cargo/bin:$PATH"
 
 WT="dream/widetest/reports/REPORT.md"; WTPID="${WTPID:-59006}"
 AMB="dream/firstrun/ambitious"; mkdir -p "$AMB"
