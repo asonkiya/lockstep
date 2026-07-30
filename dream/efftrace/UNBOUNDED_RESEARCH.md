@@ -36,17 +36,31 @@ lower, and the coverage gate is the governor that keeps it sound-for-what-it-cov
 ## Technique per shape
 
 ### 1. container_op (24%) — ADT-family oracle + shared verified core
-The pointer-graph ops are a **finite closed vocabulary** (`list_*`, `hlist_*`,
-`rb_*`, `xa_*`/`xas_*`, `idr_*`, `radix_tree_*`, `llist_*`) backed by **shared
-implementations** (`lib/list_debug.c`, `lib/rbtree.c`, `lib/xarray.c`,
-`lib/radix-tree.c`, `lib/idr.c`) — exactly the gpio-mmio.c shape, one verified core
-reused by thousands of callers. Rust-for-Linux already ships safe abstractions
-(`kernel::list::List`, rbtree, xarray) — the "shared verified core" a rewrite
-targets. Oracle: instead of recording every heap byte, record the **ADT trace** —
-model the list as a sequence, the rbtree/xarray as an ordered map — and check the
-Rust operation produces the same ADT state. Bounded because one op touches O(1)/
-O(log n) nodes. **This is a FAMILY lever: rewrite the container cores once + verify
-each caller's op sequence at ADT level.** Highest-value tail build.
+CONFIRMED by evidence pass (Haiku over kernel/mm/lib): the pointer-graph ops are a
+**finite closed vocabulary of ~15–20 core mutations** — `list_{add,del,move,splice}`
+(2,924 calls, dominant ~4:1), `hlist_*` (299), `rb_{insert,erase,link_node}` (108),
+`xa_{store,erase}` (272), `idr/ida_{alloc,remove,free}` (122) — no ad-hoc
+reimplementation. Each is backed by a **single shared verified core**:
+`include/linux/list.h` + `lib/list_debug.c` (`__list_add`/`__list_del`),
+`lib/rbtree.c` (`rb_insert_augmented`/`rb_erase`/`__rb_rotate_*`), `lib/xarray.c`
+(`xas_store`/`xa_erase`), `lib/idr.c`, `lib/radix-tree.c` — exactly the gpio-mmio.c
+shape, one core reused by thousands of callers. **Rust-for-Linux already ships the
+rewrite targets**: `rust/kernel/list.rs` (`ListArc`/`ListLinks`),
+`rust/kernel/rbtree.rs` (`RBTree<K,V>`), `rust/kernel/xarray.rs` (`XArray<T>`),
+`rust/kernel/id_pool.rs`. Real core mutations are **bounded compositional sequences
+of these API calls** (e.g. mm/interval_tree.c: exactly `rb_link_node` then
+`rb_insert_augmented`; kernel/async.c: two `list_del_init`), not raw pointer
+surgery — so they are recognizable/verifiable at ADT level. Oracle: record the
+**ADT trace** (list as a sequence, rbtree/xarray as an ordered map), check the Rust
+op produces the same ADT state; bounded because one op touches O(1)/O(log n) nodes.
+**FAMILY lever: rewrite the container cores once (RfL already did) + verify each
+caller's op sequence at ADT level.** Highest-value tail build.
+
+NUANCE (from the same pass): container mutations are frequently bracketed by LOCKS
+or use RCU variants (`list_add_tail_rcu`, `spin_lock_irqsave` around the op). So
+container_op overlaps the `concurrent` class — full verification of those is "correct
+ADT transition AND correct locking", i.e. the ADT oracle COMPOSED with the loom/
+KCSAN concurrency gate, not the ADT oracle alone.
 
 ### 2. alloc (32%) — allocator model in the recorder
 Allocation is a modelable EFFECT with a clean contract (`kmalloc(n)` -> a pointer
