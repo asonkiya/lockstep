@@ -7,17 +7,19 @@ RETURN matches (the over-credit case a return-only differential misses).
 Boot-free; skipped without host cc/rustc.
 """
 import os
+import importlib.util
 import shutil
-import sys
 import tempfile
 
 import pytest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "efftrace"))
-
 _P = None
 try:
-    import proof as _P  # noqa: E402
+    # unique module name — several oracle dirs ship a module named `proof`.
+    _spec = importlib.util.spec_from_file_location(
+        "efftrace_proof", os.path.join(os.path.dirname(__file__), "..", "efftrace", "proof.py"))
+    _P = importlib.util.module_from_spec(_spec)
+    _spec.loader.exec_module(_P)
 except Exception:
     _P = None
 

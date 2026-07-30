@@ -7,13 +7,11 @@ every branch is exercised, (B/C) DIVERGES when the translation is wrong, and
 Skipped if the host has no cc/rustc.
 """
 import os
+import importlib.util
 import shutil
-import sys
 import tempfile
 
 import pytest
-
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "structdiff"))
 
 pytestmark = pytest.mark.skipif(
     not (shutil.which("cc") and shutil.which("rustc")),
@@ -21,8 +19,17 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+def _load_proof():
+    # unique module name — several oracle dirs ship a module named `proof`.
+    spec = importlib.util.spec_from_file_location(
+        "structdiff_proof", os.path.join(os.path.dirname(__file__), "..", "structdiff", "proof.py"))
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
 def test_structdiff_mechanism():
-    import proof
+    proof = _load_proof()
     with tempfile.TemporaryDirectory() as tmp:
         results, real_size = proof.run_all(tmp)
     assert real_size == 16
