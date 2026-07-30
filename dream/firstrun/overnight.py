@@ -226,13 +226,19 @@ def phase2_boot(leaf_syms):
                 body = open(os.path.join(VERIFIED, f"{w['sym']}.rs")).read()
                 open(os.path.join(cand_dir, f"{w['sym']}.rs"), "w").write(widerun.PRELUDE + body)
                 batch.append(w)
-        batch = batch[:40]
-        log(f"phase 2: weaving {len(batch)} verified leaves into vmlinux, one boot...")
-        verd, dropped = widerun.build_boot(batch, "firstrun")
-        n_boot = sum(1 for v in (verd or {}).values() if "PASS" in str(v))
-        log(f"phase 2: boot-verified {n_boot}, dropped {len(dropped)} (unlinkable in config)")
+        pmax = int(os.environ.get("PHASE2_MAX", "40"))
+        batch = batch[:pmax]
+        log(f"phase 2: weaving {len(batch)} verified leaves into vmlinux (chunks of 40)...")
+        n_boot = dropped_total = 0
+        for i in range(0, len(batch), 40):
+            chunk = batch[i:i + 40]
+            verd, dropped = widerun.build_boot(chunk, f"firstrun{i}")
+            nb = sum(1 for v in (verd or {}).values() if "PASS" in str(v))
+            n_boot += nb
+            dropped_total += len(dropped or {})
+            log(f"  phase 2 chunk {i//40}: boot-verified {nb}/{len(chunk)}, dropped {len(dropped or {})}")
         return {"attempted": True, "woven": len(batch), "boot_verified": n_boot,
-                "dropped": len(dropped), "verdicts": verd}
+                "dropped": dropped_total}
     except Exception as e:
         log(f"phase 2 error (Phase-1 results safe): {str(e)[:120]}")
         return {"attempted": True, "error": str(e)[:200]}
