@@ -31,6 +31,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -45,6 +46,7 @@ import hostdiff            # noqa: E402
 import widerun             # noqa: E402  (harvest, SCALAR, rsig, build_boot, probe, PRELUDE)
 import template_synth      # noqa: E402
 import gpio_family         # noqa: E402
+import harness as sd_harness  # noqa: E402  (structdiff: prepare/close for struct-readers)
 
 BUDGET_CAP = float(os.environ.get("BUDGET_CAP", "7.5"))
 RUNTIME_CAP_H = float(os.environ.get("RUNTIME_CAP_H", "7"))
@@ -207,6 +209,59 @@ def solve_family():
 
 
 # ---------------------------------------------------------------------------
+# corpus B: pure struct-readers, gated boot-free by structdiff (the big class)
+# ---------------------------------------------------------------------------
+
+_READER_PROMPT = """Reimplement this Linux kernel struct-reader as the BODY of a Rust function.
+Exact signature (write ONLY the code that goes inside its braces):
+{sig}
+The struct(s) are ALREADY defined as these #[repr(C)] mirrors — read fields via
+(*ptr).field using the SAME field names, and use the SAME parameter names as the
+signature:
+{mirror}
+Rules: no_std-safe, wrapping arithmetic (wrapping_add/mul/...), integer division
+only by a nonzero constant, no external calls / alloc / panics. Read only the
+passed struct(s) + scalar params. If it reads any global / mmio / clock / lock
+state, reply with exactly `// UNSUPPORTED`. Output ONLY the body (statements +
+final expression), no signature, no outer braces, no ``` fences.
+
+C source:
+{csrc}
+"""
+
+
+def _reader_cand(p, body):
+    return p["mirror_rust"] + "\n" + p["sig"] + " { unsafe {\n" + body + "\n}}\n"
+
+
+def solve_reader(item, done):
+    rel, fn = item["file"], item["fn"]
+    if fn in done or time_left() < 300:
+        return None
+    try:
+        p = sd_harness.prepare(rel, fn)
+    except Exception as e:
+        log(f"  ✗ reader {fn} prepare-fail ({str(e)[:40]})")
+        return None
+    prompt = _READER_PROMPT.format(sig=p["sig"], mirror=p["mirror_rust"], csrc=p["csrc"])
+
+    def gate(body):
+        if "UNSUPPORTED" in body:
+            return False
+        with tempfile.TemporaryDirectory() as d:
+            v, _ = sd_harness.close(rel, fn, _reader_cand(p, body), d)
+        return v == "MATCH"
+
+    body, model, cost = ladder(prompt, gate)
+    if body:
+        open(os.path.join(VERIFIED, f"reader_{fn}.rs"), "w").write(_reader_cand(p, body))
+        log(f"  ✓ reader {fn} via {model} (${cost:.4f}) [spent ${spent():.3f}]")
+        return {"sym": fn, "kind": "struct-reader", "model": model, "cost": cost, "file": rel}
+    log(f"  ✗ reader {fn} unsolved ({model})")
+    return None
+
+
+# ---------------------------------------------------------------------------
 # phase 2: weave verified freestanding leaves into a booting kernel (one boot)
 # ---------------------------------------------------------------------------
 
@@ -284,6 +339,23 @@ def main():
     # corpus A — $0, guaranteed, always runs first so there is always a result
     log("phase 1A: GPIO template family ($0)")
     solved += solve_family()
+
+    # corpus B — pure struct-readers via structdiff (READERS=1). The big clean
+    # class (reach_accepted.json); boot-free, gate-arbitrated like everything else.
+    if os.environ.get("READERS") == "1":
+        rj = os.path.join(HERE, "..", "structdiff", "reach_accepted.json")
+        readers = json.load(open(rj)) if os.path.exists(rj) else []
+        log(f"phase 1B: {len(readers)} struct-readers (structdiff, boot-free, workers={WORKERS})")
+        with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
+            futs = {ex.submit(solve_reader, it, done): it for it in readers}
+            for fut in cf.as_completed(futs):
+                r = fut.result()
+                if r:
+                    solved.append(r)
+                    done.add(r["sym"])
+                    json.dump({"done": sorted(done)}, open(PROGRESS, "w"))
+                if time_left() < 300:
+                    break
 
     # corpus C — scalar leaves via the ladder, boot-free hostdiff gate
     log("phase 1C: harvesting scalar exported leaves...")

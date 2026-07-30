@@ -20,6 +20,7 @@ os.environ.setdefault("N_LEAVES", "600")
 os.environ.setdefault("WORKERS", "6")
 os.environ.setdefault("RUNTIME_CAP_H", "5")
 os.environ.setdefault("PHASE2_MAX", "120")
+os.environ.setdefault("READERS", "1")   # the big class: pure struct-readers via structdiff
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 for p in ("widerun", "hostdiff", "family", "structdiff"):

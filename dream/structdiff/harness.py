@@ -249,16 +249,24 @@ def build_probe(fn_name, sig_params, params, structs, ncov, sweep) -> str:
             ct = p["ctype"]
             L.append(f"    {ct} {n} = ({ct}){n}_S[{n}_i];")
     rc = _ret_ctype(sig_params, fn_name)
-    L.append(f"    {rc} rc_c = {fn_name}({', '.join(callargs_c)});")
-    L.append(f"    {rc} rc_g = {fn_name}_rs({', '.join(callargs_g)});")
-    conds = ["rc_c != rc_g"]
+    if rc == "void":  # a mutator: no return to assign/compare — struct-byte +
+        L.append(f"    {fn_name}({', '.join(callargs_c)});")   # out-param diffs carry it
+        L.append(f"    {fn_name}_rs({', '.join(callargs_g)});")
+        conds = []
+    else:
+        L.append(f"    {rc} rc_c = {fn_name}({', '.join(callargs_c)});")
+        L.append(f"    {rc} rc_g = {fn_name}_rs({', '.join(callargs_g)});")
+        conds = ["rc_c != rc_g"]
     for a, b in post:
         conds.append(f"{a} != {b}")
     for p in params:  # non-const struct may be mutated -> compare bytes
         if p["kind"] == "struct" and not p["const"]:
             n = p["name"]; sn, _ = structs[n]
             conds.append(f"memcmp(&{n}_c,&{n}_g,sizeof(struct {sn}))")
-    L.append(f"    cases++; if (({' || '.join(conds)}) && bad++==0) fb=1;")
+    # empty conds (a void fn with no out-param / no mutated struct) is unobservable
+    # -> fail-safe to DIVERGE, never a vacuous MATCH.
+    cond_expr = " || ".join(conds) if conds else "1"
+    L.append(f"    cases++; if (({cond_expr}) && bad++==0) fb=1;")
     L.append("  }")
     L.append(f"  int uncov=0; for(int i=0;i<{ncov};i++) if(!__cov[i]){{printf(\"  cov[%d] UNCOVERED\\n\",i);uncov++;}}")
     L.append('  if (uncov) { printf("STRUCTDIFF verdict=REFUSE (path coverage)\\n"); return 2; }')
@@ -283,6 +291,49 @@ def _ret_ctype(sig_params, fn_name) -> str:
 
 
 # ---- top-level close -------------------------------------------------------
+
+def _rust_scalar(ctype: str) -> str:
+    return mirror.SCALAR.get(mirror.norm(ctype), ("i64", 0, 0))[0]
+
+
+def prepare(rel: str, fn: str) -> dict:
+    """Everything a synthesizer needs to write a candidate the gate will accept:
+    the #[repr(C)] mirror struct def(s), the EXACT required Rust signature (the
+    model writes only the body), the C source, and the return type. Raises on an
+    unmirrorable struct (so the function is skipped, not mis-synthesized)."""
+    src = open(os.path.join(KSRC, rel), errors="ignore").read()
+    ftext = cluster.functions(src)[fn]["text"]
+    ret_c = mirror.norm(re.sub(r"\b(static|inline|__always_inline|__maybe_unused)\b",
+                               " ", ftext[:ftext.find(fn)])).strip() or "int"
+    _RET_CACHE[fn] = ret_c
+    _instr, _ncov, sig_params, _fn = instrument(ftext)
+    params = classify_params(sig_params)
+    structs, mdefs = {}, []
+    for p in params:
+        if p["kind"] == "struct":
+            near = os.path.join(KSRC, rel)
+            ssrc = mirror.resolve_struct_source(p["struct"], near_file=near) or src
+            m = mirror.mirror(ssrc, p["struct"], near_file=near)
+            structs[p["name"]] = (p["struct"], m)
+            mdefs.append(m["rust"])
+    rp = []
+    for p in params:
+        if p["kind"] == "struct":
+            # *mut when the C param is non-const (a mutator writes fields); *const
+            # for a read-only param. Must match the C ABI the probe passes.
+            ptr = "*const" if p.get("const") else "*mut"
+            rp.append(f'{p["name"]}: {ptr} {structs[p["name"]][1]["rust_type"]}')
+        elif p["kind"] == "outptr":
+            rp.append(f'{p["name"]}: *mut {_rust_scalar(p["ctype"])}')
+        else:
+            rp.append(f'{p["name"]}: {_rust_scalar(p["ctype"])}')
+    rret = "" if ret_c == "void" else f" -> {_rust_scalar(ret_c)}"
+    sig = f'#[no_mangle] pub extern "C" fn {fn}_rs({", ".join(rp)}){rret}'
+    _all_struct_defs(structs)  # dry emittability check — raises on nested-struct /
+    # nested-array fields the host C emitter can't map, so the caller skips the
+    # function BEFORE spending any synth budget on a candidate that can never gate.
+    return {"mirror_rust": "\n".join(mdefs), "sig": sig, "csrc": ftext, "ret": ret_c}
+
 
 def close(rel: str, fn: str, candidate_rs: str, workdir: str) -> tuple[str, str]:
     src = open(os.path.join(KSRC, rel), errors="ignore").read()
