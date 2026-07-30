@@ -1,5 +1,8 @@
 # The dream — overnight progress
 
+> **Distilled lessons** (measure-before-building, the soundness ladder, the 7-class
+> oracle map, the cost/factorization truths): [`dream/LESSONS.md`](./LESSONS.md).
+
 Goal (your words): *"rewrite Linux into Rust and run it."* Tonight took it from a
 research question to a working, growing ratchet with a real driver and a real
 lib leaf transplanted into a booting kernel — and, more importantly, surfaced and
