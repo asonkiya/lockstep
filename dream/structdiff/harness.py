@@ -357,17 +357,20 @@ def close(rel: str, fn: str, candidate_rs: str, workdir: str) -> tuple[str, str]
     sweep = sweep_values(ftext)
     open(os.path.join(workdir, "probe.c"), "w").write(
         build_probe(fn_name, sig_params, params, structs, ncov, sweep))
-    r = subprocess.run(["rustc", "--crate-type=staticlib", "-O", "-C", "overflow-checks=off",
-                        os.path.join(workdir, "cand.rs"), "-o", os.path.join(workdir, "libcand.a")],
-                       capture_output=True, text=True, cwd=workdir)
-    if r.returncode:
-        return "BUILD_FAIL(rust)", r.stderr
-    r = subprocess.run(["cc", "-O2", os.path.join(workdir, "probe.c"), os.path.join(workdir, "ref.c"),
-                        os.path.join(workdir, "libcand.a"), "-o", os.path.join(workdir, "run")],
-                       capture_output=True, text=True)
-    if r.returncode:
-        return "BUILD_FAIL(c)", r.stderr
-    r = subprocess.run([os.path.join(workdir, "run")], capture_output=True, text=True)
+    try:
+        r = subprocess.run(["rustc", "--crate-type=staticlib", "-O", "-C", "overflow-checks=off",
+                            os.path.join(workdir, "cand.rs"), "-o", os.path.join(workdir, "libcand.a")],
+                           capture_output=True, text=True, cwd=workdir, timeout=90)
+        if r.returncode:
+            return "BUILD_FAIL(rust)", r.stderr
+        r = subprocess.run(["cc", "-O2", os.path.join(workdir, "probe.c"), os.path.join(workdir, "ref.c"),
+                            os.path.join(workdir, "libcand.a"), "-o", os.path.join(workdir, "run")],
+                           capture_output=True, text=True, timeout=90)
+        if r.returncode:
+            return "BUILD_FAIL(c)", r.stderr
+        r = subprocess.run([os.path.join(workdir, "run")], capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return "TIMEOUT", "compile/run exceeded timeout"
     out = r.stdout + r.stderr
     v = ("MATCH" if "verdict=MATCH" in out else "DIVERGE" if "verdict=DIVERGE" in out
          else "REFUSE" if "verdict=REFUSE" in out else "UNKNOWN")

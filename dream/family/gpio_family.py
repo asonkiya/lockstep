@@ -320,17 +320,20 @@ def close(name: str, wrong: bool = False, workdir: str | None = None,
     wd = workdir or tempfile.mkdtemp()
     os.makedirs(wd, exist_ok=True)
     _emit_sources(cfg, wd, wrong)
-    r = subprocess.run(["rustc", "--edition", "2021", "-O", "--crate-type=staticlib",
-                        os.path.join(wd, "cand.rs"), "-o", os.path.join(wd, "libcand.a")],
-                       capture_output=True, text=True, cwd=wd)
-    if r.returncode:
-        return "BUILD_FAIL(rust)", r.stderr
-    r = subprocess.run(["cc", "-O2", os.path.join(wd, "probe.c"), os.path.join(wd, "ref.c"),
-                        os.path.join(wd, "libcand.a"), "-o", os.path.join(wd, "run")],
-                       capture_output=True, text=True)
-    if r.returncode:
-        return "BUILD_FAIL(c)", r.stderr
-    r = subprocess.run([os.path.join(wd, "run")], capture_output=True, text=True)
+    try:
+        r = subprocess.run(["rustc", "--edition", "2021", "-O", "--crate-type=staticlib",
+                            os.path.join(wd, "cand.rs"), "-o", os.path.join(wd, "libcand.a")],
+                           capture_output=True, text=True, cwd=wd, timeout=90)
+        if r.returncode:
+            return "BUILD_FAIL(rust)", r.stderr
+        r = subprocess.run(["cc", "-O2", os.path.join(wd, "probe.c"), os.path.join(wd, "ref.c"),
+                            os.path.join(wd, "libcand.a"), "-o", os.path.join(wd, "run")],
+                           capture_output=True, text=True, timeout=90)
+        if r.returncode:
+            return "BUILD_FAIL(c)", r.stderr
+        r = subprocess.run([os.path.join(wd, "run")], capture_output=True, text=True, timeout=30)
+    except subprocess.TimeoutExpired:
+        return "TIMEOUT", "compile/run exceeded timeout"
     out = (r.stdout + r.stderr).strip()
     v = ("DIFF_PASS" if "verdict=DIFF_PASS" in out else
          "DIFF_FAIL" if "verdict=DIFF_FAIL" in out else

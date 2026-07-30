@@ -237,14 +237,14 @@ def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
         protos.append(extern_protos(open(os.path.join(ksrc, d)).read()))
         objs.append(f"{w}/dep{i}.o")
         r = subprocess.run(["cc", "-O2", f"-I{w}", "-c", f"{w}/dep{i}.c", "-o", objs[-1]],
-                           capture_output=True, text=True)
+                           capture_output=True, text=True, timeout=90)
         if r.returncode:
             return {"verdict": "CC_DEP_FAIL", "detail": r.stderr[:400]}
 
     main_src = shim_tu(path, ksrc, "\n".join(protos))
     open(f"{w}/tu.c", "w").write(main_src)
     r = subprocess.run(["cc", "-O2", f"-I{w}", "-c", f"{w}/tu.c", "-o", f"{w}/tu.o"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, timeout=90)
     if r.returncode:
         # fallback: function-scoped extraction — drop sibling/struct pollution and
         # compile just the target function (+ its file-static callees). Only adds
@@ -254,7 +254,7 @@ def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
         try:
             open(f"{w}/tu.c", "w").write(minimal_tu(path, ksrc, func, "\n".join(protos)))
             r2 = subprocess.run(["cc", "-O2", f"-I{w}", "-c", f"{w}/tu.c", "-o", f"{w}/tu.o"],
-                                capture_output=True, text=True)
+                                capture_output=True, text=True, timeout=90)
             scoped = r2.returncode == 0
         except Exception:
             scoped = False
@@ -270,7 +270,7 @@ def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
 
     r = subprocess.run(["rustc", "--edition", "2021", "-O", "--crate-type=staticlib",
                         "-C", "panic=abort", cand, "-o", f"{w}/libcand.a"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, timeout=90)
     if r.returncode:
         return {"verdict": "RUSTC_FAIL", "detail": r.stderr[:600]}
 
@@ -286,7 +286,7 @@ def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
                 "detail": f"candidate references TU-defined symbols: {delegated}"}
 
     r = subprocess.run(["cc", "-O2", f"-I{w}", f"{w}/probe.c", f"{w}/tu.o", *objs,
-                        f"{w}/libcand.a", "-o", f"{w}/diff"], capture_output=True, text=True)
+                        f"{w}/libcand.a", "-o", f"{w}/diff"], capture_output=True, text=True, timeout=90)
     if r.returncode:
         return {"verdict": "LINK_FAIL", "detail": r.stderr[:400]}
 

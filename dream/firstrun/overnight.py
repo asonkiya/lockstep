@@ -106,14 +106,16 @@ def _ollama(prompt):
     body = json.dumps({"model": LOCAL_MODEL, "prompt": prompt, "stream": False,
                        "options": {"temperature": 0.1}}).encode()
     req = urllib.request.Request(OLLAMA, data=body, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=120) as r:
+    with urllib.request.urlopen(req, timeout=90) as r:
         return _extract_rust(json.loads(r.read())["response"])
 
 
 def _haiku(prompt):
     import anthropic
     from synthesize import _api_key
-    cl = anthropic.Anthropic(api_key=_api_key())
+    # bounded timeout + retries so a stalled socket can NEVER hang a worker thread
+    # (the 5h freeze we hit was a Haiku call with no timeout).
+    cl = anthropic.Anthropic(api_key=_api_key(), timeout=60.0, max_retries=2)
     m = cl.messages.create(model="claude-haiku-4-5-20251001", max_tokens=1200,
                            messages=[{"role": "user", "content": prompt}])
     cost = m.usage.input_tokens * _HAIKU_IN + m.usage.output_tokens * _HAIKU_OUT
@@ -326,8 +328,30 @@ def write_report(solved, phase2):
     log(f"report -> {os.path.relpath(REPORT)}")
 
 
+def _watchdog(grace=180):
+    """Daemon backstop: at the runtime cap + grace, force-exit even if a worker
+    thread is hung (a blocked network/subprocess call), writing a report from the
+    checkpoint. This is what the 5h freeze needed — the in-loop cap check can't
+    fire while `as_completed` is blocked on a stuck future."""
+    time.sleep(RUNTIME_CAP_H * 3600 + grace)
+    log(f"WATCHDOG: runtime cap +{grace}s exceeded — a worker hung; forcing exit "
+        f"(results are checkpointed)")
+    try:
+        done = json.load(open(PROGRESS)).get("done", []) if os.path.exists(PROGRESS) else []
+        open(REPORT, "w").write(
+            "# Overnight report (WATCHDOG force-exit)\n\n"
+            f"- runtime cap {RUNTIME_CAP_H}h exceeded — a synth/gate call hung.\n"
+            f"- Haiku spent: ${spent():.4f}\n"
+            f"- verified (checkpointed, safe): {len(done)}\n"
+            f"  {', '.join(sorted(done))}\n")
+    except Exception as e:  # never let the exit path itself throw
+        log(f"  watchdog report error: {str(e)[:80]}")
+    os._exit(2)
+
+
 def main():
     _t0[0] = time.time()
+    threading.Thread(target=_watchdog, daemon=True).start()
     os.makedirs(VERIFIED, exist_ok=True)
     done = set()
     if os.path.exists(PROGRESS):
