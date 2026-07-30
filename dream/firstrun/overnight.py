@@ -400,7 +400,14 @@ def main():
                 break
 
     leaf_syms = {s["sym"] for s in solved if s["kind"] == "scalar-leaf"}
-    log(f"phase 1 done: {len(solved)} verified (${spent():.4f} spent).")
+    # include freestanding leaves banked in PRIOR (resumed) sessions too, so a
+    # resumed run weaves the FULL accumulated set, not just this session's new
+    # solves (else phase 2 under-weaves after a resume).
+    for f in os.listdir(VERIFIED):
+        if f.endswith(".rs") and not f.startswith("reader_"):
+            leaf_syms.add(f[:-3])
+    log(f"phase 1 done: {len(solved)} new this session; {len(leaf_syms)} freestanding "
+        f"leaves total to weave (${spent():.4f} spent).")
     if os.environ.get("PHASE2", "1") == "0":
         phase2 = {"attempted": False, "reason": "PHASE2=0 (smoke test)"}
     elif time_left() > 900:
