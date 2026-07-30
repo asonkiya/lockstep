@@ -50,6 +50,35 @@ def _opaque_calls(scan, owned, fn):
     return out
 
 
+def own_footprint(func_text: str, fn: str = "") -> dict:
+    """Direct (intraprocedural) footprint + the callee list, WITHOUT deciding on
+    opaque calls — that decision is deferred to the interprocedural closure
+    (interproc.py). local_hard=True means unbounded regardless of callees
+    (pointer-graph / alloc / dynamic-index write)."""
+    scan = purity.mask(func_text)
+    hdr = scan.find("{")
+    body = scan[hdr:] if hdr > 0 else scan
+    owned = purity.owned_names(func_text) | purity.KEYWORDS
+
+    writes: set[str] = set()
+    for rx in (purity._ASSIGN, purity._PREINC):
+        for m in rx.finditer(body):
+            if m.group(1) not in owned:
+                writes.add(m.group(1))
+    for m in _FIELD_WRITE.finditer(body):
+        writes.add(re.sub(r"\s+", "", m.group(1)))
+
+    if entangle._GRAPH.search(body):
+        return {"local_hard": True, "reason": "pointer-graph/alloc", "writes": writes, "callees": set()}
+    dyn = [m for m in _DYN_IDX_WRITE.finditer(body)
+           if m.group(1) not in owned and not re.fullmatch(r"\d+|0x[0-9a-fA-F]+", m.group(2).strip())]
+    if dyn:
+        return {"local_hard": True, "reason": "dynamic-index write", "writes": writes, "callees": set()}
+    reads = {re.sub(r"\s+", "", m.group(0)) for m in _FIELD_ANY.finditer(body)}
+    return {"local_hard": False, "reason": "", "writes": writes, "reads": reads,
+            "callees": _opaque_calls(body, owned, fn)}
+
+
 def extract(func_text: str, fn: str = "") -> dict:
     """Return {bounded, reads, writes, reason}. bounded => effect-trace applies."""
     scan = purity.mask(func_text)
