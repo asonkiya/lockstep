@@ -6,6 +6,8 @@ PHASE 1 (boot-free, host cc+rustc — the bulk, machine-light):
   B.  struct-readers         — (READERS=1) structdiff mirror differential.
   B2. container-ADT mutators — (CONTAINERS=1) representation-independent ADT
                                differential (container_adt reach+harness).
+  B3. bounded-state fns      — (EFFTRACE=1) per-call full-footprint state
+                               differential (efftrace reach+harness).
   C.  scalar exported leaves — ladder synth (local Qwen $0 -> Haiku, budget-capped)
                                -> hostdiff boot-free differential.
   Every verified function's candidate is checkpointed under verified/.
@@ -65,6 +67,8 @@ def _load_by_path(name, path):
 
 cadt_harness = _load_by_path(
     "cadt_harness", os.path.join(HERE, "..", "container_adt", "harness.py"))
+eff_harness = _load_by_path(
+    "eff_harness", os.path.join(HERE, "..", "efftrace", "harness.py"))
 
 BUDGET_CAP = float(os.environ.get("BUDGET_CAP", "7.5"))
 RUNTIME_CAP_H = float(os.environ.get("RUNTIME_CAP_H", "7"))
@@ -384,6 +388,72 @@ def solve_container(item, done):
 
 
 # ---------------------------------------------------------------------------
+# corpus B3: bounded-state fns, gated boot-free by the state differential
+# ---------------------------------------------------------------------------
+
+_EFFTRACE_PROMPT = """Translate this Linux kernel state-mutating function into the BODY of a Rust
+function operating on a flat state-cell model (every global / out-param /
+struct field the C touches is an i64 cell). Exact signature (write ONLY the
+code inside its braces; it must end in an i64 value — use 0 for void):
+{sig}
+
+{doc}
+
+Helper signatures (EXACT — these are the ONLY functions that exist):
+  fn g(ix: usize) -> i64            // read global cell G_*
+  fn set_g(ix: usize, v: i64)
+  fn out(ix: usize) -> i64          // read out-param cell OUT_*
+  fn set_out(ix: usize, v: i64)
+  fn field(base: usize, slot: i64) -> i64   // struct-param field F*_X at slot
+  fn set_field(base: usize, slot: i64, v: i64)
+
+Rules: use ONLY these helpers, the documented constants, and the a0..aN args.
+PRESERVE C SEMANTICS EXACTLY on the i64 cells: replicate the C's arithmetic
+(+= is not |=), C unsigned comparisons cast both sides `as u64`, C integer
+truncation/width effects matter only as far as the C itself exhibits them.
+Kernel error returns are numeric (-EINVAL = -22, -ENOMEM = -12, -EBUSY = -16).
+Locks in the C are handled outside the model: IGNORE lock/unlock calls. No
+unsafe, no statics, no external calls, no panics. If the C does something the
+helpers can't express, reply exactly `// UNSUPPORTED`. Output ONLY the body,
+no signature, no outer braces, no ``` fences.
+"""
+
+
+def solve_efftrace(item, done):
+    fn, rel = item["fn"], item["file"]
+    key = f"efftrace_{fn}"
+    if key in done or time_left() < 300:
+        return None
+    try:
+        prep = eff_harness.prepare(item)
+    except Exception as e:
+        log(f"  ✗ efftrace {fn} prepare-refuse ({str(e)[:48]})")
+        return None
+    prompt = _EFFTRACE_PROMPT.format(sig=prep["rs_sig"], doc=prep["doc"])
+
+    def gate(body):
+        if "UNSUPPORTED" in body:
+            return False, ""
+        with tempfile.TemporaryDirectory() as d:
+            r = eff_harness.close(prep, body, workdir=d)
+        if r["verdict"] == "MATCH":
+            return True, ""
+        fb = r["out"] if r["verdict"].startswith(("BUILD_FAIL", "DIVERGE")) else ""
+        return False, fb
+
+    body, model, cost = ladder(prompt, gate, repair=True)
+    if body:
+        open(os.path.join(VERIFIED, f"{key}.rs"), "w").write(
+            prep["surface"] + "\n" + prep["rs_sig"] + " {\n" + body + "\n}\n")
+        log(f"  ✓ efftrace {fn} via {model} (${cost:.4f}) "
+            f"[locks_stripped={prep['flags']['locks_stripped']}]")
+        return {"sym": fn, "kind": "efftrace", "model": model, "cost": cost,
+                "file": rel, "flags": prep["flags"]}
+    log(f"  ✗ efftrace {fn} unsolved ({model})")
+    return None
+
+
+# ---------------------------------------------------------------------------
 # phase 2: weave verified freestanding leaves into a booting kernel (one boot)
 # ---------------------------------------------------------------------------
 
@@ -520,6 +590,24 @@ def main():
                 if time_left() < 300:
                     break
 
+    # corpus B3 — bounded-state fns (EFFTRACE=1). Boot-free per-call
+    # full-footprint state differential over efftrace/reach_accepted.json.
+    if os.environ.get("EFFTRACE") == "1":
+        ej = os.path.join(HERE, "..", "efftrace", "reach_accepted.json")
+        eitems = json.load(open(ej)) if os.path.exists(ej) else []
+        log(f"phase 1B3: {len(eitems)} bounded-state fns "
+            f"(state differential, boot-free, workers={WORKERS})")
+        with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
+            futs = {ex.submit(solve_efftrace, it, done): it for it in eitems}
+            for fut in cf.as_completed(futs):
+                r = fut.result()
+                if r:
+                    solved.append(r)
+                    done.add(f"efftrace_{r['sym']}")
+                    json.dump({"done": sorted(done)}, open(PROGRESS, "w"))
+                if time_left() < 300:
+                    break
+
     # corpus C — scalar leaves via the ladder, boot-free hostdiff gate
     log("phase 1C: harvesting scalar exported leaves...")
     work = [w for w in widerun.harvest() if w["sym"] not in done][:N_LEAVES]
@@ -544,7 +632,7 @@ def main():
     # solves (else phase 2 under-weaves after a resume). reader_/container_
     # artifacts are boot-free oracle candidates, NOT freestanding kernel objects.
     for f in os.listdir(VERIFIED):
-        if f.endswith(".rs") and not f.startswith(("reader_", "container_")):
+        if f.endswith(".rs") and not f.startswith(("reader_", "container_", "efftrace_")):
             leaf_syms.add(f[:-3])
     log(f"phase 1 done: {len(solved)} new this session; {len(leaf_syms)} freestanding "
         f"leaves total to weave (${spent():.4f} spent).")
