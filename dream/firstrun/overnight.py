@@ -2,8 +2,11 @@
 """First official minimal rewrite — unattended, guarded, overnight.
 
 PHASE 1 (boot-free, host cc+rustc — the bulk, machine-light):
-  A. GPIO template family   — template_synth ($0) -> gpio_family trace oracle.
-  C. scalar exported leaves  — ladder synth (local Qwen $0 -> Haiku, budget-capped)
+  A.  GPIO template family   — template_synth ($0) -> gpio_family trace oracle.
+  B.  struct-readers         — (READERS=1) structdiff mirror differential.
+  B2. container-ADT mutators — (CONTAINERS=1) representation-independent ADT
+                               differential (container_adt reach+harness).
+  C.  scalar exported leaves — ladder synth (local Qwen $0 -> Haiku, budget-capped)
                                -> hostdiff boot-free differential.
   Every verified function's candidate is checkpointed under verified/.
 
@@ -47,6 +50,21 @@ import widerun             # noqa: E402  (harvest, SCALAR, rsig, build_boot, pro
 import template_synth      # noqa: E402
 import gpio_family         # noqa: E402
 import harness as sd_harness  # noqa: E402  (structdiff: prepare/close for struct-readers)
+
+# container_adt ships modules named reach/harness too — load by explicit path
+# under unique names (the proof.py-collision lesson), never via sys.path.
+import importlib.util          # noqa: E402
+
+
+def _load_by_path(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+cadt_harness = _load_by_path(
+    "cadt_harness", os.path.join(HERE, "..", "container_adt", "harness.py"))
 
 BUDGET_CAP = float(os.environ.get("BUDGET_CAP", "7.5"))
 RUNTIME_CAP_H = float(os.environ.get("RUNTIME_CAP_H", "7"))
@@ -264,6 +282,61 @@ def solve_reader(item, done):
 
 
 # ---------------------------------------------------------------------------
+# corpus B2: container-ADT mutators, gated boot-free by the ADT differential
+# ---------------------------------------------------------------------------
+
+_CONTAINER_PROMPT = """Translate this Linux kernel LIST-mutating function into the BODY of a Rust
+function operating on an abstract-data-type model (lists = ordered sequences of
+node ids, node fields = tables). Exact signature (write ONLY the code inside
+its braces; it must end in an i64 value — use 0 for void):
+{sig}
+
+{doc}
+
+Rules: use ONLY the documented helpers + constants (iter/empty/del/push_back/
+push_front/move_tail/move_front/field/set_field/tokf/tok_field/retire) and the
+a0..aN args. iter() returns a snapshot (safe to del() while walking). retire(id)
+is the kfree analog — call it exactly where the C frees. Locks in the C are
+already handled outside the model: IGNORE lock/unlock calls. No unsafe, no
+statics, no external calls, no panics. If the C does something the helpers can't
+express, reply exactly `// UNSUPPORTED`. Output ONLY the body, no signature, no
+outer braces, no ``` fences.
+"""
+
+
+def solve_container(item, done):
+    fn, rel = item["fn"], item["file"]
+    key = f"container_{fn}"
+    if key in done or time_left() < 300:
+        return None
+    try:
+        prep = cadt_harness.prepare(item)
+    except Exception as e:
+        log(f"  ✗ container {fn} prepare-refuse ({str(e)[:48]})")
+        return None
+    prompt = _CONTAINER_PROMPT.format(sig=prep["rs_sig"], doc=prep["doc"])
+
+    def gate(body):
+        if "UNSUPPORTED" in body:
+            return False
+        with tempfile.TemporaryDirectory() as d:
+            r = cadt_harness.close(prep, body, workdir=d)
+        return r["verdict"] == "MATCH"
+
+    body, model, cost = ladder(prompt, gate)
+    if body:
+        open(os.path.join(VERIFIED, f"{key}.rs"), "w").write(
+            prep["surface"] + "\n" + prep["rs_sig"] + " {\n" + body + "\n}\n")
+        fl = prep["flags"]
+        log(f"  ✓ container {fn} via {model} (${cost:.4f}) "
+            f"[locks_stripped={fl['locks_stripped']} alloc_stripped={fl['alloc_stripped']}]")
+        return {"sym": fn, "kind": "container-adt", "model": model, "cost": cost,
+                "file": rel, "flags": fl}
+    log(f"  ✗ container {fn} unsolved ({model})")
+    return None
+
+
+# ---------------------------------------------------------------------------
 # phase 2: weave verified freestanding leaves into a booting kernel (one boot)
 # ---------------------------------------------------------------------------
 
@@ -381,6 +454,25 @@ def main():
                 if time_left() < 300:
                     break
 
+    # corpus B2 — container-ADT list mutators (CONTAINERS=1). Boot-free ADT
+    # differential over reach_accepted.json; verdict flags name the stripped
+    # halves (locks -> concgate, alloc -> allocator model).
+    if os.environ.get("CONTAINERS") == "1":
+        cj = os.path.join(HERE, "..", "container_adt", "reach_accepted.json")
+        citems = json.load(open(cj)) if os.path.exists(cj) else []
+        log(f"phase 1B2: {len(citems)} container-ADT mutators "
+            f"(ADT differential, boot-free, workers={WORKERS})")
+        with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
+            futs = {ex.submit(solve_container, it, done): it for it in citems}
+            for fut in cf.as_completed(futs):
+                r = fut.result()
+                if r:
+                    solved.append(r)
+                    done.add(f"container_{r['sym']}")
+                    json.dump({"done": sorted(done)}, open(PROGRESS, "w"))
+                if time_left() < 300:
+                    break
+
     # corpus C — scalar leaves via the ladder, boot-free hostdiff gate
     log("phase 1C: harvesting scalar exported leaves...")
     work = [w for w in widerun.harvest() if w["sym"] not in done][:N_LEAVES]
@@ -402,9 +494,10 @@ def main():
     leaf_syms = {s["sym"] for s in solved if s["kind"] == "scalar-leaf"}
     # include freestanding leaves banked in PRIOR (resumed) sessions too, so a
     # resumed run weaves the FULL accumulated set, not just this session's new
-    # solves (else phase 2 under-weaves after a resume).
+    # solves (else phase 2 under-weaves after a resume). reader_/container_
+    # artifacts are boot-free oracle candidates, NOT freestanding kernel objects.
     for f in os.listdir(VERIFIED):
-        if f.endswith(".rs") and not f.startswith("reader_"):
+        if f.endswith(".rs") and not f.startswith(("reader_", "container_")):
             leaf_syms.add(f[:-3])
     log(f"phase 1 done: {len(solved)} new this session; {len(leaf_syms)} freestanding "
         f"leaves total to weave (${spent():.4f} spent).")
