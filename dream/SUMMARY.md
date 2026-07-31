@@ -148,3 +148,27 @@ payoff made concrete: the mirror built once in Ring 8 unlocked the whole family 
 no extra cost — breadth × depth on real in-tree code, the shape a full subsystem
 sweep repeats. What remains is running it wide (buying cores) and mirroring more
 struct families.
+
+**The container-ADT oracle became a production path** (`dream/container_adt/
+{reach,harness}.py`): the mechanism proof's representation-independent
+differential now runs against REAL kernel functions taken verbatim from the
+tree. The reach gate measured the honest v2 vocabulary over 58,773 corpus
+functions (~3,120 touch the list family): straight-line ops over params — the
+naive v1 shape — is essentially EMPTY in .c files (trivial mutators live in
+headers as inlines); real mutators iterate `list_for_each_entry[_safe]`, anchor
+on static-global `LIST_HEAD`s, run under lock brackets, and retire nodes with
+`kfree`. Speaking that vocabulary (locks stripped-and-flagged = container-half
+claim, kfree = flagged arena retire, pointer fields as opaque tokens) accepts
+19 functions across lib/kernel/mm/fs/btrfs/drivers, with every refusal tallied
+as the v3 backlog (multi-lh-field nodes dominate the prepare tail; list_entry
+cursors and allocation dominate the reach tail). The harness compiles the real
+C under `#line 1000` with op-site coverage instrumentation against a generated
+Rust ADT surface, and gates on ADT state after EVERY call + returns + retire
+log + coverage (un-exercised mutation site → REFUSED_COVERAGE, proven by
+negative control). **Live fire: all 9 harness-preparable functions solved
+autonomously for $0.005 — 5 at $0 via local qwen (with a gate-feedback repair
+round), 4 via Haiku — including ACPI/IORT, device-mapper, USB gadget, and
+hibernation code.** The oracle earned its keep live twice: it rejected a
+signed/unsigned translation bug (i64 −1 vs `unsigned long`), and it refused to
+certify a function whose workload never exercised the add path. Wired into the
+autonomous runner as phase 1B2 (`CONTAINERS=1`).

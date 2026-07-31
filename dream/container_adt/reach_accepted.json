@@ -1,0 +1,984 @@
+[
+ {
+  "file": "lib/dynamic_debug.c",
+  "fn": "ddebug_table_free",
+  "shape": "node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "dt",
+    "kind": "node",
+    "struct": "ddebug_table",
+    "role": null,
+    "lh_fields": [
+     "link",
+     "maps"
+    ],
+    "scalar_fields": {
+     "num_ddebugs": "unsigned int"
+    },
+    "token_fields": [
+     "mod_name",
+     "ddebugs"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "lib/error-inject.c",
+  "fn": "module_unload_ei_list",
+  "shape": "iter_node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 2,
+  "globals": [
+   "error_injection_list"
+  ],
+  "local_lists": [],
+  "token_reads": {
+   "mod": [
+    "num_ei_funcs"
+   ]
+  },
+  "params": [
+   {
+    "name": "mod",
+    "kind": "token",
+    "struct": "module",
+    "role": null
+   }
+  ],
+  "cursors": {
+   "ent": {
+    "struct": "ei_entry",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "start_addr": "unsigned long",
+     "end_addr": "unsigned long",
+     "etype": "int"
+    },
+    "token_fields": [
+     "priv"
+    ]
+   },
+   "n": {
+    "struct": "ei_entry",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "start_addr": "unsigned long",
+     "end_addr": "unsigned long",
+     "etype": "int"
+    },
+    "token_fields": [
+     "priv"
+    ]
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "ent",
+    "anchor": [
+     "global",
+     "error_injection_list"
+    ],
+    "member": "list"
+   }
+  ]
+ },
+ {
+  "file": "kernel/kprobes.c",
+  "fn": "kprobe_remove_area_blacklist",
+  "shape": "iter_node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 1,
+  "globals": [
+   "kprobe_blacklist"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "start",
+    "kind": "scalar",
+    "struct": null,
+    "role": null
+   },
+   {
+    "name": "end",
+    "kind": "scalar",
+    "struct": null,
+    "role": null
+   }
+  ],
+  "cursors": {
+   "ent": {
+    "struct": "kprobe_blacklist_entry",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "start_addr": "unsigned long",
+     "end_addr": "unsigned long"
+    },
+    "token_fields": []
+   },
+   "n": {
+    "struct": "kprobe_blacklist_entry",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "start_addr": "unsigned long",
+     "end_addr": "unsigned long"
+    },
+    "token_fields": []
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "ent",
+    "anchor": [
+     "global",
+     "kprobe_blacklist"
+    ],
+    "member": "list"
+   }
+  ]
+ },
+ {
+  "file": "kernel/gcov/clang.c",
+  "fn": "gcov_info_link",
+  "shape": "node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [
+   "clang_gcov_list"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "info",
+    "kind": "node",
+    "struct": "gcov_info",
+    "role": null,
+    "lh_fields": [
+     "head",
+     "functions"
+    ],
+    "scalar_fields": {
+     "version": "unsigned int",
+     "checksum": "u32"
+    },
+    "token_fields": [
+     "filename"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "kernel/power/snapshot.c",
+  "fn": "free_mem_extents",
+  "shape": "iter_node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "list",
+    "kind": "lh",
+    "struct": null,
+    "role": "head"
+   }
+  ],
+  "cursors": {
+   "ext": {
+    "struct": "mem_extent",
+    "lh_fields": [
+     "hook"
+    ],
+    "scalar_fields": {
+     "start": "unsigned long",
+     "end": "unsigned long"
+    },
+    "token_fields": []
+   },
+   "aux": {
+    "struct": "mem_extent",
+    "lh_fields": [
+     "hook"
+    ],
+    "scalar_fields": {
+     "start": "unsigned long",
+     "end": "unsigned long"
+    },
+    "token_fields": []
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "ext",
+    "anchor": [
+     "param",
+     "list"
+    ],
+    "member": "hook"
+   }
+  ]
+ },
+ {
+  "file": "kernel/power/console.c",
+  "fn": "pm_vt_switch_unregister",
+  "shape": "iter_node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 1,
+  "globals": [
+   "pm_vt_switch_list"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "dev",
+    "kind": "token",
+    "struct": "device",
+    "role": null
+   }
+  ],
+  "cursors": {
+   "tmp": {
+    "struct": "pm_vt_switch",
+    "lh_fields": [
+     "head"
+    ],
+    "scalar_fields": {
+     "required": "bool"
+    },
+    "token_fields": [
+     "dev"
+    ]
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry",
+    "cursor": "tmp",
+    "anchor": [
+     "global",
+     "pm_vt_switch_list"
+    ],
+    "member": "head"
+   }
+  ]
+ },
+ {
+  "file": "kernel/trace/trace_dynevent.c",
+  "fn": "dyn_event_register",
+  "shape": "node",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [
+   "dyn_event_ops_list"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "ops",
+    "kind": "node",
+    "struct": "dyn_event_operations",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "create",
+     "show",
+     "is_busy",
+     "free",
+     "match"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "kernel/cgroup/rdma.c",
+  "fn": "rdmacg_register_device",
+  "shape": "node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [
+   "rdmacg_devices"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "device",
+    "kind": "node",
+    "struct": "rdmacg_device",
+    "role": null,
+    "lh_fields": [
+     "dev_node",
+     "rpools"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "name"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "kernel/cgroup/cgroup.c",
+  "fn": "free_cgrp_cset_links",
+  "shape": "iter_node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "links_to_free",
+    "kind": "lh",
+    "struct": null,
+    "role": "head"
+   }
+  ],
+  "cursors": {
+   "link": {
+    "struct": "cgrp_cset_link",
+    "lh_fields": [
+     "cset_link",
+     "cgrp_link"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "cgrp",
+     "cset"
+    ]
+   },
+   "tmp_link": {
+    "struct": "cgrp_cset_link",
+    "lh_fields": [
+     "cset_link",
+     "cgrp_link"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "cgrp",
+     "cset"
+    ]
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "link",
+    "anchor": [
+     "param",
+     "links_to_free"
+    ],
+    "member": "cset_link"
+   }
+  ]
+ },
+ {
+  "file": "mm/damon/core.c",
+  "fn": "damon_del_probe",
+  "shape": "node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "p",
+    "kind": "node",
+    "struct": "damon_probe",
+    "role": null,
+    "lh_fields": [
+     "filters",
+     "list"
+    ],
+    "scalar_fields": {},
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "mm/damon/core.c",
+  "fn": "damon_del_target",
+  "shape": "node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "t",
+    "kind": "node",
+    "struct": "damon_target",
+    "role": null,
+    "lh_fields": [
+     "regions_list",
+     "list"
+    ],
+    "scalar_fields": {
+     "nr_regions": "unsigned int",
+     "obsolete": "bool"
+    },
+    "token_fields": [
+     "pid"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/btrfs/tree-log.c",
+  "fn": "btrfs_remove_log_ctx",
+  "shape": "node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "root",
+    "kind": "token",
+    "struct": "btrfs_root",
+    "role": null
+   },
+   {
+    "name": "ctx",
+    "kind": "node",
+    "struct": "btrfs_log_ctx",
+    "role": null,
+    "lh_fields": [
+     "list",
+     "ordered_extents",
+     "conflict_inodes"
+    ],
+    "scalar_fields": {
+     "log_ret": "int",
+     "log_transid": "int",
+     "log_new_dentries": "bool",
+     "logging_new_name": "bool",
+     "logging_new_delayed_dentries": "bool",
+     "logged_before": "bool",
+     "num_conflict_inodes": "int",
+     "logging_conflict_inodes": "bool"
+    },
+    "token_fields": [
+     "inode",
+     "scratch_eb"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/btrfs/tree-log.c",
+  "fn": "free_conflicting_inodes",
+  "shape": "iter_node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "ctx",
+    "kind": "node",
+    "struct": "btrfs_log_ctx",
+    "role": null,
+    "lh_fields": [
+     "list",
+     "ordered_extents",
+     "conflict_inodes"
+    ],
+    "scalar_fields": {
+     "log_ret": "int",
+     "log_transid": "int",
+     "log_new_dentries": "bool",
+     "logging_new_name": "bool",
+     "logging_new_delayed_dentries": "bool",
+     "logged_before": "bool",
+     "num_conflict_inodes": "int",
+     "logging_conflict_inodes": "bool"
+    },
+    "token_fields": [
+     "inode",
+     "scratch_eb"
+    ]
+   }
+  ],
+  "cursors": {
+   "curr": {
+    "struct": "btrfs_ino_list",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "ino": "u64",
+     "parent": "u64"
+    },
+    "token_fields": []
+   },
+   "next": {
+    "struct": "btrfs_ino_list",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "ino": "u64",
+     "parent": "u64"
+    },
+    "token_fields": []
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "curr",
+    "anchor": [
+     "field",
+     "&ctx->conflict_inodes"
+    ],
+    "member": "list"
+   }
+  ]
+ },
+ {
+  "file": "drivers/acpi/arm64/iort.c",
+  "fn": "iort_delete_fwnode",
+  "shape": "iter_node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 1,
+  "globals": [
+   "iort_fwnode_list"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "node",
+    "kind": "token",
+    "struct": "acpi_iort_node",
+    "role": null
+   }
+  ],
+  "cursors": {
+   "curr": {
+    "struct": "iort_fwnode",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "iort_node",
+     "fwnode"
+    ]
+   },
+   "tmp": {
+    "struct": "iort_fwnode",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "iort_node",
+     "fwnode"
+    ]
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "curr",
+    "anchor": [
+     "global",
+     "iort_fwnode_list"
+    ],
+    "member": "list"
+   }
+  ]
+ },
+ {
+  "file": "drivers/acpi/arm64/iort.c",
+  "fn": "iort_deregister_domain_token",
+  "shape": "iter_node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 1,
+  "globals": [
+   "iort_msi_chip_list"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "trans_id",
+    "kind": "scalar",
+    "struct": null,
+    "role": null
+   }
+  ],
+  "cursors": {
+   "its_msi_chip": {
+    "struct": "iort_its_msi_chip",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "base_addr": "phys_addr_t",
+     "translation_id": "u32"
+    },
+    "token_fields": [
+     "fw_node"
+    ]
+   },
+   "t": {
+    "struct": "iort_its_msi_chip",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "base_addr": "phys_addr_t",
+     "translation_id": "u32"
+    },
+    "token_fields": [
+     "fw_node"
+    ]
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "its_msi_chip",
+    "anchor": [
+     "global",
+     "iort_msi_chip_list"
+    ],
+    "member": "list"
+   }
+  ]
+ },
+ {
+  "file": "drivers/md/dm-ps-round-robin.c",
+  "fn": "free_paths",
+  "shape": "iter_node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "paths",
+    "kind": "lh",
+    "struct": null,
+    "role": "head"
+   }
+  ],
+  "cursors": {
+   "pi": {
+    "struct": "path_info",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "repeat_count": "unsigned int"
+    },
+    "token_fields": [
+     "path"
+    ]
+   },
+   "next": {
+    "struct": "path_info",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "repeat_count": "unsigned int"
+    },
+    "token_fields": [
+     "path"
+    ]
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "pi",
+    "anchor": [
+     "param",
+     "paths"
+    ],
+    "member": "list"
+   }
+  ]
+ },
+ {
+  "file": "drivers/mtd/mtdpart.c",
+  "fn": "deregister_mtd_parser",
+  "shape": "node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "p",
+    "kind": "node",
+    "struct": "mtd_part_parser",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "owner",
+     "name",
+     "of_match_table",
+     "parse_fn",
+     "cleanup"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c",
+  "fn": "__resource_del",
+  "shape": "node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "res",
+    "kind": "node",
+    "struct": "nfp_cpp_resource",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "cpp_id": "u32",
+     "start": "u64",
+     "end": "u64"
+    },
+    "token_fields": [
+     "name"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "drivers/usb/gadget/legacy/hid.c",
+  "fn": "hidg_plat_driver_remove",
+  "shape": "iter_node",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 0,
+  "globals": [
+   "hidg_func_list"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "pdev",
+    "kind": "token",
+    "struct": "platform_device",
+    "role": null
+   }
+  ],
+  "cursors": {
+   "e": {
+    "struct": "hidg_func_node",
+    "lh_fields": [
+     "node"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "fi",
+     "f",
+     "func"
+    ]
+   },
+   "n": {
+    "struct": "hidg_func_node",
+    "lh_fields": [
+     "node"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "fi",
+     "f",
+     "func"
+    ]
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "e",
+    "anchor": [
+     "global",
+     "hidg_func_list"
+    ],
+    "member": "node"
+   }
+  ]
+ }
+]

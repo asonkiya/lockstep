@@ -118,7 +118,12 @@ function hard, not by hope.** The "unbounded" tail is ~94% attackable
 - `dream/router/entangle.py` — the 7-class entanglement router.
 - `dream/efftrace/` — effect-trace oracle proof + footprint + interprocedural closure
   + unbounded-tail sub-census.
-- `dream/container_adt/` — representation-independent ADT oracle (LIST + rbtree).
+- `dream/container_adt/` — representation-independent ADT oracle (LIST + rbtree),
+  PRODUCTIZED: reach gate + harness over real fns (9/9 live-fire solves, $0.005;
+  op-site coverage gate; locks/kfree stripped-and-flagged). Lesson repeated: the
+  naive vocabulary (straight-line ops) measured ~zero real targets — real mutators
+  iterate/anchor-on-globals/lock/free, and a gate-feedback repair round took the
+  $0 local model from 0/5 to most solves.
 - `dream/family/` — GPIO family trace oracle + template synth.
 - `dream/firstrun/` — the autonomous runner (`overnight.py`, `ambitious.py`), the
   first official rewrite + the wide soundness test (`dream/widetest/`).

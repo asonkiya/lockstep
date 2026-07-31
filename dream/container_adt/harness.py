@@ -79,6 +79,17 @@ def _lcg(seed=12345):
 CADT_H = r"""
 #include <stddef.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <sys/types.h>
+/* kernel scalar typedefs (LP64), matching mirror.SCALAR's vocabulary */
+typedef uint8_t  u8;  typedef int8_t  s8;  typedef uint8_t  __u8;  typedef int8_t  __s8;
+typedef uint16_t u16; typedef int16_t s16; typedef uint16_t __u16; typedef int16_t __s16;
+typedef uint32_t u32; typedef int32_t s32; typedef uint32_t __u32; typedef int32_t __s32;
+typedef uint64_t u64; typedef int64_t s64; typedef uint64_t __u64; typedef int64_t __s64;
+typedef uint16_t __le16; typedef uint16_t __be16;
+typedef uint32_t __le32; typedef uint32_t __be32;
+typedef uint64_t __le64; typedef uint64_t __be64;
+typedef uint64_t phys_addr_t; typedef uint64_t dma_addr_t; typedef uint64_t resource_size_t;
 /* asm-generic errno-base values, so `return -EINVAL` in the fn text and a
    numeric return in the candidate compare equal */
 #define EPERM 1
