@@ -85,3 +85,30 @@ def test_starved_workload_refuses_coverage(prep):
     starved["setup"]["tokset"] = [(h, f, 0) for h, f, _ in prep["setup"]["tokset"]]
     r = _H.close(starved, _H._CANON_BODIES["correct"])
     assert r["verdict"] == "REFUSED_COVERAGE", r
+
+
+# ---- multi-lh-field (membership universes) --------------------------------
+# ddebug_table_free: node with TWO list_head members (link, maps), anchor-less
+# del through `link` (workload links nodes on a synthetic elsewhere-list).
+# The load-bearing new soundness property: deleting through the WRONG member
+# (del_m(M_MAPS, ...)) must DIVERGE — a universe-blind del would false-pass it.
+
+@pytest.fixture(scope="module")
+def prep_multi():
+    rec = _R.gate("lib/dynamic_debug.c", "ddebug_table_free")
+    return _H.prepare(rec)
+
+
+def test_multi_member_record(prep_multi):
+    assert prep_multi["members"] == ["link", "maps"]
+    assert [k for k, _ in prep_multi["lists"]] == ["synth"]
+
+
+def test_multi_member_correct_matches(prep_multi):
+    r = _H.close(prep_multi, "del_m(M_LINK, a0 as u32); retire(a0 as u32);\n0\n")
+    assert r["verdict"] == "MATCH", r
+
+
+def test_wrong_member_diverges(prep_multi):
+    r = _H.close(prep_multi, "del_m(M_MAPS, a0 as u32); retire(a0 as u32);\n0\n")
+    assert r["verdict"].startswith("DIVERGE"), r

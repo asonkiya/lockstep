@@ -178,9 +178,6 @@ def prepare(rec):
     if len(node_types) != 1:
         raise Unsupported(f"node types: {len(node_types)}")
     (ntype, (lhf, scalars, tokf)), = node_types.items()
-    if len(lhf) != 1:
-        raise Unsupported(f"multi lh fields: {lhf}")
-    lh = lhf[0]
     if rec["local_lists"]:
         raise Unsupported("local LIST_HEAD")
     tok_types = {p["struct"] for p in rec["params"] if p["kind"] == "token"}
@@ -191,23 +188,78 @@ def prepare(rec):
     for it in rec["iters"]:
         if it["anchor"][0] == "field":
             raise Unsupported("node-field head anchor")
-        if it["member"] != lh:
-            raise Unsupported("iter over non-primary lh field")
-
-    # lists inventory: globals then head-role lh params
-    lists = [("global", g) for g in rec["globals"]]
-    for p in rec["params"]:
-        if p["kind"] == "lh" and p.get("role") != "entry":
-            lists.append(("param", p["name"]))
-    if not lists:
-        raise Unsupported("no list anchor")
-    if len(lists) > 4:
-        raise Unsupported("too many lists")
+        if it["member"] not in lhf:
+            raise Unsupported(f"iter member {it['member']} not an lh field")
 
     fn_text = _fn_text(rec)
     sites = _mut_sites(fn_text)
     if not sites:
         raise Unsupported("no static mutation site")
+
+    # ---- lh MEMBERS: each is a membership universe ------------------------
+    # entry-use = node linked THROUGH that member; head-only INIT = a per-node
+    # sub-anchor (no-op here, flagged); list_empty on a sub-anchor is state we
+    # do not model -> refuse.
+    members = list(lhf)
+    m_ix = {f: i for i, f in enumerate(members)}
+    node_vars = ({p["name"] for p in rec["params"] if p["kind"] == "node"}
+                 | set(rec["cursors"]))
+    entry_used, init_used = set(), set()
+    anchor_member = {}          # list name -> member field
+
+    def _assoc(anchor_name, mem):
+        if anchor_member.setdefault(anchor_name, mem) != mem:
+            raise Unsupported(f"anchor {anchor_name}: conflicting members")
+
+    for op in MUT_OPS:
+        for m in re.finditer(
+                rf"\b{op}\s*\(\s*&\s*(\w+)\s*->\s*(\w+)\s*(?:,\s*([^()]+?))?\s*\)",
+                fn_text):
+            var, fld, headx = m.group(1), m.group(2), m.group(3)
+            if var not in node_vars or fld not in m_ix:
+                continue
+            entry_used.add(fld)
+            if headx:
+                gm = re.match(r"&\s*(\w+)$", headx.strip())
+                if gm and gm.group(1) in rec["globals"]:
+                    _assoc(gm.group(1), fld)
+                elif re.match(r"^\w+$", headx.strip()):
+                    _assoc(headx.strip(), fld)
+    for it in rec["iters"]:
+        entry_used.add(it["member"])            # iteration walks via the member
+        _assoc(it["anchor"][1], it["member"])
+    for m in re.finditer(r"\bINIT_LIST_HEAD\s*\(\s*&\s*(\w+)\s*->\s*(\w+)\s*\)", fn_text):
+        if m.group(1) in node_vars and m.group(2) in m_ix:
+            init_used.add(m.group(2))
+    for m in re.finditer(r"\blist_empty\s*\(\s*&\s*(\w+)\s*->\s*(\w+)\s*\)", fn_text):
+        if m.group(1) in node_vars and m.group(2) in m_ix and m.group(2) not in entry_used:
+            raise Unsupported(f"list_empty on sub-anchor {m.group(2)}")
+    subanchors = sorted(init_used - entry_used)
+    if not entry_used:
+        raise Unsupported("no membership member used")
+
+    # ---- lists inventory: named (member-associated) + synthetic ------------
+    # a used member with no named anchor gets a synthetic "elsewhere" list, so
+    # anchor-less dels (list_del(&p->m) under an unnamed caller-side list) are
+    # workload-linkable and their chains extracted/compared like any other.
+    lists = [("global", g) for g in rec["globals"]]
+    for p in rec["params"]:
+        if p["kind"] == "lh" and p.get("role") != "entry":
+            lists.append(("param", p["name"]))
+    only_m = next(iter(entry_used)) if len(entry_used) == 1 else None
+    list_member = []
+    for kind, name in lists:
+        mem = anchor_member.get(name, only_m)
+        if mem is None:
+            raise Unsupported(f"anchor {name}: member unknown")
+        list_member.append(mem)
+    for mem in sorted(entry_used):
+        if mem not in list_member:
+            lists.append(("synth", f"__elsewhere_{mem}"))
+            list_member.append(mem)
+    if len(lists) > 5:
+        raise Unsupported("too many lists")
+    n_named = sum(1 for k, _ in lists if k != "synth")
 
     # node params: fresh (add-only) vs linked (del/move present)
     fresh = set()
@@ -226,7 +278,9 @@ def prepare(rec):
 
     # ---- C reference TU ----------------------------------------------------
     c = [CADT_H]
-    c.append(f"struct {ntype} {{ struct list_head {lh};")
+    c.append(f"struct {ntype} {{")
+    for f in members:
+        c.append(f"    struct list_head {f};")
     for f, t in scalars.items():
         c.append(f"    {t} {f};")
     for f in tokf:
@@ -241,16 +295,26 @@ def prepare(rec):
     npl = sum(1 for k, _ in lists if k == "param")
     if npl:
         c.append(f"static struct list_head CADT_PL[{npl}];")
-    pl_seen = [0]
+    nsyn = sum(1 for k, _ in lists if k == "synth")
+    if nsyn:
+        c.append(f"static struct list_head CADT_SL[{nsyn}];")
+    pl_seen, sl_seen = [0], [0]
     anchors = []
     for kind, name in lists:
         if kind == "global":
             anchors.append(f"&{name}")
-        else:
+        elif kind == "param":
             anchors.append(f"&CADT_PL[{pl_seen[0]}]")
             pl_seen[0] += 1
+        else:
+            anchors.append(f"&CADT_SL[{sl_seen[0]}]")
+            sl_seen[0] += 1
     c.append(f"static struct list_head *CADT_LISTS[{len(lists)}] = "
              "{ " + ", ".join(anchors) + " };")
+    # per-list membership-member offset: attach/extract walk THROUGH the member
+    c.append(f"static const size_t CADT_MOFF[{len(lists)}] = {{ "
+             + ", ".join(f"offsetof(struct {ntype}, {m})" for m in list_member)
+             + " };")
     c.append(f"static struct {ntype} CADT_ARENA[{NN}];")
     c.append(f"""
 static int CADT_SITES[256]; static int CADT_NS;
@@ -269,14 +333,17 @@ void cadt_reset(void){{
     for (int i = 0; i < {len(lists)}; i++) __cadt_init(CADT_LISTS[i]);
     for (int i = 0; i < {NN}; i++) {{
         __builtin_memset(&CADT_ARENA[i], 0, sizeof(CADT_ARENA[i]));
-        __cadt_init(&CADT_ARENA[i].{lh});
+        {" ".join(f"__cadt_init(&CADT_ARENA[i].{m});" for m in members)}
     }}
 }}
-void cadt_attach(int id, int l){{ __cadt_list_add_tail(&CADT_ARENA[id].{lh}, CADT_LISTS[l]); }}
+static struct list_head *__cadt_link(int id, int l){{
+    return (struct list_head *)((char *)&CADT_ARENA[id] + CADT_MOFF[l]);
+}}
+void cadt_attach(int id, int l){{ __cadt_list_add_tail(__cadt_link(id, l), CADT_LISTS[l]); }}
 int cadt_seq(int l, int *buf, int cap){{
     int n = 0; struct list_head *p;
     for (p = CADT_LISTS[l]->next; p != CADT_LISTS[l] && n < cap; p = p->next)
-        buf[n++] = (int)(cadt_container_of(p, struct {ntype}, {lh}) - CADT_ARENA);
+        buf[n++] = (int)((struct {ntype} *)((char *)p - CADT_MOFF[l]) - CADT_ARENA);
     return n;
 }}
 int cadt_sites(int *buf, int cap){{
@@ -318,8 +385,12 @@ int cadt_retlog(int *buf, int cap){{
         if p["kind"] == "node":
             call_args.append(f"&CADT_ARENA[{a}]")
         elif p["kind"] == "lh":
-            call_args.append(f"CADT_LISTS[{a}]" if p.get("role") != "entry"
-                             else f"&CADT_ARENA[{a}].{lh}")
+            if p.get("role") == "entry":
+                if len(members) > 1:
+                    raise Unsupported("entry-role lh param on multi-member node")
+                call_args.append(f"&CADT_ARENA[{a}].{members[0]}")
+            else:
+                call_args.append(f"CADT_LISTS[{a}]")
         elif p["kind"] == "token":
             call_args.append(f"({a} ? &CADT_TOKS[{a}-1] : 0)")
         else:
@@ -342,8 +413,22 @@ int cadt_retlog(int *buf, int cap){{
         consts.append(f"const T_{f.upper()}: usize = {i};")
     for f, i in tp_ix.items():
         consts.append(f"const P_{f.upper()}: usize = {i};")
-    for i, (_, name) in enumerate(lists):
-        consts.append(f"const L_{name.upper()}: usize = {i};")
+    for i, (kind, name) in enumerate(lists):
+        if kind != "synth":
+            consts.append(f"const L_{name.upper()}: usize = {i};")
+    multi = len(members) > 1
+    if multi:
+        for f, i in m_ix.items():
+            consts.append(f"const M_{f.upper()}: usize = {i};")
+    lm_row = ", ".join(str(m_ix[m]) for m in list_member)
+    del_fns = (f"""const LM: [usize; NL] = [{lm_row}];   // list -> membership member
+fn del_m(m: usize, id: u32) {{ unsafe {{
+    for (l, v) in LISTS.iter_mut().enumerate() {{
+        if LM[l] == m {{ if let Some(p) = v.iter().position(|&x| x == id) {{ v.remove(p); }} }}
+    }}
+}}}}""" if multi else
+               "fn del(id: u32) { unsafe { for v in LISTS.iter_mut() { if let Some(p) = v.iter().position(|&x| x == id) { v.remove(p); } } } }")
+    del_call = "del_m(LM[l], id)" if multi else "del(id)"
     surface = f"""#![allow(non_snake_case, dead_code, static_mut_refs, unused_unsafe, unused_imports, unused_variables)]
 // generated ADT surface — lists are id-sequences; nodes are field tables.
 const NL: usize = {nl};
@@ -380,11 +465,11 @@ static mut RETIRED: Vec<u32> = Vec::new();
 // ---- candidate-facing helpers (the RfL List surface, ADT-modeled) ----
 fn iter(l: usize) -> Vec<u32> {{ unsafe {{ LISTS[l].clone() }} }}      // snapshot == _safe semantics
 fn empty(l: usize) -> bool {{ unsafe {{ LISTS[l].is_empty() }} }}
-fn del(id: u32) {{ unsafe {{ for v in LISTS.iter_mut() {{ if let Some(p) = v.iter().position(|&x| x == id) {{ v.remove(p); }} }} }} }}
+{del_fns}
 fn push_back(l: usize, id: u32) {{ unsafe {{ LISTS[l].push(id); }} }}
 fn push_front(l: usize, id: u32) {{ unsafe {{ LISTS[l].insert(0, id); }} }}
-fn move_tail(l: usize, id: u32) {{ del(id); push_back(l, id); }}
-fn move_front(l: usize, id: u32) {{ del(id); push_front(l, id); }}
+fn move_tail(l: usize, id: u32) {{ {del_call}; push_back(l, id); }}
+fn move_front(l: usize, id: u32) {{ {del_call}; push_front(l, id); }}
 fn field(id: u32, f: usize) -> i64 {{ unsafe {{ SF[id as usize][f] }} }}
 fn set_field(id: u32, f: usize, v: i64) {{ unsafe {{ SF[id as usize][f] = v; }} }}
 fn tokf(id: u32, t: usize) -> i64 {{ unsafe {{ TF[id as usize][t] }} }}
@@ -398,8 +483,14 @@ fn retire(id: u32) {{ unsafe {{ RETIRED.push(id); }} }}
     g = _lcg()
     fresh_ids = list(range(NN - 4, NN)) if fresh else []
     linked_ids = [i for i in range(NN) if i not in fresh_ids]
+    # one attach per node per membership universe (a node sits on <=1 list of
+    # each member); pool draw == old `% nl` stream when there is one member.
+    pools = {}
+    for l, mem in enumerate(list_member):
+        pools.setdefault(mem, []).append(l)
     setup = {
-        "attach": [(i, next(g) % nl) for i in linked_ids],
+        "attach": [(i, pools[mem][next(g) % len(pools[mem])])
+                   for i in linked_ids for mem in sorted(pools)],
         "setf": [(i, fi, [0, 1, 2, 7, -1, 3][next(g) % 6])
                  for i in range(NN) for fi in range(nf)],
         # even ids: all token fields non-null (guards that require a fully-
@@ -411,30 +502,76 @@ fn retire(id: u32) {{ unsafe {{ RETIRED.push(id); }} }}
         "tokset": [(h, fi, next(g) % 4)
                    for h in range(1, NTOK + 1) for fi in range(len(tok_reads))],
     }
+    # node params the fn UNLINKS (plain list_del / move): passing an already-
+    # deleted node violates the caller contract (NULL-deref in the C ref, a
+    # crash — not a differential), so their args draw WITHOUT replacement.
+    # list_del_init re-inits (re-del safe) but distinct args cover it uniformly.
+    consuming = set()
+    for p in rec["params"]:
+        if p["kind"] == "node" and p["name"] not in fresh:
+            uses = [op for op in MUT_OPS
+                    if re.search(rf"\b{op}\s*\(\s*&\s*{p['name']}\s*->", fn_text)]
+            if any(not u.startswith("list_add") for u in uses):
+                consuming.add(p["name"])
+        elif p["kind"] == "lh" and p.get("role") == "entry":
+            consuming.add(p["name"])
     ncalls = min(W, len(fresh_ids)) if fresh else W
+    if consuming:
+        ncalls = min(ncalls, len(linked_ids) // len(consuming))
     fresh_pool = iter(fresh_ids)
+    consume_pool = list(linked_ids)
     calls = []
     for _ in range(ncalls):
         row = []
         for p in rec["params"]:
             if p["kind"] == "node":
                 row.append(next(fresh_pool) if p["name"] in fresh
+                           else consume_pool.pop(next(g) % len(consume_pool))
+                           if p["name"] in consuming
                            else linked_ids[next(g) % len(linked_ids)])
             elif p["kind"] == "lh":
-                row.append(next(g) % nl if p.get("role") != "entry"
-                           else linked_ids[next(g) % len(linked_ids)])
+                if p.get("role") == "entry":
+                    row.append(consume_pool.pop(next(g) % len(consume_pool))
+                               if p["name"] in consuming
+                               else linked_ids[next(g) % len(linked_ids)])
+                else:
+                    # only lists of the SAME membership universe as this param
+                    # (a wrong-member chain walk is UB, not a differential)
+                    pmem = anchor_member.get(p["name"], only_m)
+                    pool = [l for l, mm in enumerate(list_member) if mm == pmem]
+                    row.append(pool[next(g) % len(pool)])
             elif p["kind"] == "token":
                 row.append(1 + next(g) % NTOK)
             else:
                 row.append([0, 1, 2, 7, -1, 3, 8, 5][next(g) % 8])
         calls.append(row)
 
+    member_doc = ""
+    if multi:
+        member_doc = ("\n// MULTI-MEMBERSHIP node: fields "
+                      + ", ".join(f"{m} (M_{m.upper()})" for m in members
+                                  if m in entry_used)
+                      + " are separate list memberships."
+                      + "\n// del_m(M_X, id) == list_del(&node->X); plain del() does NOT exist here."
+                      + "\n// List membership members: "
+                      + ", ".join(f"L index {l} via {m}"
+                                  for l, m in enumerate(list_member)))
+    if subanchors:
+        member_doc += ("\n// Sub-anchor fields "
+                       + ", ".join(subanchors)
+                       + ": per-node list heads never populated here — treat"
+                         " INIT_LIST_HEAD(&node->X) on them as a no-op.")
     doc = (f"// C function under translation (from {rec['file']}):\n"
            + "\n".join("// " + ln for ln in fn_text.split("\n"))
            + "\n// Available constants:\n"
            + "\n".join("//   " + c for c in consts)
+           + member_doc
            + "\n// Node ids are abstract; lists are ordered id-sequences."
-           + "\n// Helpers: iter(l)->Vec<u32> (snapshot), empty(l), del(id),"
+           + "\n// Nodes may start linked on an unnamed caller-side list; "
+           + ("del_m removes from wherever the member is linked."
+              if multi else "del(id) removes from wherever the node is linked.")
+           + "\n// Helpers: iter(l)->Vec<u32> (snapshot), empty(l), "
+           + ("del_m(M_*,id)," if multi else "del(id),")
            + "\n//   push_back/push_front(l,id) [list_add_tail/list_add],"
            + "\n//   move_tail/move_front(l,id), field(id,F_*), set_field,"
            + "\n//   tokf(id,T_*)->i64 token, tok_field(h,P_*)->i64, retire(id) [kfree]."
@@ -446,6 +583,8 @@ fn retire(id: u32) {{ unsafe {{ RETIRED.push(id); }} }}
         "doc": doc, "sites": sites, "lists": lists, "setup": setup,
         "calls": calls, "nparams": len(rec["params"]),
         "flags": rec["flags"], "ntype": ntype,
+        "members": members, "list_member": list_member,
+        "subanchors": subanchors, "n_named": n_named,
     }
 
 
