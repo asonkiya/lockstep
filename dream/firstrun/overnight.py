@@ -408,7 +408,10 @@ Helper signatures (EXACT — these are the ONLY functions that exist):
   fn set_field(base: usize, slot: i64, v: i64)
 
 Rules: use ONLY these helpers, the documented constants, and the a0..aN args.
-PRESERVE C SEMANTICS EXACTLY on the i64 cells: replicate the C's arithmetic
+When the C branches on a named constant (F_RDLCK, RB_BLACK, ...), USE that
+named constant from the list above — do NOT hardcode its numeric value (it may
+not be what you'd guess). PRESERVE C SEMANTICS EXACTLY on the i64 cells:
+replicate the C's arithmetic
 (+= is not |=), C unsigned comparisons cast both sides `as u64`, C integer
 truncation/width effects matter only as far as the C itself exhibits them.
 Kernel error returns are numeric (-EINVAL = -22, -ENOMEM = -12, -EBUSY = -16).

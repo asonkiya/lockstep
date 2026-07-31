@@ -136,6 +136,57 @@ def _cell_width(ctype):
     return _WIDTH.get(" ".join(ctype.replace("const", " ").split()), (64, True))
 
 
+def _norm_bits(bits, signed, v):
+    if bits == 64:
+        return v
+    if bits == 1:
+        return 1 if v else 0
+    m = (1 << bits) - 1
+    x = v & m
+    return x - (1 << bits) if signed and (x >> (bits - 1)) & 1 else x
+
+
+def _param_widths(fn_text, params):
+    """(bits, signed) per SCALAR param — its declared C type truncates the
+    passed arg (an `int type` param makes 0x100000000 arrive as 0). None for
+    64-bit / node / out-params (no truncation). Models C parameter passing so
+    the i64 model and the C see the same effective argument."""
+    op = fn_text.find("(")
+    depth, i = 0, op
+    while i < len(fn_text):
+        depth += (fn_text[i] == "(") - (fn_text[i] == ")")
+        if depth == 0:
+            break
+        i += 1
+    ps = fn_text[op + 1:i]
+    pieces, d, cur = [], 0, ""
+    for ch in ps:
+        if ch in "([":
+            d += 1
+        elif ch in ")]":
+            d -= 1
+        if ch == "," and d == 0:
+            pieces.append(cur)
+            cur = ""
+        else:
+            cur += ch
+    if cur.strip():
+        pieces.append(cur)
+    byname = {}
+    for pc in pieces:
+        m = re.match(r"(.*?)([A-Za-z_]\w*)\s*$", pc.strip())
+        if m:
+            byname[m.group(2)] = " ".join(m.group(1).replace("const", " ").split())
+    out = []
+    for p in params:
+        if p["kind"] == "scalar":
+            bw = _cell_width(byname.get(p["name"], ""))
+            out.append(bw if bw[0] != 64 else None)
+        else:
+            out.append(None)
+    return out
+
+
 def _pynorm(ctype, v):
     bits, signed = _cell_width(ctype)
     if bits == 64:
@@ -333,6 +384,7 @@ fn set_field(base: usize, slot: i64, v: i64) {{ unsafe {{ let ix = base + slot a
     rs_sig = f'#[no_mangle] pub extern "C" fn rs_call({", ".join(rs_args)}) -> i64'
 
     # ---- workload ----------------------------------------------------------
+    pw = _param_widths(fn_text, rec["params"])   # scalar-param truncation
     g_ = _lcg()
     vals = [0, 1, 2, 7, -1, 3, 5, 100]
     rounds = []
@@ -359,7 +411,8 @@ fn set_field(base: usize, slot: i64, v: i64) {{ unsafe {{ let ix = base + slot a
                 elif p["kind"] == "outp":
                     row.append(0)
                 else:
-                    row.append(vals[next(g_) % 8])
+                    v = vals[next(g_) % 8]
+                    row.append(_norm_bits(*pw[len(row)], v) if pw[len(row)] else v)
             calls.append(row)
         rounds.append({"seeds": seeds, "calls": calls})
 
@@ -370,7 +423,11 @@ fn set_field(base: usize, slot: i64, v: i64) {{ unsafe {{ let ix = base + slot a
         if p["kind"] == "node":
             fl = ", ".join(f"F{node_seen}_{f.upper()}" for f in sorted(p["scalar_fields"]))
             argdoc.append(f"a{i}={p['name']} (struct slot 0..{NN-1}: "
-                          f"field(BASE, a{i}) with BASE in {{{fl}}})")
+                          f"field(BASE, a{i}) with BASE in {{{fl}}}; ALWAYS a "
+                          f"valid non-null pointer — a0 is a slot INDEX not a "
+                          f"pointer value, so any `if ({p['name']})` / "
+                          f"`if (!{p['name']}) return` guard in the C is always "
+                          f"true/never-taken here: do NOT write `if a{i} != 0`)")
             node_seen += 1
         elif p["kind"] == "outp":
             argdoc.append(f"a{i}={p['name']} (OUT-param: out(OUT_{p['name'].upper()})"
@@ -395,7 +452,7 @@ fn set_field(base: usize, slot: i64, v: i64) {{ unsafe {{ let ix = base + slot a
     return {"rec": rec, "csrc": csrc, "surface": surface, "rs_sig": rs_sig,
             "doc": doc, "cells": cells, "nstate": nstate, "widx": widx,
             "rounds": rounds, "nparams": len(rec["params"]),
-            "flags": rec["flags"]}
+            "flags": rec["flags"], "pw": pw}
 
 
 def _probe_c(prep):
@@ -472,11 +529,16 @@ def _cover_c(prep):
     kinds = "".join("n" if p["kind"] == "node" else "o" if p["kind"] == "outp"
                     else "s" for p in prep["rec"]["params"])
     callargs = ", ".join(f"A[{j}]" for j in range(npar))
+    # scalar-param widths: truncate the drawn arg to the C param type so the
+    # printed (model-facing) arg equals what the C effectively uses.
+    aw = ", ".join(f"{{{w[0]}, {1 if w[1] else 0}}}" if w else "{0, 0}"
+                   for w in prep.get("pw") or [None] * npar)
     return f"""#include <stdio.h>
 extern void eff_reset(void); extern void eff_set(int, long); extern void eff_state(long*);
 extern long eff_call({argdecl});
 static const int WIDX[{max(nw,1)}] = {{ {", ".join(map(str, prep['widx'])) or "0"} }};
 static const char KIND[{max(npar,1)}] = {{ {", ".join(f"'{c}'" for c in kinds) or "'x'"} }};
+static const int AW[{max(npar,1)}][2] = {{ {aw or "{0,0}"} }};
 static const long POOL[] = {{0,1,2,3,4,5,7,8,15,16,31,32,63,64,127,128,255,256,
     -1,-2,-8,1000,4096,65535,0x7fffffff,0x100000000L}};
 #define NPOOL (int)(sizeof(POOL)/sizeof(POOL[0]))
@@ -493,9 +555,13 @@ int main(void){{
             SEED[i] = (mode == 0) ? 0 : (mode == 1) ? (1 + i) : POOL[rnd() % NPOOL];
         eff_reset();
         for (int i = 0; i < {ns}; i++) eff_set(i, SEED[i]);
-        for (int j = 0; j < {npar}; j++)
+        for (int j = 0; j < {npar}; j++) {{
             A[j] = KIND[j] == 'n' ? (long)(rnd() % NN)
                  : KIND[j] == 'o' ? 0 : POOL[rnd() % NPOOL];
+            int b = AW[j][0];
+            if (b) {{ long m = (1L << b) - 1, x = A[j] & m;
+                     A[j] = (AW[j][1] && ((x >> (b - 1)) & 1)) ? (x | ~m) : x; }}
+        }}
         eff_state(PRE);
         eff_call({callargs});
         eff_state(POST);
