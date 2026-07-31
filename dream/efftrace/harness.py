@@ -529,6 +529,14 @@ def _cover_c(prep):
     kinds = "".join("n" if p["kind"] == "node" else "o" if p["kind"] == "outp"
                     else "s" for p in prep["rec"]["params"])
     callargs = ", ".join(f"A[{j}]" for j in range(npar))
+    # value pool: generic boundaries PLUS the fn's own resolved constants (so a
+    # switch on named constants — RTIWWDSIZE_*, F_* — actually gets its cases
+    # hit; without these the write is uncoverable and refuses honestly).
+    base = [0, 1, 2, 3, 4, 5, 7, 8, 15, 16, 31, 32, 63, 64, 127, 128, 255, 256,
+            -1, -2, -8, 1000, 4096, 65535, 0x7fffffff, 0x100000000]
+    dvals = [v for v in prep["rec"].get("defines", {}).values()
+             if isinstance(v, int) and -(2**63) <= v < 2**63]
+    pool = ", ".join(f"{v}L" for v in base + dvals)
     # scalar-param widths: truncate the drawn arg to the C param type so the
     # printed (model-facing) arg equals what the C effectively uses.
     aw = ", ".join(f"{{{w[0]}, {1 if w[1] else 0}}}" if w else "{0, 0}"
@@ -539,8 +547,7 @@ extern long eff_call({argdecl});
 static const int WIDX[{max(nw,1)}] = {{ {", ".join(map(str, prep['widx'])) or "0"} }};
 static const char KIND[{max(npar,1)}] = {{ {", ".join(f"'{c}'" for c in kinds) or "'x'"} }};
 static const int AW[{max(npar,1)}][2] = {{ {aw or "{0,0}"} }};
-static const long POOL[] = {{0,1,2,3,4,5,7,8,15,16,31,32,63,64,127,128,255,256,
-    -1,-2,-8,1000,4096,65535,0x7fffffff,0x100000000L}};
+static const long POOL[] = {{ {pool} }};
 #define NPOOL (int)(sizeof(POOL)/sizeof(POOL[0]))
 #define NN {NN}
 static unsigned long _s = 0x9e3779b97f4a7c15UL;

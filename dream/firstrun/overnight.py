@@ -414,6 +414,9 @@ not be what you'd guess). PRESERVE C SEMANTICS EXACTLY on the i64 cells:
 replicate the C's arithmetic
 (+= is not |=), C unsigned comparisons cast both sides `as u64`, C integer
 truncation/width effects matter only as far as the C itself exhibits them.
+A store to a narrow field WRAPS to that width: if the C uses a value AFTER
+writing it to a u8/u16/u32 field (e.g. `x += n; if (x >= lim)`), wrap it
+(`(x as u32) as i64`) before the later use, or re-read it via field().
 Kernel error returns are numeric (-EINVAL = -22, -ENOMEM = -12, -EBUSY = -16).
 Locks in the C are handled outside the model: IGNORE lock/unlock calls. No
 unsafe, no statics, no external calls, no panics. If the C does something the
