@@ -453,6 +453,108 @@ def _run(cmd, timeout, cwd=None):
         return None
 
 
+# ---------------------------------------------------------------------------
+# directed workload synthesis — DRIVE the conditional writes the undirected
+# workload misses. A coverage-guided search over the REAL C REFERENCE: try
+# (seed-state, call-args) vectors, keep any that make the C toggle a not-yet-
+# covered write-target cell (greedy set cover). Model-independent (searches C,
+# not the candidate) and strictly strengthens the differential — it only ADDS
+# calls, so a correct candidate still matches and a wrong one still diverges.
+# Cells the search cannot toggle stay uncovered -> the differential REFUSES
+# COVERAGE honestly (the write may be dead under the modeled input space).
+# ---------------------------------------------------------------------------
+
+def _cover_c(prep):
+    npar = prep["nparams"]
+    ns = prep["nstate"]
+    nw = len(prep["widx"])
+    argdecl = ", ".join(["long"] * npar) if npar else "void"
+    kinds = "".join("n" if p["kind"] == "node" else "o" if p["kind"] == "outp"
+                    else "s" for p in prep["rec"]["params"])
+    callargs = ", ".join(f"A[{j}]" for j in range(npar))
+    return f"""#include <stdio.h>
+extern void eff_reset(void); extern void eff_set(int, long); extern void eff_state(long*);
+extern long eff_call({argdecl});
+static const int WIDX[{max(nw,1)}] = {{ {", ".join(map(str, prep['widx'])) or "0"} }};
+static const char KIND[{max(npar,1)}] = {{ {", ".join(f"'{c}'" for c in kinds) or "'x'"} }};
+static const long POOL[] = {{0,1,2,3,4,5,7,8,15,16,31,32,63,64,127,128,255,256,
+    -1,-2,-8,1000,4096,65535,0x7fffffff,0x100000000L}};
+#define NPOOL (int)(sizeof(POOL)/sizeof(POOL[0]))
+#define NN {NN}
+static unsigned long _s = 0x9e3779b97f4a7c15UL;
+static unsigned long rnd(void){{ _s = _s*6364136223846793005UL + 1442695040888963407UL; return _s >> 33; }}
+static long PRE[{ns}], POST[{ns}], SEED[{ns}], A[{max(npar,1)}];
+static int COVERED[{max(nw,1)}];
+int main(void){{
+    int ncov = 0;
+    for (long trial = 0; trial < 400000 && ncov < {nw}; trial++) {{
+        int mode = trial % 4;
+        for (int i = 0; i < {ns}; i++)
+            SEED[i] = (mode == 0) ? 0 : (mode == 1) ? (1 + i) : POOL[rnd() % NPOOL];
+        eff_reset();
+        for (int i = 0; i < {ns}; i++) eff_set(i, SEED[i]);
+        for (int j = 0; j < {npar}; j++)
+            A[j] = KIND[j] == 'n' ? (long)(rnd() % NN)
+                 : KIND[j] == 'o' ? 0 : POOL[rnd() % NPOOL];
+        eff_state(PRE);
+        eff_call({callargs});
+        eff_state(POST);
+        int gained = 0;
+        for (int w = 0; w < {nw}; w++)
+            if (!COVERED[w] && POST[WIDX[w]] != PRE[WIDX[w]]) {{ COVERED[w] = 1; gained = 1; ncov++; }}
+        if (gained) {{
+            printf("COVER");
+            for (int i = 0; i < {ns}; i++) printf(" %ld", SEED[i]);
+            printf(" |");
+            for (int j = 0; j < {npar}; j++) printf(" %ld", A[j]);
+            printf("\\n");
+        }}
+    }}
+    printf("COVDONE %d/{nw}\\n", ncov);
+    return 0;
+}}
+"""
+
+
+def with_directed(prep, workdir=None, budget_rounds=48):
+    """Return a copy of prep with directed coverage rounds appended (best
+    effort — on any infra failure returns prep unchanged)."""
+    if not prep["widx"]:
+        return prep
+    d = workdir or tempfile.mkdtemp(prefix="effcov_")
+    try:
+        open(os.path.join(d, "ref.c"), "w").write(prep["csrc"])
+        open(os.path.join(d, "cover.c"), "w").write(_cover_c(prep))
+        r = _run(["cc", "-O2", "-w", os.path.join(d, "cover.c"),
+                  os.path.join(d, "ref.c"), "-o", os.path.join(d, "cover")], 90)
+        if r is None or r.returncode:
+            return prep
+        r = _run([os.path.join(d, "cover")], 30)
+        if r is None:
+            return prep
+    except Exception:
+        return prep
+    ns = prep["nstate"]
+    directed = []
+    for line in r.stdout.splitlines():
+        if not line.startswith("COVER "):
+            continue
+        seed_s, _, args_s = line[len("COVER "):].partition("|")
+        seeds = [int(x) for x in seed_s.split()]
+        args = [int(x) for x in args_s.split()]
+        if len(seeds) != ns:
+            continue
+        directed.append({"seeds": list(enumerate(seeds)), "calls": [args]})
+        if len(directed) >= budget_rounds:
+            break
+    if not directed:
+        return prep
+    new = dict(prep)
+    new["rounds"] = prep["rounds"] + directed
+    new["directed_added"] = len(directed)
+    return new
+
+
 def close(prep, rust_body, workdir=None):
     d = workdir or tempfile.mkdtemp(prefix="eff_")
     open(os.path.join(d, "ref.c"), "w").write(prep["csrc"])
@@ -539,8 +641,26 @@ def main():
     ok &= good
     print(f"  {'✓' if good else '✗ UNEXPECTED'}  unwritten-target(correct body) -> "
           f"{r['verdict']}   (an un-exercised write target can never certify)")
+    print(f"  {'✓' if good else '✗ UNEXPECTED'}  unwritten-target(correct body) -> "
+          f"{r['verdict']}   (an un-exercised write target can never certify)")
+
+    # directed workload synthesis: a conditional-write fn the undirected
+    # workload can't cover -> REFUSED_COVERAGE; with_directed drives it -> MATCH.
+    print("\n  --- directed workload synthesis ---")
+    crec = reach.gate("fs/ext2/super.c", "ctx_set_mount_opt")
+    cprep = prepare(crec)
+    body = ("set_field(F0_MASK_S_MOUNT_OPT, a0, field(F0_MASK_S_MOUNT_OPT, a0) | a1);\n"
+            "set_field(F0_VALS_S_MOUNT_OPT, a0, field(F0_VALS_S_MOUNT_OPT, a0) | a1);\n0\n")
+    v0 = close(cprep, body)["verdict"]
+    dprep = with_directed(cprep)
+    v1 = close(dprep, body)["verdict"]
+    dgood = v0 == "REFUSED_COVERAGE" and v1 == "MATCH"
+    ok &= dgood
+    print(f"  {'✓' if dgood else '✗ UNEXPECTED'}  ctx_set_mount_opt: undirected={v0} "
+          f"-> directed(+{dprep.get('directed_added', 0)} rounds)={v1}")
+
     print("PRODUCTIZED ORACLE:", "PASS — real kernel fn, per-call full-footprint "
-          "state differential, over-credit caught" if ok else "FAIL")
+          "state differential, over-credit caught, coverage refusals driven" if ok else "FAIL")
     return 0 if ok else 1
 
 

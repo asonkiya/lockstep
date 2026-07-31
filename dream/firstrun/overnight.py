@@ -426,6 +426,11 @@ def solve_efftrace(item, done):
         return None
     try:
         prep = eff_harness.prepare(item)
+        # directed workload synthesis: drive conditional writes the undirected
+        # workload can't reach (guarded stores, switch constants, per-slot
+        # writes) so they don't spuriously REFUSE_COVERAGE. Best-effort; only
+        # ADDS calls, so it can't weaken the gate.
+        prep = eff_harness.with_directed(prep)
     except Exception as e:
         log(f"  ✗ efftrace {fn} prepare-refuse ({str(e)[:48]})")
         return None

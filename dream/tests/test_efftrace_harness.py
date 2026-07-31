@@ -82,3 +82,42 @@ def test_empty_workload_refuses_coverage(prep):
     starved["rounds"] = [{"seeds": [], "calls": []}]
     r = _H.close(starved, _H._CANON_BODIES["correct"])
     assert r["verdict"] == "REFUSED_COVERAGE", r
+
+
+# ---- directed workload synthesis ------------------------------------------
+# ctx_set_mount_opt (fs/ext2/super.c): `|= flag` on two fields. The undirected
+# workload can't guarantee a flag bit the seed lacks on every arena slot, so a
+# CORRECT translation spuriously REFUSED_COVERAGE. The coverage search over the
+# real C drives it -> MATCH. Load-bearing soundness property: directed only
+# ADDS calls, so the wrong translation still diverges (it never false-passes).
+
+_CTX = ("fs/ext2/super.c", "ctx_set_mount_opt")
+_CTX_CORRECT = (
+    "set_field(F0_MASK_S_MOUNT_OPT, a0, field(F0_MASK_S_MOUNT_OPT, a0) | a1);\n"
+    "set_field(F0_VALS_S_MOUNT_OPT, a0, field(F0_VALS_S_MOUNT_OPT, a0) | a1);\n0\n")
+# drops the second field write -> must diverge even with directed coverage
+_CTX_WRONG = (
+    "set_field(F0_MASK_S_MOUNT_OPT, a0, field(F0_MASK_S_MOUNT_OPT, a0) | a1);\n0\n")
+
+
+@pytest.fixture(scope="module")
+def ctx_prep():
+    return _H.prepare(_R.gate(*_CTX))
+
+
+def test_undirected_refuses_conditional_write(ctx_prep):
+    r = _H.close(ctx_prep, _CTX_CORRECT)
+    assert r["verdict"] == "REFUSED_COVERAGE", r
+
+
+def test_directed_drives_conditional_write(ctx_prep):
+    d = _H.with_directed(ctx_prep)
+    assert d.get("directed_added", 0) > 0, "search found no covering rounds"
+    r = _H.close(d, _CTX_CORRECT)
+    assert r["verdict"] == "MATCH", r
+
+
+def test_directed_still_catches_wrong(ctx_prep):
+    d = _H.with_directed(ctx_prep)
+    r = _H.close(d, _CTX_WRONG)
+    assert r["verdict"].startswith("DIVERGE"), r
