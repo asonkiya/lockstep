@@ -1,0 +1,3868 @@
+[
+ {
+  "file": "lib/rbtree.c",
+  "fn": "rb_set_black",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "RB_BLACK": 1
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "rb->__rb_parent_color"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "rb",
+    "kind": "node",
+    "struct": "rb_node",
+    "scalar_fields": {
+     "__rb_parent_color": "unsigned long"
+    }
+   }
+  ]
+ },
+ {
+  "file": "lib/tests/overflow_kunit.c",
+  "fn": "bump_counter",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "global_counter": {
+    "ctype": "int",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "global_counter"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "kernel/kallsyms_selftest.c",
+  "fn": "kallsyms_test_func_static",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "kallsyms_test_var_bss_static": {
+    "ctype": "int",
+    "init": 0
+   },
+   "kallsyms_test_var_data_static": {
+    "ctype": "int",
+    "init": 1
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "kallsyms_test_var_bss_static",
+   "kallsyms_test_var_data_static"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "kernel/kprobes.c",
+  "fn": "kprobe_ftrace_kill",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "kprobe_ftrace_disabled": {
+    "ctype": "bool",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "kprobe_ftrace_disabled"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "kernel/power/snapshot.c",
+  "fn": "enable_restore_image_protection",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "hibernate_restore_protection": {
+    "ctype": "bool",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "hibernate_restore_protection"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "kernel/kcsan/kcsan_test.c",
+  "fn": "test_kernel_write_nochange",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "test_var": {
+    "ctype": "long",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "test_var"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "kernel/kcsan/kcsan_test.c",
+  "fn": "test_kernel_write_nochange_rcu",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "test_var": {
+    "ctype": "long",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "test_var"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "kernel/kcsan/kcsan_test.c",
+  "fn": "test_kernel_write_uninstrumented",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "test_var": {
+    "ctype": "long",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "test_var"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "kernel/trace/ftrace.c",
+  "fn": "acquire_probe_locked",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "probe->ref"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "probe",
+    "kind": "node",
+    "struct": "ftrace_func_probe",
+    "scalar_fields": {
+     "ref": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "kernel/trace/trace_events_hist.c",
+  "fn": "get_hist_field",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "hist_field->ref"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "hist_field",
+    "kind": "node",
+    "struct": "hist_field",
+    "scalar_fields": {
+     "flags": "unsigned long",
+     "buckets": "unsigned long",
+     "ref": "unsigned int",
+     "size": "unsigned int",
+     "offset": "unsigned int",
+     "is_signed": "unsigned int",
+     "var_ref_idx": "unsigned int",
+     "read_once": "bool",
+     "var_str_idx": "unsigned int",
+     "ant": "u64",
+     "div_multiplier": "u64"
+    }
+   }
+  ]
+ },
+ {
+  "file": "kernel/trace/trace_events.c",
+  "fn": "system_refcount_inc",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "system->ref_count"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "system",
+    "kind": "node",
+    "struct": "event_subsystem",
+    "scalar_fields": {
+     "ref_count": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "kernel/trace/trace_selftest.c",
+  "fn": "reset_counts",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "trace_selftest_test_dyn_cnt": {
+    "ctype": "int",
+    "init": 0
+   },
+   "trace_selftest_test_global_cnt": {
+    "ctype": "int",
+    "init": 0
+   },
+   "trace_selftest_test_probe1_cnt": {
+    "ctype": "int",
+    "init": 0
+   },
+   "trace_selftest_test_probe2_cnt": {
+    "ctype": "int",
+    "init": 0
+   },
+   "trace_selftest_test_probe3_cnt": {
+    "ctype": "int",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "trace_selftest_test_dyn_cnt",
+   "trace_selftest_test_global_cnt",
+   "trace_selftest_test_probe1_cnt",
+   "trace_selftest_test_probe2_cnt",
+   "trace_selftest_test_probe3_cnt"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "kernel/trace/trace_events_filter.c",
+  "fn": "parse_error",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "pe->lasterr",
+   "pe->lasterr_pos"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "pe",
+    "kind": "node",
+    "struct": "filter_parse_error",
+    "scalar_fields": {
+     "lasterr": "int",
+     "lasterr_pos": "int"
+    }
+   },
+   {
+    "name": "err",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "pos",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "kernel/trace/trace_benchmark.c",
+  "fn": "ok_to_run_trace_benchmark",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "ok_to_run": {
+    "ctype": "bool",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "ok_to_run"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "kernel/trace/trace_events_trigger.c",
+  "fn": "event_trigger_init",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "data->ref"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "data",
+    "kind": "node",
+    "struct": "event_trigger_data",
+    "scalar_fields": {
+     "count": "unsigned long",
+     "ref": "int",
+     "flags": "int",
+     "paused": "bool",
+     "paused_tmp": "bool"
+    }
+   }
+  ]
+ },
+ {
+  "file": "kernel/trace/ring_buffer.c",
+  "fn": "ring_buffer_set_time_stamp_abs",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "buffer->time_stamp_abs"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "buffer",
+    "kind": "node",
+    "struct": "trace_buffer",
+    "scalar_fields": {
+     "flags": "unsigned",
+     "cpus": "int",
+     "time_stamp_abs": "bool",
+     "range_addr_start": "unsigned long",
+     "range_addr_end": "unsigned long",
+     "subbuf_size": "unsigned int",
+     "subbuf_order": "unsigned int",
+     "max_data_size": "unsigned int"
+    }
+   },
+   {
+    "name": "abs",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "kernel/locking/lockdep.c",
+  "fn": "lock_time_inc",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "lt->max",
+   "lt->min",
+   "lt->nr",
+   "lt->total"
+  ],
+  "branches": 2,
+  "params": [
+   {
+    "name": "lt",
+    "kind": "node",
+    "struct": "lock_time",
+    "scalar_fields": {
+     "min": "s64",
+     "max": "s64",
+     "total": "s64",
+     "nr": "unsigned long"
+    }
+   },
+   {
+    "name": "time",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "kernel/locking/lockdep.c",
+  "fn": "lock_time_add",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "dst->max",
+   "dst->min",
+   "dst->nr",
+   "dst->total"
+  ],
+  "branches": 3,
+  "params": [
+   {
+    "name": "src",
+    "kind": "node",
+    "struct": "lock_time",
+    "scalar_fields": {
+     "min": "s64",
+     "max": "s64",
+     "total": "s64",
+     "nr": "unsigned long"
+    }
+   },
+   {
+    "name": "dst",
+    "kind": "node",
+    "struct": "lock_time",
+    "scalar_fields": {
+     "min": "s64",
+     "max": "s64",
+     "total": "s64",
+     "nr": "unsigned long"
+    }
+   }
+  ]
+ },
+ {
+  "file": "kernel/sched/fair.c",
+  "fn": "update_load_add",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "lw->inv_weight",
+   "lw->weight"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "lw",
+    "kind": "node",
+    "struct": "load_weight",
+    "scalar_fields": {
+     "weight": "unsigned long",
+     "inv_weight": "u32"
+    }
+   },
+   {
+    "name": "inc",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "kernel/sched/fair.c",
+  "fn": "update_load_sub",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "lw->inv_weight",
+   "lw->weight"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "lw",
+    "kind": "node",
+    "struct": "load_weight",
+    "scalar_fields": {
+     "weight": "unsigned long",
+     "inv_weight": "u32"
+    }
+   },
+   {
+    "name": "dec",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "kernel/sched/fair.c",
+  "fn": "update_load_set",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "lw->inv_weight",
+   "lw->weight"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "lw",
+    "kind": "node",
+    "struct": "load_weight",
+    "scalar_fields": {
+     "weight": "unsigned long",
+     "inv_weight": "u32"
+    }
+   },
+   {
+    "name": "w",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "kernel/sched/psi.c",
+  "fn": "window_reset",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "win->prev_growth",
+   "win->start_time",
+   "win->start_value"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "win",
+    "kind": "node",
+    "struct": "psi_window",
+    "scalar_fields": {
+     "size": "u64",
+     "start_time": "u64",
+     "start_value": "u64",
+     "prev_growth": "u64"
+    }
+   },
+   {
+    "name": "now",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "value",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "prev_growth",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "kernel/cgroup/cpuset.c",
+  "fn": "cpuset_force_rebuild",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "force_sd_rebuild": {
+    "ctype": "bool",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "force_sd_rebuild"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "kernel/time/tick-sched.c",
+  "fn": "tick_nohz_retain_tick",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "ts->timer_expires_base"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "ts",
+    "kind": "node",
+    "struct": "tick_sched",
+    "scalar_fields": {
+     "flags": "unsigned long",
+     "stalled_jiffies": "unsigned int",
+     "last_tick_jiffies": "unsigned long",
+     "got_idle_tick": "unsigned int",
+     "last_jiffies": "unsigned long",
+     "timer_expires_base": "u64",
+     "timer_expires": "u64",
+     "next_timer": "u64",
+     "idle_calls": "unsigned long",
+     "idle_sleeps": "unsigned long",
+     "check_clocks": "unsigned long"
+    }
+   }
+  ]
+ },
+ {
+  "file": "kernel/bpf/backtrack.c",
+  "fn": "bt_init",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "bt->frame"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "bt",
+    "kind": "node",
+    "struct": "backtrack_state",
+    "scalar_fields": {
+     "frame": "u32"
+    }
+   },
+   {
+    "name": "frame",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "mm/filemap.c",
+  "fn": "shrink_readahead_size_eio",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "ra->ra_pages"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "ra",
+    "kind": "node",
+    "struct": "file_ra_state",
+    "scalar_fields": {
+     "size": "unsigned int",
+     "async_size": "unsigned int",
+     "ra_pages": "unsigned int",
+     "order": "unsigned short",
+     "mmap_miss": "unsigned short"
+    }
+   }
+  ]
+ },
+ {
+  "file": "mm/percpu.c",
+  "fn": "pcpu_block_update",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "block->contig_hint",
+   "block->contig_hint_start",
+   "block->first_free",
+   "block->left_free",
+   "block->right_free",
+   "block->scan_hint",
+   "block->scan_hint_start"
+  ],
+  "branches": 11,
+  "params": [
+   {
+    "name": "block",
+    "kind": "node",
+    "struct": "pcpu_block_md",
+    "scalar_fields": {
+     "scan_hint": "int",
+     "scan_hint_start": "int",
+     "contig_hint": "int",
+     "contig_hint_start": "int",
+     "left_free": "int",
+     "right_free": "int",
+     "first_free": "int",
+     "nr_bits": "int"
+    }
+   },
+   {
+    "name": "start",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "end",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "mm/percpu.c",
+  "fn": "pcpu_init_md_block",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "block->contig_hint",
+   "block->first_free",
+   "block->left_free",
+   "block->nr_bits",
+   "block->right_free",
+   "block->scan_hint"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "block",
+    "kind": "node",
+    "struct": "pcpu_block_md",
+    "scalar_fields": {
+     "scan_hint": "int",
+     "scan_hint_start": "int",
+     "contig_hint": "int",
+     "contig_hint_start": "int",
+     "left_free": "int",
+     "right_free": "int",
+     "first_free": "int",
+     "nr_bits": "int"
+    }
+   },
+   {
+    "name": "nr_bits",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "mm/memblock.c",
+  "fn": "memblock_set_kho_scratch_only",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "kho_scratch_only": {
+    "ctype": "bool",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "kho_scratch_only"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/memblock.c",
+  "fn": "memblock_clear_kho_scratch_only",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "kho_scratch_only": {
+    "ctype": "bool",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "kho_scratch_only"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/memory-failure.c",
+  "fn": "set_to_kill",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "tk->addr",
+   "tk->size_shift"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "tk",
+    "kind": "node",
+    "struct": "to_kill",
+    "scalar_fields": {
+     "addr": "unsigned long",
+     "size_shift": "short"
+    }
+   },
+   {
+    "name": "addr",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "shift",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "mm/mremap.c",
+  "fn": "pmc_next",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "pmc->new_addr",
+   "pmc->old_addr"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "pmc",
+    "kind": "node",
+    "struct": "pagetable_move_control",
+    "scalar_fields": {
+     "old_addr": "unsigned long",
+     "old_end": "unsigned long",
+     "new_addr": "unsigned long",
+     "len_in": "unsigned long",
+     "need_rmap_locks": "bool",
+     "for_stack": "bool"
+    }
+   },
+   {
+    "name": "extent",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "mm/vma.c",
+  "fn": "unlink_file_vma_batch_init",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "vb->count"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "vb",
+    "kind": "node",
+    "struct": "unlink_vma_file_batch",
+    "scalar_fields": {
+     "count": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/seq_file.c",
+  "fn": "seq_set_overflow",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "m->count"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "m",
+    "kind": "node",
+    "struct": "seq_file",
+    "scalar_fields": {
+     "size": "size_t",
+     "from": "size_t",
+     "count": "size_t",
+     "pad_until": "size_t",
+     "poll_event": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/locks.c",
+  "fn": "assign_type",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "EINVAL": 22,
+   "F_RDLCK": 0,
+   "F_UNLCK": 2,
+   "F_WRLCK": 1
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "flc->flc_type"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "flc",
+    "kind": "node",
+    "struct": "file_lock_core",
+    "scalar_fields": {
+     "flc_flags": "unsigned int",
+     "flc_type": "unsigned char",
+     "flc_link_cpu": "int"
+    }
+   },
+   {
+    "name": "type",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/btrfs/extent_io.c",
+  "fn": "eb_batch_init",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "batch->cur",
+   "batch->nr"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "batch",
+    "kind": "node",
+    "struct": "eb_batch",
+    "scalar_fields": {
+     "nr": "unsigned int",
+     "cur": "unsigned int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/btrfs/async-thread.c",
+  "fn": "btrfs_workqueue_set_max",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "wq->limit_active"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "wq",
+    "kind": "node",
+    "struct": "btrfs_workqueue",
+    "scalar_fields": {
+     "limit_active": "int",
+     "current_active": "int",
+     "thresh": "int",
+     "count": "unsigned int"
+    }
+   },
+   {
+    "name": "limit_active",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/orangefs/orangefs-bufmap.c",
+  "fn": "mark_killed",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "m->c"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "m",
+    "kind": "node",
+    "struct": "slot_map",
+    "scalar_fields": {
+     "c": "int",
+     "count": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/nfsd/nfs4acl.c",
+  "fn": "allow_bits",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "astate->allow"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "astate",
+    "kind": "node",
+    "struct": "posix_ace_state",
+    "scalar_fields": {
+     "allow": "u32",
+     "deny": "u32"
+    }
+   },
+   {
+    "name": "mask",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/nfsd/nfs4acl.c",
+  "fn": "deny_bits",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "astate->deny"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "astate",
+    "kind": "node",
+    "struct": "posix_ace_state",
+    "scalar_fields": {
+     "allow": "u32",
+     "deny": "u32"
+    }
+   },
+   {
+    "name": "mask",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/nfs/dir.c",
+  "fn": "nfs_access_set_mask",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "entry->mask"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "entry",
+    "kind": "node",
+    "struct": "nfs_access_entry",
+    "scalar_fields": {
+     "timestamp": "u64",
+     "mask": "__u32"
+    }
+   },
+   {
+    "name": "access_result",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/ubifs/io.c",
+  "fn": "record_magic_error",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "stats->magic_errors"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "stats",
+    "kind": "node",
+    "struct": "ubifs_stats_info",
+    "scalar_fields": {
+     "magic_errors": "unsigned int",
+     "node_errors": "unsigned int",
+     "crc_errors": "unsigned int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/ubifs/io.c",
+  "fn": "record_node_error",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "stats->node_errors"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "stats",
+    "kind": "node",
+    "struct": "ubifs_stats_info",
+    "scalar_fields": {
+     "magic_errors": "unsigned int",
+     "node_errors": "unsigned int",
+     "crc_errors": "unsigned int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/ubifs/io.c",
+  "fn": "record_crc_error",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "stats->crc_errors"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "stats",
+    "kind": "node",
+    "struct": "ubifs_stats_info",
+    "scalar_fields": {
+     "magic_errors": "unsigned int",
+     "node_errors": "unsigned int",
+     "crc_errors": "unsigned int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/f2fs/super.c",
+  "fn": "clear_compression_spec",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "F2FS_SPEC_compress_algorithm": 32768,
+   "F2FS_SPEC_compress_chksum": 524288,
+   "F2FS_SPEC_compress_extension": 131072,
+   "F2FS_SPEC_compress_log_size": 65536,
+   "F2FS_SPEC_compress_mode": 1048576,
+   "F2FS_SPEC_nocompress_extension": 262144
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "ctx->spec_mask"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "ctx",
+    "kind": "node",
+    "struct": "f2fs_fs_context",
+    "scalar_fields": {
+     "opt_mask": "unsigned long long",
+     "spec_mask": "unsigned int",
+     "qname_mask": "unsigned short"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/fuse/virtio_fs.c",
+  "fn": "inc_in_flight_req",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "fsvq->in_flight"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "fsvq",
+    "kind": "node",
+    "struct": "virtio_fs_vq",
+    "scalar_fields": {
+     "connected": "bool",
+     "in_flight": "long"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/hugetlbfs/inode.c",
+  "fn": "hugetlbfs_dec_free_inodes",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": true
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "sbinfo->free_inodes"
+  ],
+  "branches": 2,
+  "params": [
+   {
+    "name": "sbinfo",
+    "kind": "node",
+    "struct": "hugetlbfs_sb_info",
+    "scalar_fields": {
+     "max_inodes": "long",
+     "free_inodes": "long"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/hugetlbfs/inode.c",
+  "fn": "hugetlbfs_inc_free_inodes",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "sbinfo->free_inodes"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "sbinfo",
+    "kind": "node",
+    "struct": "hugetlbfs_sb_info",
+    "scalar_fields": {
+     "max_inodes": "long",
+     "free_inodes": "long"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/exfat/cache.c",
+  "fn": "cache_contiguous",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "cid->nr_contig"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "cid",
+    "kind": "node",
+    "struct": "exfat_cache_id",
+    "scalar_fields": {
+     "id": "unsigned int",
+     "nr_contig": "unsigned int",
+     "fcluster": "unsigned int",
+     "dcluster": "unsigned int"
+    }
+   },
+   {
+    "name": "dclus",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/exfat/misc.c",
+  "fn": "exfat_chain_set",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "ec->dir",
+   "ec->flags",
+   "ec->size"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "ec",
+    "kind": "node",
+    "struct": "exfat_chain",
+    "scalar_fields": {
+     "dir": "unsigned int",
+     "size": "unsigned int",
+     "flags": "unsigned char"
+    }
+   },
+   {
+    "name": "dir",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "size",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "flags",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/ext2/super.c",
+  "fn": "ctx_set_mount_opt",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "ctx->mask_s_mount_opt",
+   "ctx->vals_s_mount_opt"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "ctx",
+    "kind": "node",
+    "struct": "ext2_fs_context",
+    "scalar_fields": {
+     "vals_s_flags": "unsigned long",
+     "mask_s_flags": "unsigned long",
+     "vals_s_mount_opt": "unsigned int",
+     "mask_s_mount_opt": "unsigned int",
+     "s_sb_block": "unsigned long",
+     "spec": "unsigned int"
+    }
+   },
+   {
+    "name": "flag",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/ext2/super.c",
+  "fn": "ctx_clear_mount_opt",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "ctx->mask_s_mount_opt",
+   "ctx->vals_s_mount_opt"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "ctx",
+    "kind": "node",
+    "struct": "ext2_fs_context",
+    "scalar_fields": {
+     "vals_s_flags": "unsigned long",
+     "mask_s_flags": "unsigned long",
+     "vals_s_mount_opt": "unsigned int",
+     "mask_s_mount_opt": "unsigned int",
+     "s_sb_block": "unsigned long",
+     "spec": "unsigned int"
+    }
+   },
+   {
+    "name": "flag",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/gfs2/lops.c",
+  "fn": "buf_lo_before_scan",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "jd->jd_found_blocks",
+   "jd->jd_replayed_blocks"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "jd",
+    "kind": "node",
+    "struct": "gfs2_jdesc",
+    "scalar_fields": {
+     "nr_extents": "unsigned int",
+     "jd_flags": "unsigned long",
+     "jd_blocks": "u32",
+     "jd_recover_error": "int",
+     "jd_found_blocks": "unsigned int",
+     "jd_found_revokes": "unsigned int",
+     "jd_replayed_blocks": "unsigned int",
+     "jd_replay_tail": "unsigned int"
+    }
+   },
+   {
+    "name": "head",
+    "kind": "node",
+    "struct": "gfs2_log_header_host",
+    "scalar_fields": {
+     "lh_sequence": "u64",
+     "lh_flags": "u32",
+     "lh_tail": "u32",
+     "lh_blkno": "u32",
+     "lh_local_total": "s64",
+     "lh_local_free": "s64",
+     "lh_local_dinodes": "s64"
+    }
+   },
+   {
+    "name": "pass",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/gfs2/lops.c",
+  "fn": "revoke_lo_before_scan",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "jd->jd_found_revokes",
+   "jd->jd_replay_tail"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "jd",
+    "kind": "node",
+    "struct": "gfs2_jdesc",
+    "scalar_fields": {
+     "nr_extents": "unsigned int",
+     "jd_flags": "unsigned long",
+     "jd_blocks": "u32",
+     "jd_recover_error": "int",
+     "jd_found_blocks": "unsigned int",
+     "jd_found_revokes": "unsigned int",
+     "jd_replayed_blocks": "unsigned int",
+     "jd_replay_tail": "unsigned int"
+    }
+   },
+   {
+    "name": "head",
+    "kind": "node",
+    "struct": "gfs2_log_header_host",
+    "scalar_fields": {
+     "lh_sequence": "u64",
+     "lh_flags": "u32",
+     "lh_tail": "u32",
+     "lh_blkno": "u32",
+     "lh_local_total": "s64",
+     "lh_local_free": "s64",
+     "lh_local_dinodes": "s64"
+    }
+   },
+   {
+    "name": "pass",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/ntfs/runlist.c",
+  "fn": "__ntfs_rl_merge",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "dst->length"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "dst",
+    "kind": "node",
+    "struct": "runlist_element",
+    "scalar_fields": {
+     "vcn": "s64",
+     "lcn": "s64",
+     "length": "s64"
+    }
+   },
+   {
+    "name": "src",
+    "kind": "node",
+    "struct": "runlist_element",
+    "scalar_fields": {
+     "vcn": "s64",
+     "lcn": "s64",
+     "length": "s64"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/fat/cache.c",
+  "fn": "cache_contiguous",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "cid->nr_contig"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "cid",
+    "kind": "node",
+    "struct": "fat_cache_id",
+    "scalar_fields": {
+     "id": "unsigned int",
+     "nr_contig": "int",
+     "fcluster": "int",
+     "dcluster": "int"
+    }
+   },
+   {
+    "name": "dclus",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/ocfs2/extent_map.c",
+  "fn": "ocfs2_copy_emi_fields",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "dest->ei_clusters",
+   "dest->ei_cpos",
+   "dest->ei_flags",
+   "dest->ei_phys"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "dest",
+    "kind": "node",
+    "struct": "ocfs2_extent_map_item",
+    "scalar_fields": {
+     "ei_cpos": "unsigned int",
+     "ei_phys": "unsigned int",
+     "ei_clusters": "unsigned int",
+     "ei_flags": "unsigned int"
+    }
+   },
+   {
+    "name": "src",
+    "kind": "node",
+    "struct": "ocfs2_extent_map_item",
+    "scalar_fields": {
+     "ei_cpos": "unsigned int",
+     "ei_phys": "unsigned int",
+     "ei_clusters": "unsigned int",
+     "ei_flags": "unsigned int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/ocfs2/stack_user.c",
+  "fn": "fs_protocol_compare",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "request->pv_minor"
+  ],
+  "branches": 3,
+  "params": [
+   {
+    "name": "existing",
+    "kind": "node",
+    "struct": "ocfs2_protocol_version",
+    "scalar_fields": {
+     "pv_major": "u8",
+     "pv_minor": "u8"
+    }
+   },
+   {
+    "name": "request",
+    "kind": "node",
+    "struct": "ocfs2_protocol_version",
+    "scalar_fields": {
+     "pv_major": "u8",
+     "pv_minor": "u8"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/ocfs2/ioctl.c",
+  "fn": "o2ffg_update_stats",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "stats->ffs_avg",
+   "stats->ffs_free_chunks_real",
+   "stats->ffs_max",
+   "stats->ffs_min"
+  ],
+  "branches": 2,
+  "params": [
+   {
+    "name": "stats",
+    "kind": "node",
+    "struct": "ocfs2_info_freefrag_stats",
+    "scalar_fields": {
+     "ffs_clusters": "__u32",
+     "ffs_free_clusters": "__u32",
+     "ffs_free_chunks": "__u32",
+     "ffs_free_chunks_real": "__u32",
+     "ffs_min": "__u32",
+     "ffs_max": "__u32",
+     "ffs_avg": "__u32",
+     "ffs_pad": "__u32",
+     "iff_chunksize": "__u32",
+     "iff_pad": "__u32"
+    }
+   },
+   {
+    "name": "chunksize",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/ocfs2/reservations.c",
+  "fn": "__ocfs2_resv_trunc",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "resv->r_len",
+   "resv->r_start"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "resv",
+    "kind": "node",
+    "struct": "ocfs2_alloc_reservation",
+    "scalar_fields": {
+     "r_start": "unsigned int",
+     "r_len": "unsigned int",
+     "r_last_len": "unsigned int",
+     "r_last_start": "unsigned int",
+     "r_flags": "unsigned int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/ocfs2/cluster/tcp.c",
+  "fn": "o2net_set_nst_msg_id",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "nst->st_id"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "nst",
+    "kind": "node",
+    "struct": "o2net_send_tracking",
+    "scalar_fields": {
+     "st_id": "u32",
+     "st_msg_type": "u32",
+     "st_msg_key": "u32",
+     "st_node": "u8"
+    }
+   },
+   {
+    "name": "msg_id",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/ocfs2/dlm/dlmdomain.c",
+  "fn": "dlm_protocol_compare",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "request->pv_minor"
+  ],
+  "branches": 3,
+  "params": [
+   {
+    "name": "existing",
+    "kind": "node",
+    "struct": "dlm_protocol_version",
+    "scalar_fields": {
+     "pv_major": "u8",
+     "pv_minor": "u8"
+    }
+   },
+   {
+    "name": "request",
+    "kind": "node",
+    "struct": "dlm_protocol_version",
+    "scalar_fields": {
+     "pv_major": "u8",
+     "pv_minor": "u8"
+    }
+   }
+  ]
+ },
+ {
+  "file": "fs/ocfs2/dlm/dlmrecovery.c",
+  "fn": "dlm_get_next_mig_cookie",
+  "ret": "u64",
+  "flags": {
+   "locks_stripped": true
+  },
+  "globals": {
+   "dlm_mig_cookie": {
+    "ctype": "u64",
+    "init": 1
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "dlm_mig_cookie"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 1,
+  "params": []
+ },
+ {
+  "file": "block/blk-stat.c",
+  "fn": "blk_rq_stat_init",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "stat->batch",
+   "stat->max",
+   "stat->mean",
+   "stat->min",
+   "stat->nr_samples"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "stat",
+    "kind": "node",
+    "struct": "blk_rq_stat",
+    "scalar_fields": {
+     "mean": "u64",
+     "min": "u64",
+     "max": "u64",
+     "nr_samples": "u32",
+     "batch": "u64"
+    }
+   }
+  ]
+ },
+ {
+  "file": "block/blk-stat.c",
+  "fn": "blk_rq_stat_add",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "stat->batch",
+   "stat->max",
+   "stat->min",
+   "stat->nr_samples"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "stat",
+    "kind": "node",
+    "struct": "blk_rq_stat",
+    "scalar_fields": {
+     "mean": "u64",
+     "min": "u64",
+     "max": "u64",
+     "nr_samples": "u32",
+     "batch": "u64"
+    }
+   },
+   {
+    "name": "value",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "block/blk-rq-qos.c",
+  "fn": "rq_depth_calc_max_depth",
+  "ret": "bool",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "rqd->max_depth"
+  ],
+  "branches": 5,
+  "params": [
+   {
+    "name": "rqd",
+    "kind": "node",
+    "struct": "rq_depth",
+    "scalar_fields": {
+     "max_depth": "unsigned int",
+     "scale_step": "int",
+     "scaled_max": "bool",
+     "queue_depth": "unsigned int",
+     "default_depth": "unsigned int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "crypto/rng.c",
+  "fn": "crypto_put_default_rng",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true
+  },
+  "globals": {
+   "crypto_default_rng_refcnt": {
+    "ctype": "int",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "crypto_default_rng_refcnt"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "security/integrity/ima/ima_queue.c",
+  "fn": "ima_measurements_suspend",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true
+  },
+  "globals": {
+   "ima_measurements_suspended": {
+    "ctype": "bool",
+    "init": 0
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "ima_measurements_suspended"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "net/core/flow_offload.c",
+  "fn": "flow_block_cb_incref",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "block_cb->refcnt"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "block_cb",
+    "kind": "node",
+    "struct": "flow_block_cb",
+    "scalar_fields": {
+     "refcnt": "unsigned int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "net/core/xdp.c",
+  "fn": "xdp_rxq_info_unused",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "REG_STATE_UNUSED": 3
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "xdp_rxq->reg_state"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "xdp_rxq",
+    "kind": "node",
+    "struct": "xdp_rxq_info",
+    "scalar_fields": {
+     "queue_index": "u32",
+     "reg_state": "u32",
+     "frag_size": "u32"
+    }
+   }
+  ]
+ },
+ {
+  "file": "net/core/rtnetlink.c",
+  "fn": "copy_rtnl_link_stats",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "a->collisions",
+   "a->multicast",
+   "a->rx_bytes",
+   "a->rx_compressed",
+   "a->rx_crc_errors",
+   "a->rx_dropped",
+   "a->rx_errors",
+   "a->rx_fifo_errors",
+   "a->rx_frame_errors",
+   "a->rx_length_errors",
+   "a->rx_missed_errors",
+   "a->rx_nohandler",
+   "a->rx_over_errors",
+   "a->rx_packets",
+   "a->tx_aborted_errors",
+   "a->tx_bytes",
+   "a->tx_carrier_errors",
+   "a->tx_compressed",
+   "a->tx_dropped",
+   "a->tx_errors",
+   "a->tx_fifo_errors",
+   "a->tx_heartbeat_errors",
+   "a->tx_packets",
+   "a->tx_window_errors"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "a",
+    "kind": "node",
+    "struct": "rtnl_link_stats",
+    "scalar_fields": {
+     "rx_packets": "__u32",
+     "tx_packets": "__u32",
+     "rx_bytes": "__u32",
+     "tx_bytes": "__u32",
+     "rx_errors": "__u32",
+     "tx_errors": "__u32",
+     "rx_dropped": "__u32",
+     "tx_dropped": "__u32",
+     "multicast": "__u32",
+     "collisions": "__u32",
+     "rx_length_errors": "__u32",
+     "rx_over_errors": "__u32",
+     "rx_crc_errors": "__u32",
+     "rx_frame_errors": "__u32",
+     "rx_fifo_errors": "__u32",
+     "rx_missed_errors": "__u32",
+     "tx_aborted_errors": "__u32",
+     "tx_carrier_errors": "__u32",
+     "tx_fifo_errors": "__u32",
+     "tx_heartbeat_errors": "__u32",
+     "tx_window_errors": "__u32",
+     "rx_compressed": "__u32",
+     "tx_compressed": "__u32",
+     "rx_nohandler": "__u32"
+    }
+   },
+   {
+    "name": "b",
+    "kind": "node",
+    "struct": "rtnl_link_stats64",
+    "scalar_fields": {
+     "rx_packets": "__u64",
+     "tx_packets": "__u64",
+     "rx_bytes": "__u64",
+     "tx_bytes": "__u64",
+     "rx_errors": "__u64",
+     "tx_errors": "__u64",
+     "rx_dropped": "__u64",
+     "tx_dropped": "__u64",
+     "multicast": "__u64",
+     "collisions": "__u64",
+     "rx_length_errors": "__u64",
+     "rx_over_errors": "__u64",
+     "rx_crc_errors": "__u64",
+     "rx_frame_errors": "__u64",
+     "rx_fifo_errors": "__u64",
+     "rx_missed_errors": "__u64",
+     "tx_aborted_errors": "__u64",
+     "tx_carrier_errors": "__u64",
+     "tx_fifo_errors": "__u64",
+     "tx_heartbeat_errors": "__u64",
+     "tx_window_errors": "__u64",
+     "rx_compressed": "__u64",
+     "tx_compressed": "__u64",
+     "rx_nohandler": "__u64",
+     "rx_otherhost_dropped": "__u64"
+    }
+   }
+  ]
+ },
+ {
+  "file": "net/core/dev.c",
+  "fn": "netdev_hw_stats64_add",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "dest->multicast",
+   "dest->rx_bytes",
+   "dest->rx_dropped",
+   "dest->rx_errors",
+   "dest->rx_packets",
+   "dest->tx_bytes",
+   "dest->tx_dropped",
+   "dest->tx_errors",
+   "dest->tx_packets"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "dest",
+    "kind": "node",
+    "struct": "rtnl_hw_stats64",
+    "scalar_fields": {
+     "rx_packets": "__u64",
+     "tx_packets": "__u64",
+     "rx_bytes": "__u64",
+     "tx_bytes": "__u64",
+     "rx_errors": "__u64",
+     "tx_errors": "__u64",
+     "rx_dropped": "__u64",
+     "tx_dropped": "__u64",
+     "multicast": "__u64"
+    }
+   },
+   {
+    "name": "src",
+    "kind": "node",
+    "struct": "rtnl_hw_stats64",
+    "scalar_fields": {
+     "rx_packets": "__u64",
+     "tx_packets": "__u64",
+     "rx_bytes": "__u64",
+     "tx_bytes": "__u64",
+     "rx_errors": "__u64",
+     "tx_errors": "__u64",
+     "rx_dropped": "__u64",
+     "tx_dropped": "__u64",
+     "multicast": "__u64"
+    }
+   }
+  ]
+ },
+ {
+  "file": "net/ipv4/tcp_westwood.c",
+  "fn": "update_rtt_min",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "w->reset_rtt_min",
+   "w->rtt_min"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "w",
+    "kind": "node",
+    "struct": "westwood",
+    "scalar_fields": {
+     "bw_ns_est": "u32",
+     "bw_est": "u32",
+     "rtt_win_sx": "u32",
+     "bk": "u32",
+     "snd_una": "u32",
+     "cumul_ack": "u32",
+     "accounted": "u32",
+     "rtt": "u32",
+     "rtt_min": "u32",
+     "first_ack": "u8",
+     "reset_rtt_min": "u8"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/acpi/dock.c",
+  "fn": "begin_dock",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "DOCK_DOCKING": 1
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "ds->flags"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "ds",
+    "kind": "node",
+    "struct": "dock_station",
+    "scalar_fields": {
+     "last_dock_time": "unsigned long",
+     "flags": "u32"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/acpi/dock.c",
+  "fn": "begin_undock",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "DOCK_UNDOCKING": 2
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "ds->flags"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "ds",
+    "kind": "node",
+    "struct": "dock_station",
+    "scalar_fields": {
+     "last_dock_time": "unsigned long",
+     "flags": "u32"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/acpi/dock.c",
+  "fn": "complete_undock",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "DOCK_UNDOCKING": 2
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "ds->flags"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "ds",
+    "kind": "node",
+    "struct": "dock_station",
+    "scalar_fields": {
+     "last_dock_time": "unsigned long",
+     "flags": "u32"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/acpi/processor_perflib.c",
+  "fn": "acpi_processor_ignore_ppc_init",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "ignore_ppc": {
+    "ctype": "int",
+    "init": -1
+   }
+  },
+  "defines": {},
+  "write_globals": [
+   "ignore_ppc"
+  ],
+  "write_outp": [],
+  "write_fields": [],
+  "branches": 1,
+  "params": []
+ },
+ {
+  "file": "drivers/dma/nbpfaxi.c",
+  "fn": "nbpf_chan_prepare_default",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "NBPF_CHAN_CFG_AM": 1792
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "chan->dmarq_cfg",
+   "chan->flags",
+   "chan->terminal"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "chan",
+    "kind": "node",
+    "struct": "nbpf_channel",
+    "scalar_fields": {
+     "irq": "int",
+     "slave_src_addr": "dma_addr_t",
+     "slave_src_width": "size_t",
+     "slave_src_burst": "size_t",
+     "slave_dst_addr": "dma_addr_t",
+     "slave_dst_width": "size_t",
+     "slave_dst_burst": "size_t",
+     "terminal": "unsigned int",
+     "dmarq_cfg": "u32",
+     "flags": "unsigned long",
+     "paused": "bool"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/gpu/drm/amd/ras/rascore/ras_core.c",
+  "fn": "ras_core_set_status",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "ras_core->ras_core_enabled"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "ras_core",
+    "kind": "node",
+    "struct": "ras_core_context",
+    "scalar_fields": {
+     "socket_num_per_hive": "u32",
+     "aid_num_per_socket": "u32",
+     "xcd_num_per_aid": "u32",
+     "max_ue_banks_per_query": "int",
+     "max_ce_banks_per_query": "int",
+     "ras_eeprom_supported": "bool",
+     "poison_supported": "bool",
+     "is_rma": "bool",
+     "is_initialized": "bool",
+     "ras_core_enabled": "bool",
+     "ras_fw_features": "u64"
+    }
+   },
+   {
+    "name": "enable",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/gpu/drm/i915/display/skl_watermark.c",
+  "fn": "skl_ddb_entry_init",
+  "ret": "u16",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "entry->end",
+   "entry->start"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "entry",
+    "kind": "node",
+    "struct": "skl_ddb_entry",
+    "scalar_fields": {
+     "start": "u16",
+     "end": "u16"
+    }
+   },
+   {
+    "name": "start",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "end",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/gpu/drm/i915/display/skl_watermark.c",
+  "fn": "skl_ddb_entry_union",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "a->end",
+   "a->start"
+  ],
+  "branches": 2,
+  "params": [
+   {
+    "name": "a",
+    "kind": "node",
+    "struct": "skl_ddb_entry",
+    "scalar_fields": {
+     "start": "u16",
+     "end": "u16"
+    }
+   },
+   {
+    "name": "b",
+    "kind": "node",
+    "struct": "skl_ddb_entry",
+    "scalar_fields": {
+     "start": "u16",
+     "end": "u16"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/gpu/drm/vmwgfx/vmwgfx_fence.c",
+  "fn": "vmw_fence_fifo_up",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "fman->fifo_down"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "fman",
+    "kind": "node",
+    "struct": "vmw_fence_manager",
+    "scalar_fields": {
+     "fifo_down": "bool",
+     "ctx": "u64"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/gpu/ipu-v3/ipu-csi.c",
+  "fn": "ipu_csi_put",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": true
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "csi->inuse"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "csi",
+    "kind": "node",
+    "struct": "ipu_csi",
+    "scalar_fields": {
+     "id": "int",
+     "module": "u32",
+     "inuse": "bool"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/hid/bpf/progs/Huion__Kamvas16Gen3.bpf.c",
+  "fn": "probe",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "EINVAL": 22,
+   "TABLET_DESCRIPTOR_LENGTH": 328,
+   "VENDOR_DESCRIPTOR_LENGTH": 36,
+   "WHEEL_DESCRIPTOR_LENGTH": 200
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "ctx->retval"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "ctx",
+    "kind": "node",
+    "struct": "hid_bpf_probe_args",
+    "scalar_fields": {
+     "hid": "unsigned int",
+     "rdesc_size": "unsigned int",
+     "retval": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/hid/hid-sensor-hub.c",
+  "fn": "sensor_hub_fill_attr_info",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "info->index",
+   "info->logical_maximum",
+   "info->logical_minimum",
+   "info->report_id",
+   "info->size",
+   "info->unit_expo",
+   "info->units"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "info",
+    "kind": "node",
+    "struct": "hid_sensor_hub_attribute_info",
+    "scalar_fields": {
+     "usage_id": "u32",
+     "attrib_id": "u32",
+     "report_id": "s32",
+     "index": "s32",
+     "units": "s32",
+     "unit_expo": "s32",
+     "size": "s32",
+     "logical_minimum": "s32",
+     "logical_maximum": "s32"
+    }
+   },
+   {
+    "name": "index",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "report_id",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "field",
+    "kind": "node",
+    "struct": "hid_field",
+    "scalar_fields": {
+     "physical": "unsigned",
+     "logical": "unsigned",
+     "application": "unsigned",
+     "maxusage": "unsigned",
+     "flags": "unsigned",
+     "report_offset": "unsigned",
+     "report_size": "unsigned",
+     "report_count": "unsigned",
+     "report_type": "unsigned",
+     "logical_minimum": "__s32",
+     "logical_maximum": "__s32",
+     "physical_minimum": "__s32",
+     "physical_maximum": "__s32",
+     "unit_exponent": "__s32",
+     "unit": "unsigned",
+     "ignored": "bool",
+     "index": "unsigned",
+     "dpad": "__u16",
+     "slot_idx": "unsigned int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/hid/hidraw.c",
+  "fn": "hidraw_revoke",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "list->revoked"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "list",
+    "kind": "node",
+    "struct": "hidraw_list",
+    "scalar_fields": {
+     "head": "int",
+     "tail": "int",
+     "revoked": "bool"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/hid/intel-ish-hid/ishtp/bus.c",
+  "fn": "ishtp_get_device",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "cl_device->reference_count"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "cl_device",
+    "kind": "node",
+    "struct": "ishtp_cl_device",
+    "scalar_fields": {
+     "reference_count": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/hid/intel-ish-hid/ishtp/bus.c",
+  "fn": "ishtp_put_device",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "cl_device->reference_count"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "cl_device",
+    "kind": "node",
+    "struct": "ishtp_cl_device",
+    "scalar_fields": {
+     "reference_count": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/hwmon/nct6775-platform.c",
+  "fn": "superio_wmi_select",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "sio_data->ld"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "sio_data",
+    "kind": "node",
+    "struct": "nct6775_sio_data",
+    "scalar_fields": {
+     "sioreg": "int",
+     "ld": "int"
+    }
+   },
+   {
+    "name": "ld",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/media/dvb-frontends/m88ds3103.c",
+  "fn": "m88ds3103_get_tune_settings",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "s->min_delay_ms"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "fe",
+    "kind": "node",
+    "struct": "dvb_frontend",
+    "scalar_fields": {
+     "id": "int",
+     "exit": "unsigned int"
+    }
+   },
+   {
+    "name": "s",
+    "kind": "node",
+    "struct": "dvb_frontend_tune_settings",
+    "scalar_fields": {
+     "min_delay_ms": "int",
+     "step_size": "int",
+     "max_drift": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/media/dvb-frontends/nxt6000.c",
+  "fn": "nxt6000_fe_get_tune_settings",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "tune->min_delay_ms"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "fe",
+    "kind": "node",
+    "struct": "dvb_frontend",
+    "scalar_fields": {
+     "id": "int",
+     "exit": "unsigned int"
+    }
+   },
+   {
+    "name": "tune",
+    "kind": "node",
+    "struct": "dvb_frontend_tune_settings",
+    "scalar_fields": {
+     "min_delay_ms": "int",
+     "step_size": "int",
+     "max_drift": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/media/dvb-frontends/si2168.c",
+  "fn": "si2168_get_tune_settings",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "s->min_delay_ms"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "fe",
+    "kind": "node",
+    "struct": "dvb_frontend",
+    "scalar_fields": {
+     "id": "int",
+     "exit": "unsigned int"
+    }
+   },
+   {
+    "name": "s",
+    "kind": "node",
+    "struct": "dvb_frontend_tune_settings",
+    "scalar_fields": {
+     "min_delay_ms": "int",
+     "step_size": "int",
+     "max_drift": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/media/dvb-frontends/tda10071.c",
+  "fn": "tda10071_get_tune_settings",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "s->max_drift",
+   "s->min_delay_ms",
+   "s->step_size"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "fe",
+    "kind": "node",
+    "struct": "dvb_frontend",
+    "scalar_fields": {
+     "id": "int",
+     "exit": "unsigned int"
+    }
+   },
+   {
+    "name": "s",
+    "kind": "node",
+    "struct": "dvb_frontend_tune_settings",
+    "scalar_fields": {
+     "min_delay_ms": "int",
+     "step_size": "int",
+     "max_drift": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/media/pci/saa7164/saa7164-encoder.c",
+  "fn": "saa7164_g_frequency",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "EINVAL": 22
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "f->frequency"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "port",
+    "kind": "node",
+    "struct": "saa7164_port",
+    "scalar_fields": {
+     "nr": "int",
+     "bufcounter": "u32",
+     "pitch": "u32",
+     "bufsize": "u32",
+     "bufoffset": "u32",
+     "bufptr32l": "u32",
+     "bufptr32h": "u32",
+     "bufptr64": "u64",
+     "numpte": "u32",
+     "last_irq_msecs": "u64",
+     "last_svc_msecs": "u64",
+     "last_irq_msecs_diff": "u64",
+     "last_svc_msecs_diff": "u64",
+     "last_svc_wp": "u32",
+     "last_svc_rp": "u32",
+     "last_irq_svc_msecs_diff": "u64",
+     "last_read_msecs": "u64",
+     "last_read_msecs_diff": "u64",
+     "last_poll_msecs": "u64",
+     "last_poll_msecs_diff": "u64",
+     "height": "u32",
+     "width": "u32",
+     "freq": "u32",
+     "mux_input": "u8",
+     "encoder_profile": "u8",
+     "video_format": "u8",
+     "audio_format": "u8",
+     "video_resolution": "u8",
+     "ctl_brightness": "u16",
+     "ctl_contrast": "u16",
+     "ctl_hue": "u16",
+     "ctl_saturation": "u16",
+     "ctl_sharpness": "u16",
+     "ctl_volume": "s8",
+     "sync_errors": "u32",
+     "v_cc_errors": "u32",
+     "a_cc_errors": "u32",
+     "last_v_cc": "u8",
+     "last_a_cc": "u8",
+     "done_first_interrupt": "u32"
+    }
+   },
+   {
+    "name": "f",
+    "kind": "node",
+    "struct": "v4l2_frequency",
+    "scalar_fields": {
+     "tuner": "__u32",
+     "type": "__u32",
+     "frequency": "__u32"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/media/platform/nxp/imx-jpeg/mxc-jpeg-hw.c",
+  "fn": "mxc_jpeg_set_bufsize",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "desc->stm_bufsize"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "desc",
+    "kind": "node",
+    "struct": "mxc_jpeg_desc",
+    "scalar_fields": {
+     "next_descpt_ptr": "u32",
+     "buf_base0": "u32",
+     "buf_base1": "u32",
+     "line_pitch": "u32",
+     "stm_bufbase": "u32",
+     "stm_bufsize": "u32",
+     "imgsize": "u32",
+     "stm_ctrl": "u32",
+     "mode": "u32",
+     "cfg_mode": "u32",
+     "quality": "u32",
+     "rc_regs_sel": "u32",
+     "lumth": "u32",
+     "chrth": "u32",
+     "nomfrsize_lo": "u32",
+     "nomfrsize_hi": "u32",
+     "ofbsize_lo": "u32",
+     "ofbsize_hi": "u32"
+    }
+   },
+   {
+    "name": "bufsize",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/media/platform/nxp/imx-jpeg/mxc-jpeg-hw.c",
+  "fn": "mxc_jpeg_set_res",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "desc->imgsize"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "desc",
+    "kind": "node",
+    "struct": "mxc_jpeg_desc",
+    "scalar_fields": {
+     "next_descpt_ptr": "u32",
+     "buf_base0": "u32",
+     "buf_base1": "u32",
+     "line_pitch": "u32",
+     "stm_bufbase": "u32",
+     "stm_bufsize": "u32",
+     "imgsize": "u32",
+     "stm_ctrl": "u32",
+     "mode": "u32",
+     "cfg_mode": "u32",
+     "quality": "u32",
+     "rc_regs_sel": "u32",
+     "lumth": "u32",
+     "chrth": "u32",
+     "nomfrsize_lo": "u32",
+     "nomfrsize_hi": "u32",
+     "ofbsize_lo": "u32",
+     "ofbsize_hi": "u32"
+    }
+   },
+   {
+    "name": "w",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "h",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/media/platform/nxp/imx-jpeg/mxc-jpeg-hw.c",
+  "fn": "mxc_jpeg_set_line_pitch",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "desc->line_pitch"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "desc",
+    "kind": "node",
+    "struct": "mxc_jpeg_desc",
+    "scalar_fields": {
+     "next_descpt_ptr": "u32",
+     "buf_base0": "u32",
+     "buf_base1": "u32",
+     "line_pitch": "u32",
+     "stm_bufbase": "u32",
+     "stm_bufsize": "u32",
+     "imgsize": "u32",
+     "stm_ctrl": "u32",
+     "mode": "u32",
+     "cfg_mode": "u32",
+     "quality": "u32",
+     "rc_regs_sel": "u32",
+     "lumth": "u32",
+     "chrth": "u32",
+     "nomfrsize_lo": "u32",
+     "nomfrsize_hi": "u32",
+     "ofbsize_lo": "u32",
+     "ofbsize_hi": "u32"
+    }
+   },
+   {
+    "name": "line_pitch",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/net/ethernet/calxeda/xgmac.c",
+  "fn": "desc_set_rx_owner",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "DESC_OWN": 2147483648
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "p->flags"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "p",
+    "kind": "node",
+    "struct": "xgmac_dma_desc",
+    "scalar_fields": {
+     "flags": "__le32",
+     "buf_size": "__le32",
+     "buf1_addr": "__le32",
+     "buf2_addr": "__le32",
+     "ext_status": "__le32"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/net/ethernet/calxeda/xgmac.c",
+  "fn": "desc_set_tx_owner",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "DESC_OWN": 2147483648,
+   "TXDESC_END_RING": 2097152
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "p->flags"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "p",
+    "kind": "node",
+    "struct": "xgmac_dma_desc",
+    "scalar_fields": {
+     "flags": "__le32",
+     "buf_size": "__le32",
+     "buf1_addr": "__le32",
+     "buf2_addr": "__le32",
+     "ext_status": "__le32"
+    }
+   },
+   {
+    "name": "flags",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/net/ethernet/calxeda/xgmac.c",
+  "fn": "desc_clear_tx_owner",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "TXDESC_END_RING": 2097152
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "p->flags"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "p",
+    "kind": "node",
+    "struct": "xgmac_dma_desc",
+    "scalar_fields": {
+     "flags": "__le32",
+     "buf_size": "__le32",
+     "buf1_addr": "__le32",
+     "buf2_addr": "__le32",
+     "ext_status": "__le32"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/net/ethernet/calxeda/xgmac.c",
+  "fn": "desc_set_buf_addr",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {
+   "MAX_DESC_BUF_SZ": 8184
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "p->buf1_addr",
+   "p->buf2_addr"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "p",
+    "kind": "node",
+    "struct": "xgmac_dma_desc",
+    "scalar_fields": {
+     "flags": "__le32",
+     "buf_size": "__le32",
+     "buf1_addr": "__le32",
+     "buf2_addr": "__le32",
+     "ext_status": "__le32"
+    }
+   },
+   {
+    "name": "paddr",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "len",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/net/ethernet/chelsio/cxgb4vf/sge.c",
+  "fn": "txq_advance",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "tq->in_use",
+   "tq->pidx"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "tq",
+    "kind": "node",
+    "struct": "sge_txq",
+    "scalar_fields": {
+     "in_use": "unsigned int",
+     "size": "unsigned int",
+     "cidx": "unsigned int",
+     "pidx": "unsigned int",
+     "stops": "unsigned long",
+     "restarts": "unsigned long",
+     "cntxt_id": "unsigned int",
+     "abs_id": "unsigned int",
+     "phys_addr": "dma_addr_t",
+     "bar2_qid": "unsigned int"
+    }
+   },
+   {
+    "name": "n",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/net/ethernet/intel/ice/ice_dpll.c",
+  "fn": "ice_dpll_phase_range_set",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "range->max",
+   "range->min"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "range",
+    "kind": "node",
+    "struct": "dpll_pin_phase_adjust_range",
+    "scalar_fields": {
+     "min": "s32",
+     "max": "s32"
+    }
+   },
+   {
+    "name": "phase_adj",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/net/ethernet/stmicro/stmmac/enh_desc.c",
+  "fn": "enh_desc_clear",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "p->des2"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "p",
+    "kind": "node",
+    "struct": "dma_desc",
+    "scalar_fields": {
+     "des0": "__le32",
+     "des1": "__le32",
+     "des2": "__le32",
+     "des3": "__le32"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/net/phy/microchip_rds_ptp.c",
+  "fn": "mchp_get_event",
+  "ret": "bool",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "clock->mchp_rds_ptp_event"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "clock",
+    "kind": "node",
+    "struct": "mchp_rds_ptp_clock",
+    "scalar_fields": {
+     "hwts_tx_type": "int",
+     "layer": "int",
+     "version": "int",
+     "port_base_addr": "u16",
+     "clk_base_addr": "u16",
+     "mmd": "u8",
+     "mchp_rds_ptp_event": "int",
+     "event_pin": "int"
+    }
+   },
+   {
+    "name": "pin",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/s390/scsi/zfcp_scsi.c",
+  "fn": "zfcp_scsi_set_rport_dev_loss_tmo",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "rport->dev_loss_tmo"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "rport",
+    "kind": "node",
+    "struct": "fc_rport",
+    "scalar_fields": {
+     "maxframe_size": "u32",
+     "supported_classes": "u32",
+     "dev_loss_tmo": "u32",
+     "node_name": "u64",
+     "port_name": "u64",
+     "port_id": "u32",
+     "roles": "u32",
+     "scsi_target_id": "u32",
+     "fast_io_fail_tmo": "u32",
+     "channel": "unsigned int",
+     "number": "u32",
+     "flags": "u8"
+    }
+   },
+   {
+    "name": "timeout",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/tee/optee/call.c",
+  "fn": "optee_cq_incr_sys_thread_count",
+  "ret": "bool",
+  "flags": {
+   "locks_stripped": true
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "cq->sys_thread_req_count"
+  ],
+  "branches": 1,
+  "params": [
+   {
+    "name": "cq",
+    "kind": "node",
+    "struct": "optee_call_queue",
+    "scalar_fields": {
+     "total_thread_count": "int",
+     "free_thread_count": "int",
+     "sys_thread_req_count": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/thunderbolt/icm.c",
+  "fn": "update_xdomain",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "xd->is_unplugged",
+   "xd->link",
+   "xd->route"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "xd",
+    "kind": "node",
+    "struct": "tb_xdomain",
+    "scalar_fields": {
+     "route": "u64",
+     "vendor": "u16",
+     "device": "u16",
+     "local_max_hopid": "unsigned int",
+     "remote_max_hopid": "unsigned int",
+     "link_speed": "unsigned int",
+     "link_usb4": "bool",
+     "is_unplugged": "bool",
+     "removing": "bool",
+     "needs_uuid": "bool",
+     "local_property_block_gen": "u32",
+     "local_property_block_len": "u32",
+     "remote_property_block_gen": "u32",
+     "state": "int",
+     "state_retries": "int",
+     "properties_changed_retries": "int",
+     "bonding_possible": "bool",
+     "target_link_width": "u8",
+     "link": "u8",
+     "depth": "u8"
+    }
+   },
+   {
+    "name": "route",
+    "kind": "scalar",
+    "struct": null
+   },
+   {
+    "name": "link",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "drivers/vhost/net.c",
+  "fn": "vhost_net_buf_init",
+  "ret": "void",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "rxq->head",
+   "rxq->tail"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "rxq",
+    "kind": "node",
+    "struct": "vhost_net_buf",
+    "scalar_fields": {
+     "tail": "int",
+     "head": "int"
+    }
+   }
+  ]
+ },
+ {
+  "file": "drivers/watchdog/rti_wdt.c",
+  "fn": "rti_wdt_setup_hw_hb",
+  "ret": "int",
+  "flags": {
+   "locks_stripped": false
+  },
+  "globals": {
+   "heartbeat": {
+    "ctype": "int",
+    "init": 0
+   }
+  },
+  "defines": {
+   "EINVAL": 22,
+   "MAX_HW_ERROR": 250,
+   "RTIWWDSIZE_12P5": 20480,
+   "RTIWWDSIZE_25P": 1280,
+   "RTIWWDSIZE_3P125": 5242880,
+   "RTIWWDSIZE_50P": 80,
+   "RTIWWDSIZE_6P25": 327680
+  },
+  "write_globals": [],
+  "write_outp": [],
+  "write_fields": [
+   "wdd->min_hw_heartbeat_ms"
+  ],
+  "branches": 0,
+  "params": [
+   {
+    "name": "wdd",
+    "kind": "node",
+    "struct": "watchdog_device",
+    "scalar_fields": {
+     "id": "int",
+     "bootstatus": "unsigned int",
+     "timeout": "unsigned int",
+     "pretimeout": "unsigned int",
+     "min_timeout": "unsigned int",
+     "max_timeout": "unsigned int",
+     "min_hw_heartbeat_ms": "unsigned int",
+     "max_hw_heartbeat_ms": "unsigned int",
+     "status": "unsigned long"
+    }
+   },
+   {
+    "name": "wsize",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ }
+]

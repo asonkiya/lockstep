@@ -243,13 +243,25 @@ fn set_field(base: usize, slot: i64, v: i64) {{ unsafe {{ S[base + slot as usize
     vals = [0, 1, 2, 7, -1, 3, 5, 100]
     rounds = []
     for r in range(R):
-        seeds = [] if r == 0 else [(i, vals[next(g_) % 8]) for i in range(nstate)]
+        # round 0: declared-init boot state. round 1: every cell seeded with a
+        # UNIQUE nonzero value (1000+ix) and slots cycled deterministically, so
+        # every unconditional write is VISIBLE to the coverage check even when
+        # it writes 0 or a repeated value (the `x = 0` reset idiom starved the
+        # change-based gate under random seeds). later rounds: varied values.
+        if r == 0:
+            seeds = []
+        elif r == 1:
+            seeds = [(i, 1000 + i) for i in range(nstate)]
+        else:
+            seeds = [(i, vals[next(g_) % 8]) for i in range(nstate)]
         calls = []
-        for _ in range(W):
+        for k in range(W):
             row = []
+            pi_seen = 0
             for p in rec["params"]:
                 if p["kind"] == "node":
-                    row.append(next(g_) % NN)
+                    row.append((k + pi_seen) % NN if r == 1 else next(g_) % NN)
+                    pi_seen += 1
                 elif p["kind"] == "outp":
                     row.append(0)
                 else:
