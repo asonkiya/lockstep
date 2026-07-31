@@ -112,3 +112,30 @@ def test_multi_member_correct_matches(prep_multi):
 def test_wrong_member_diverges(prep_multi):
     r = _H.close(prep_multi, "del_m(M_MAPS, a0 as u32); retire(a0 as u32);\n0\n")
     assert r["verdict"].startswith("DIVERGE"), r
+
+
+# ---- head-holder pattern (list head is a field of a container param) -------
+# free_conflicting_inodes (fs/btrfs/tree-log.c): iterate &ctx->conflict_inodes
+# and free each btrfs_ino_list element. The container (btrfs_log_ctx) is not
+# itself a list element, and the element type differs -> prepare must model the
+# container as a head-holder (its field is a named list), element type = cursor.
+
+@pytest.fixture(scope="module")
+def prep_holder():
+    return _H.prepare(_R.gate("fs/btrfs/tree-log.c", "free_conflicting_inodes"))
+
+
+def test_holder_list_named(prep_holder):
+    assert [k for k, _ in prep_holder["lists"]] == ["holder"]
+
+
+def test_holder_correct_matches(prep_holder):
+    r = _H.close(prep_holder,
+                 "for id in iter(L_CTX_CONFLICT_INODES) { del(id); retire(id); }\n0\n")
+    assert r["verdict"] == "MATCH", r
+
+
+def test_holder_dropped_retire_diverges(prep_holder):
+    r = _H.close(prep_holder,
+                 "for id in iter(L_CTX_CONFLICT_INODES) { del(id); }\n0\n")
+    assert r["verdict"] == "DIVERGE:retire", r

@@ -166,10 +166,42 @@ def _mut_sites(fn_text):
 
 def prepare(rec):
     """Build the full harness context from a reach.py accepted record."""
+    fn_text = _fn_text(rec)
+    # ---- head-holder params: a param-struct that only HOLDS a list head
+    # (anchors an iter/op via &param->field) and is never itself a list element
+    # -> its lh field is a NAMED list, the element type is the cursor. The
+    # "free everything hanging off a container object" cleanup pattern. Guarded:
+    # only triggers when a distinct-typed cursor exists, so it can't perturb the
+    # single-element-type functions.
+    cursor_structs = {c["struct"] for c in rec["cursors"].values()}
+    holders = {}      # pname -> (struct, lh_fields, scalars, tokens, [anchored])
+    if len(cursor_structs) == 1:
+        elem_struct = next(iter(cursor_structs))
+        for p in rec["params"]:
+            if p["kind"] != "node" or p["struct"] == elem_struct:
+                continue
+            anchored = set()
+            for it in rec["iters"]:
+                if it["anchor"][0] == "field":
+                    mm = re.match(r"&(\w+)->(\w+)$", it["anchor"][1].replace(" ", ""))
+                    if mm and mm.group(1) == p["name"]:
+                        anchored.add(mm.group(2))
+            for op in MUT_OPS:
+                for mm in re.finditer(
+                        rf"\b{op}\s*\([^,()]*,\s*&\s*{p['name']}\s*->\s*(\w+)\s*\)", fn_text):
+                    anchored.add(mm.group(1))
+            # must NEVER be an element: no op takes &p->field in ENTRY position
+            is_elem = any(re.search(rf"\b{op}\s*\(\s*&\s*{p['name']}\s*->", fn_text)
+                          for op in MUT_OPS)
+            if anchored and not is_elem:
+                holders[p["name"]] = (p["struct"], p["lh_fields"],
+                                      p["scalar_fields"], p.get("token_fields", []),
+                                      sorted(anchored))
+
     # ---- v2 harness restrictions (tallied by the measurement, not hidden) ----
     node_types = {}
     for p in rec["params"]:
-        if p["kind"] == "node":
+        if p["kind"] == "node" and p["name"] not in holders:
             node_types[p["struct"]] = (p["lh_fields"], p["scalar_fields"],
                                        p.get("token_fields", []))
     for c in rec["cursors"].values():
@@ -187,11 +219,13 @@ def prepare(rec):
     tok_reads = sorted({f for fs in rec["token_reads"].values() for f in fs})
     for it in rec["iters"]:
         if it["anchor"][0] == "field":
-            raise Unsupported("node-field head anchor")
+            # allowed only when the anchor's holder is a head-holder param
+            mm = re.match(r"&(\w+)->", it["anchor"][1].replace(" ", ""))
+            if not (mm and mm.group(1) in holders):
+                raise Unsupported("node-field head anchor")
         if it["member"] not in lhf:
             raise Unsupported(f"iter member {it['member']} not an lh field")
 
-    fn_text = _fn_text(rec)
     sites = _mut_sites(fn_text)
     if not sites:
         raise Unsupported("no static mutation site")
@@ -202,7 +236,8 @@ def prepare(rec):
     # do not model -> refuse.
     members = list(lhf)
     m_ix = {f: i for i, f in enumerate(members)}
-    node_vars = ({p["name"] for p in rec["params"] if p["kind"] == "node"}
+    node_vars = ({p["name"] for p in rec["params"]
+                  if p["kind"] == "node" and p["name"] not in holders}
                  | set(rec["cursors"]))
     entry_used, init_used = set(), set()
     anchor_member = {}          # list name -> member field
@@ -253,6 +288,18 @@ def prepare(rec):
         if mem is None:
             raise Unsupported(f"anchor {name}: member unknown")
         list_member.append(mem)
+    # head-holder lists: one per (holder, anchored field); a singleton holder
+    # instance backs each, the list lives at &holder.field, elements are the
+    # element (cursor) type linked through the iter's member.
+    holder_lists = []     # (pname, hstruct, field) in `lists` order
+    for pname, (hstruct, hlh, hsc, htk, anchored) in holders.items():
+        for f in anchored:
+            mem = anchor_member.get(f"&{pname}->{f}", only_m)
+            if mem is None:
+                raise Unsupported(f"holder anchor {pname}->{f}: member unknown")
+            lists.append(("holder", (pname, f)))
+            list_member.append(mem)
+            holder_lists.append((pname, hstruct, f, hlh))
     for mem in sorted(entry_used):
         if mem not in list_member:
             lists.append(("synth", f"__elsewhere_{mem}"))
@@ -292,6 +339,23 @@ def prepare(rec):
         c.append(f"static struct {tok_type} CADT_TOKS[{NTOK}];")
     for _, g in [x for x in lists if x[0] == "global"]:
         c.append(f"static struct list_head {g};")
+    # head-holder structs + singletons (one per distinct holder param). Emit
+    # ALL fields so any holder access compiles; only the anchored lh fields are
+    # driven (holder scalar/token reads stay 0 — flagged limitation).
+    holder_singletons = {}
+    for pname in holders:
+        if any(hp == pname for hp, _, _, _ in holder_lists):
+            hstruct, hlh, hsc, htk, _ = holders[pname]
+            holder_singletons[pname] = hstruct
+            c.append(f"struct {hstruct} {{")
+            for x in hlh:
+                c.append(f"    struct list_head {x};")
+            for x, t in hsc.items():
+                c.append(f"    {t} {x};")
+            for x in htk:
+                c.append(f"    void *{x};")
+            c.append("};")
+            c.append(f"static struct {hstruct} __hold_{pname};")
     npl = sum(1 for k, _ in lists if k == "param")
     if npl:
         c.append(f"static struct list_head CADT_PL[{npl}];")
@@ -306,6 +370,9 @@ def prepare(rec):
         elif kind == "param":
             anchors.append(f"&CADT_PL[{pl_seen[0]}]")
             pl_seen[0] += 1
+        elif kind == "holder":
+            pn, fld = name
+            anchors.append(f"&__hold_{pn}.{fld}")
         else:
             anchors.append(f"&CADT_SL[{sl_seen[0]}]")
             sl_seen[0] += 1
@@ -382,7 +449,9 @@ int cadt_retlog(int *buf, int cap){{
     for i, p in enumerate(rec["params"]):
         a = f"a{i}"
         tramp_args.append(f"long {a}")     # uniform ABI with probe's externs
-        if p["kind"] == "node":
+        if p["name"] in holders:
+            call_args.append(f"&__hold_{p['name']}")   # head-holder singleton
+        elif p["kind"] == "node":
             call_args.append(f"&CADT_ARENA[{a}]")
         elif p["kind"] == "lh":
             if p.get("role") == "entry":
@@ -414,7 +483,9 @@ int cadt_retlog(int *buf, int cap){{
     for f, i in tp_ix.items():
         consts.append(f"const P_{f.upper()}: usize = {i};")
     for i, (kind, name) in enumerate(lists):
-        if kind != "synth":
+        if kind == "holder":
+            consts.append(f"const L_{name[0].upper()}_{name[1].upper()}: usize = {i};")
+        elif kind != "synth":
             consts.append(f"const L_{name.upper()}: usize = {i};")
     multi = len(members) > 1
     if multi:
@@ -524,7 +595,9 @@ fn retire(id: u32) {{ unsafe {{ RETIRED.push(id); }} }}
     for _ in range(ncalls):
         row = []
         for p in rec["params"]:
-            if p["kind"] == "node":
+            if p["name"] in holders:
+                row.append(0)              # holder arg unused (trampoline passes &__hold)
+            elif p["kind"] == "node":
                 row.append(next(fresh_pool) if p["name"] in fresh
                            else consume_pool.pop(next(g) % len(consume_pool))
                            if p["name"] in consuming
@@ -561,6 +634,12 @@ fn retire(id: u32) {{ unsafe {{ RETIRED.push(id); }} }}
                        + ", ".join(subanchors)
                        + ": per-node list heads never populated here — treat"
                          " INIT_LIST_HEAD(&node->X) on them as a no-op.")
+    if holders:
+        for pname, _, fld, _ in holder_lists:
+            member_doc += (f"\n// {pname} is a CONTAINER (not a list element): "
+                           f"the list &{pname}->{fld} is L_{pname.upper()}_{fld.upper()}"
+                           f" — iterate it via iter(L_{pname.upper()}_{fld.upper()}); "
+                           f"the a-arg for {pname} is an opaque handle, ignore its value.")
     doc = (f"// C function under translation (from {rec['file']}):\n"
            + "\n".join("// " + ln for ln in fn_text.split("\n"))
            + "\n// Available constants:\n"
