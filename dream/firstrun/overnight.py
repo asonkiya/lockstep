@@ -141,21 +141,46 @@ def _haiku(prompt):
     return _extract_rust(m.content[0].text), cost
 
 
-def ladder(prompt, gate):
-    """gate(candidate_body:str) -> bool. Try local first ($0); if it fails and
-    budget remains, escalate to Haiku. Returns (body|None, model, cost)."""
+def _repair_prompt(prompt, body, feedback):
+    return (prompt + "\n\nYour previous attempt:\n" + body[:2000]
+            + "\n\nIt FAILED the gate with:\n" + feedback[:1500]
+            + "\n\nOutput the corrected body ONLY (same rules).")
+
+
+def ladder(prompt, gate, repair=False):
+    """gate(candidate_body:str) -> bool | (bool, feedback:str). Try local first
+    ($0); if it fails and budget remains, escalate to Haiku. With repair=True,
+    a failing rung whose gate returned non-empty feedback gets ONE re-prompt
+    carrying that feedback (compile-error/diff repair round — the gate stays
+    the arbiter, so repair only costs retries, never soundness).
+    Returns (body|None, model, cost)."""
+    def _check(body):
+        r = gate(body)
+        return r if isinstance(r, tuple) else (r, "")
+
     try:
         body = _ollama(prompt)
-        if gate(body):
+        ok, fb = _check(body)
+        if ok:
             return body, "local", 0.0
+        if repair and fb:
+            body = _ollama(_repair_prompt(prompt, body, fb))
+            if _check(body)[0]:
+                return body, "local+fix", 0.0
     except Exception as e:
         log(f"  local synth error: {str(e)[:80]}")
     if budget_left() <= 0.02:               # keep a cushion; never exceed the cap
         return None, "budget", 0.0
     try:
         body, cost = _haiku(prompt)
-        if gate(body):
+        ok, fb = _check(body)
+        if ok:
             return body, "haiku", cost
+        if repair and fb and budget_left() > 0.02:
+            body, c2 = _haiku(_repair_prompt(prompt, body, fb))
+            cost += c2
+            if _check(body)[0]:
+                return body, "haiku+fix", cost
     except Exception as e:
         log(f"  haiku synth error: {str(e)[:80]}")
     return None, "none", 0.0
@@ -293,14 +318,31 @@ its braces; it must end in an i64 value — use 0 for void):
 
 {doc}
 
-Rules: use ONLY the documented helpers + constants (iter/empty/del/push_back/
-push_front/move_tail/move_front/field/set_field/tokf/tok_field/retire) and the
-a0..aN args. iter() returns a snapshot (safe to del() while walking). retire(id)
-is the kfree analog — call it exactly where the C frees. Locks in the C are
-already handled outside the model: IGNORE lock/unlock calls. No unsafe, no
-statics, no external calls, no panics. If the C does something the helpers can't
-express, reply exactly `// UNSUPPORTED`. Output ONLY the body, no signature, no
-outer braces, no ``` fences.
+Helper signatures (EXACT — these are the ONLY functions that exist):
+  fn iter(l: usize) -> Vec<u32>        // snapshot of list l; `for id in iter(L_X)` gives id: u32
+  fn empty(l: usize) -> bool           // list_empty
+  fn del(id: u32)                      // list_del: unlink id from whichever list holds it
+  fn push_back(l: usize, id: u32)      // list_add_tail(&node, list)
+  fn push_front(l: usize, id: u32)     // list_add(&node, list)
+  fn move_tail(l: usize, id: u32)      // list_move_tail
+  fn move_front(l: usize, id: u32)     // list_move
+  fn field(id: u32, f: usize) -> i64   // read node SCALAR field F_*
+  fn set_field(id: u32, f: usize, v: i64)
+  fn tokf(id: u32, t: usize) -> i64    // read node POINTER field T_* as an opaque token
+  fn tok_field(h: i64, f: usize) -> i64 // read scalar field P_* of a token-object arg
+  fn retire(id: u32)                   // kfree(node) — call exactly where the C frees
+
+Rules: use ONLY these helpers, the F_*/T_*/P_*/L_* constants, and the a0..aN
+args (pointer-struct args are opaque tokens: compare with `tokf(id, T_X) == aN`,
+read their fields with tok_field). iter() is a snapshot — del() while walking is
+safe. Locks in the C are already handled outside the model: IGNORE lock/unlock
+calls. PRESERVE C SEMANTICS EXACTLY: if the C compares `unsigned` values, cast
+both sides `as u64` before comparing (an i64 -1 is a HUGE unsigned); kernel
+error returns are numeric (-EINVAL = -22, -ENOMEM = -12, -EBUSY = -16,
+-ENOENT = -2, -EEXIST = -17). No unsafe, no statics, no external calls, no
+panics. If the C does something the helpers can't express, reply exactly
+`// UNSUPPORTED`. Output ONLY the body, no signature, no outer braces, no
+``` fences.
 """
 
 
@@ -318,12 +360,17 @@ def solve_container(item, done):
 
     def gate(body):
         if "UNSUPPORTED" in body:
-            return False
+            return False, ""
         with tempfile.TemporaryDirectory() as d:
             r = cadt_harness.close(prep, body, workdir=d)
-        return r["verdict"] == "MATCH"
+        if r["verdict"] == "MATCH":
+            return True, ""
+        # feed compile errors / divergence back for the repair round; coverage
+        # refusals are the WORKLOAD's fault, not the candidate's — no repair.
+        fb = r["out"] if r["verdict"].startswith(("BUILD_FAIL", "DIVERGE")) else ""
+        return False, fb
 
-    body, model, cost = ladder(prompt, gate)
+    body, model, cost = ladder(prompt, gate, repair=True)
     if body:
         open(os.path.join(VERIFIED, f"{key}.rs"), "w").write(
             prep["surface"] + "\n" + prep["rs_sig"] + " {\n" + body + "\n}\n")

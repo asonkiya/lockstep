@@ -78,6 +78,20 @@ def _lcg(seed=12345):
 
 CADT_H = r"""
 #include <stddef.h>
+#include <stdbool.h>
+/* asm-generic errno-base values, so `return -EINVAL` in the fn text and a
+   numeric return in the candidate compare equal */
+#define EPERM 1
+#define ENOENT 2
+#define EIO 5
+#define EAGAIN 11
+#define ENOMEM 12
+#define EFAULT 14
+#define EBUSY 16
+#define EEXIST 17
+#define ENODEV 19
+#define EINVAL 22
+#define ENOSPC 28
 struct list_head { struct list_head *next, *prev; };
 extern void cadt_site(int line);
 static void __cadt_init(struct list_head *h){ h->next=h; h->prev=h; }
@@ -377,7 +391,11 @@ fn retire(id: u32) {{ unsafe {{ RETIRED.push(id); }} }}
         "attach": [(i, next(g) % nl) for i in linked_ids],
         "setf": [(i, fi, [0, 1, 2, 7, -1, 3][next(g) % 6])
                  for i in range(NN) for fi in range(nf)],
-        "settok": [(i, ti, next(g) % (NTOK + 1))
+        # even ids: all token fields non-null (guards that require a fully-
+        # populated node can pass -> their mutation sites get exercised);
+        # odd ids: may carry nulls (the guard's reject path gets exercised too)
+        "settok": [(i, ti, (1 + next(g) % NTOK) if i % 2 == 0
+                   else next(g) % (NTOK + 1))
                    for i in range(NN) for ti in range(nt)],
         "tokset": [(h, fi, next(g) % 4)
                    for h in range(1, NTOK + 1) for fi in range(len(tok_reads))],
