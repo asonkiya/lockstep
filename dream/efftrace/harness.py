@@ -60,6 +60,36 @@ typedef uint16_t u16; typedef int16_t s16; typedef uint16_t __u16; typedef int16
 typedef uint32_t u32; typedef int32_t s32; typedef uint32_t __u32; typedef int32_t __s32;
 typedef uint64_t u64; typedef int64_t s64; typedef uint64_t __u64; typedef int64_t __s64;
 typedef uint64_t phys_addr_t; typedef uint64_t dma_addr_t; typedef uint64_t resource_size_t;
+typedef uint16_t __le16; typedef uint16_t __be16;
+typedef uint32_t __le32; typedef uint32_t __be32;
+typedef uint64_t __le64; typedef uint64_t __be64;
+#define cpu_to_le16(x) ((__le16)(x))
+#define cpu_to_le32(x) ((__le32)(x))
+#define cpu_to_le64(x) ((__le64)(x))
+#define le16_to_cpu(x) ((uint16_t)(x))
+#define le32_to_cpu(x) ((uint32_t)(x))
+#define le64_to_cpu(x) ((uint64_t)(x))
+#define min(a,b) ((a) < (b) ? (a) : (b))
+#define max(a,b) ((a) > (b) ? (a) : (b))
+#define min_t(t,a,b) ((t)(a) < (t)(b) ? (t)(a) : (t)(b))
+#define max_t(t,a,b) ((t)(a) > (t)(b) ? (t)(a) : (t)(b))
+#define clamp(v,lo,hi) min(max(v,lo),hi)
+#define clamp_t(t,v,lo,hi) min_t(t,max_t(t,v,lo),hi)
+#define __ffs(x) ((unsigned long)__builtin_ctzl((unsigned long)(x)))
+#define __fls(x) ((unsigned long)(63 - __builtin_clzl((unsigned long)(x))))
+#define ffs(x) __builtin_ffs(x)
+#define fls(x) ((x) ? 32 - __builtin_clz((unsigned int)(x)) : 0)
+#define fls64(x) ((x) ? 64 - __builtin_clzll((unsigned long long)(x)) : 0)
+#define hweight8(x) __builtin_popcount((unsigned char)(x))
+#define hweight16(x) __builtin_popcount((unsigned short)(x))
+#define hweight32(x) __builtin_popcount((unsigned int)(x))
+#define hweight64(x) __builtin_popcountll((unsigned long long)(x))
+#define noinline
+#define __cold
+#define __hot
+#define __weak
+#define __sched
+#define __pure
 #define EPERM 1
 #define ENOENT 2
 #define EIO 5
@@ -81,6 +111,40 @@ typedef uint64_t phys_addr_t; typedef uint64_t dma_addr_t; typedef uint64_t reso
 
 class Unsupported(Exception):
     pass
+
+
+# ctype -> (bits, signed) on the HOST (LP64, Apple clang: plain char signed).
+# Everything not listed (long, u64, size_t, ...) is 64-bit: no-op.
+_WIDTH = {
+    "bool": (1, False),
+    "char": (8, True), "signed char": (8, True), "unsigned char": (8, False),
+    "u8": (8, False), "__u8": (8, False), "s8": (8, True), "__s8": (8, True),
+    "uint8_t": (8, False), "int8_t": (8, True),
+    "short": (16, True), "short int": (16, True), "unsigned short": (16, False),
+    "u16": (16, False), "__u16": (16, False), "s16": (16, True), "__s16": (16, True),
+    "__le16": (16, False), "__be16": (16, False),
+    "uint16_t": (16, False), "int16_t": (16, True),
+    "int": (32, True), "signed int": (32, True),
+    "unsigned": (32, False), "unsigned int": (32, False),
+    "u32": (32, False), "__u32": (32, False), "s32": (32, True), "__s32": (32, True),
+    "__le32": (32, False), "__be32": (32, False),
+    "uint32_t": (32, False), "int32_t": (32, True),
+}
+
+
+def _cell_width(ctype):
+    return _WIDTH.get(" ".join(ctype.replace("const", " ").split()), (64, True))
+
+
+def _pynorm(ctype, v):
+    bits, signed = _cell_width(ctype)
+    if bits == 64:
+        return v
+    if bits == 1:
+        return 1 if v else 0
+    m = (1 << bits) - 1
+    x = v & m
+    return x - (1 << bits) if signed and (x >> (bits - 1)) & 1 else x
 
 
 def _lcg(seed=99991):
@@ -135,11 +199,14 @@ def prepare(rec):
         c.append(f"#define {n} {v}")
     for n, g in rec["globals"].items():
         c.append(f"static {g['ctype']} {n};")
+    emitted = set()
     for pi, p in enumerate(node_ps):
-        c.append(f"struct {p['struct']} {{")
-        for f, t in sorted(p["scalar_fields"].items()):
-            c.append(f"    {t} {f};")
-        c.append("};")
+        if p["struct"] not in emitted:      # two params of one type: def ONCE
+            emitted.add(p["struct"])
+            c.append(f"struct {p['struct']} {{")
+            for f, t in sorted(p["scalar_fields"].items()):
+                c.append(f"    {t} {f};")
+            c.append("};")
         c.append(f"static struct {p['struct']} EP{pi}[{NN}];")
     for oi, p in enumerate(outs):
         c.append(f"static {p['ctype']} EOP{oi};")
@@ -212,28 +279,55 @@ def prepare(rec):
                         if cc[0] == "pf" and cc[1] == pi and cc[2] == f)
             pf_base[(pi, f)] = base
             consts.append(f"const F{pi}_{f.upper()}: usize = {base};  // + slot")
+    # per-cell (bits, signed): every store — seeds AND candidate writes — is
+    # truncated exactly like the C's typed field store, so a u8 cell seeded
+    # 1008 holds 240 on BOTH sides and a u32 cell holding -1 reads 4294967295.
+    # (The census showed 47/69 misses were exactly this width mismatch.)
+    def _cw(cell):
+        if cell[0] == "g":
+            t = rec["globals"][cell[1]]["ctype"]
+        elif cell[0] == "out":
+            t = outs[[p["name"] for p in outs].index(cell[1])]["ctype"]
+        else:
+            t = node_ps[cell[1]]["scalar_fields"][cell[2]]
+        return _cell_width(t)
+    cw_rows = ", ".join(f"({b}, {1 if s else 0})" for b, s in
+                        (_cw(cell) for cell in cells))
     surface = f"""#![allow(non_snake_case, dead_code, static_mut_refs, unused_unsafe, unused_imports, unused_variables, non_upper_case_globals)]
 // generated state model — one flat cell vector, index map identical to the C.
 const NSTATE: usize = {nstate};
 {chr(10).join(consts)}
+const CW: [(u32, u32); NSTATE] = [{cw_rows}];   // (bits, signed) per cell
 static mut S: [i64; NSTATE] = [0; NSTATE];
+fn norm(ix: usize, v: i64) -> i64 {{
+    let (bits, signed) = CW[ix];
+    match bits {{
+        64 => v,
+        1 => (v != 0) as i64,
+        _ => {{
+            let m = (1i64 << bits) - 1;
+            let x = v & m;
+            if signed == 1 && (x >> (bits - 1)) & 1 == 1 {{ x | !m }} else {{ x }}
+        }}
+    }}
+}}
 #[no_mangle] pub extern "C" fn rs_reset() {{ unsafe {{
     S = [0; NSTATE];
-{chr(10).join(f'    S[{i}] = {rec["globals"][cell[1]]["init"]};'
+{chr(10).join(f'    S[{i}] = {_pynorm(rec["globals"][cell[1]]["ctype"], rec["globals"][cell[1]]["init"])};'
               for i, cell in enumerate(cells)
               if cell[0] == "g" and rec["globals"][cell[1]]["init"])}
 }}}}
-#[no_mangle] pub extern "C" fn rs_set(ix: i32, v: i64) {{ unsafe {{ S[ix as usize] = v; }}}}
+#[no_mangle] pub extern "C" fn rs_set(ix: i32, v: i64) {{ unsafe {{ S[ix as usize] = norm(ix as usize, v); }}}}
 #[no_mangle] pub extern "C" fn rs_state(buf: *mut i64) {{ unsafe {{
     for i in 0..NSTATE {{ *buf.add(i) = S[i]; }}
 }}}}
-// ---- candidate-facing helpers ----
+// ---- candidate-facing helpers (stores are width-normalized like the C) ----
 fn g(ix: usize) -> i64 {{ unsafe {{ S[ix] }} }}
-fn set_g(ix: usize, v: i64) {{ unsafe {{ S[ix] = v; }} }}
+fn set_g(ix: usize, v: i64) {{ unsafe {{ S[ix] = norm(ix, v); }} }}
 fn out(ix: usize) -> i64 {{ unsafe {{ S[ix] }} }}
-fn set_out(ix: usize, v: i64) {{ unsafe {{ S[ix] = v; }} }}
+fn set_out(ix: usize, v: i64) {{ unsafe {{ S[ix] = norm(ix, v); }} }}
 fn field(base: usize, slot: i64) -> i64 {{ unsafe {{ S[base + slot as usize] }} }}
-fn set_field(base: usize, slot: i64, v: i64) {{ unsafe {{ S[base + slot as usize] = v; }} }}
+fn set_field(base: usize, slot: i64, v: i64) {{ unsafe {{ let ix = base + slot as usize; S[ix] = norm(ix, v); }} }}
 """
     rs_args = [f"a{i}: i64" for i in range(len(rec["params"]))]
     rs_sig = f'#[no_mangle] pub extern "C" fn rs_call({", ".join(rs_args)}) -> i64'
@@ -291,6 +385,11 @@ fn set_field(base: usize, slot: i64, v: i64) {{ unsafe {{ S[base + slot as usize
            + "\n// State cells are i64. Helpers: g(G_*), set_g(G_*, v),"
            + "\n//   out(OUT_*), set_out(OUT_*, v), field(F*_X, slot),"
            + "\n//   set_field(F*_X, slot, v)."
+           + "\n// STORES are automatically truncated to the C field's declared"
+           + "\n// width (a u8 cell stores 1008 as 240; a u32 cell holding -1"
+           + "\n// reads back 4294967295) — replicate the C's VALUE logic only."
+           + "\n// The C return is converted through its declared return type:"
+           + "\n// for an unsigned return, normalize (e.g. `(v as u32) as i64`)."
            + "\n// Args: " + "; ".join(argdoc))
 
     return {"rec": rec, "csrc": csrc, "surface": surface, "rs_sig": rs_sig,
