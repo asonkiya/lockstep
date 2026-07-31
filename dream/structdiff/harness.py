@@ -210,7 +210,6 @@ def build_probe(fn_name, sig_params, params, structs, ncov, sweep) -> str:
     # sweep loops
     L.append("int main(void){ unsigned long long cases=0,bad=0; int fb=0;")
     loops, callargs_c, callargs_g, post = [], [], [], []
-    idx = 0
     for p in params:
         n = p["name"]
         if p["kind"] == "struct":

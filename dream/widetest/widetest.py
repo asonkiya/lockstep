@@ -135,7 +135,7 @@ def adversarial_container_rbtree(tmp, n):
             for droperase in (False, True):
                 if koff == 0 and ioff == 0 and not droperase:
                     continue  # that's correct
-                ins = f"m.insert(k + {koff}, id + {ioff}); NI += 1;" if True else ""
+                ins = f"m.insert(k + {koff}, id + {ioff}); NI += 1;"
                 era = "NDL += 1;" if droperase else "m.remove(&(k)); NDL += 1;"
                 variants.append(f"    if op != 0 {{ {ins} }} else {{ {era} }}\n")
     random.shuffle(variants)
@@ -174,7 +174,7 @@ def adversarial_efftrace(tmp, n):
         checked += 1
         if v == "MATCH":
             fp += 1
-            log(f"  !! FALSE PASS efftrace")
+            log("  !! FALSE PASS efftrace")
     return {"checked": checked, "false_pass": fp}
 
 
@@ -245,7 +245,7 @@ def main():
 
     lines = ["# WIDE test — new infrastructure", "",
              f"_generated {time.strftime('%Y-%m-%d %H:%M')}, {round((time.time()-T0)/60,1)} min_", "",
-             f"## HEADLINE",
+             "## HEADLINE",
              f"- regression suite: **{'PASS' if reg['passed'] else 'FAIL'}** ({reg['summary']})",
              f"- new-oracle adversarial candidates: **{new_checked}**, false passes: **{new_fp}**",
              f"- legacy megatest candidates: **{mega_cases}**, false passes: **{mega_fp}**",
