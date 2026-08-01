@@ -226,3 +226,45 @@ def test_struct_helper_over_credit_diverges(prep_ips):
     body = ("set_field(F0_A,a0,a1); set_field(F0_B,a0,a1+1);\n"
             "if a1>10 { set_field(F0_B,a0,0); }\n0\n")
     assert _H.close(prep_ips, body)["verdict"] == "DIVERGE:state"
+
+
+# ---- logging strip (base-gate widening) ------------------------------------
+# pr_*/dev_*/WARN* are pure-logging: no modeled-state effect, execution
+# continues (WARN_ON returns its condition). Strippable like locks for the
+# state-transition claim. BUG/panic stay refused (they abort control flow).
+# Measured +6 sole-blocker accepts over kernel+mm+lib.
+
+_LOG_SRC = """static int g_state;
+void set_state(int v){
+\tif (WARN_ON(v < 0))
+\t\treturn;
+\tpr_info("setting %d", v);
+\tg_state = v;
+}
+"""
+
+
+@pytest.fixture(scope="module")
+def prep_log():
+    ksrc = os.environ.get("KSRC", "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux")
+    path = os.path.join(ksrc, "_lockstep_log_test.c")
+    open(path, "w").write(_LOG_SRC)
+    try:
+        yield _H.prepare(_R.gate("_lockstep_log_test.c", "set_state"))
+    finally:
+        os.remove(path)
+
+
+def test_logging_stripped_flag(prep_log):
+    assert prep_log["rec"]["flags"]["logging_stripped"] is True
+
+
+def test_logging_correct_matches(prep_log):
+    # WARN_ON(v<0) preserves the guard: writes only when v >= 0
+    assert _H.close(prep_log, "if a0 < 0 { return 0; }\nset_g(G_G_STATE, a0);\n0\n")["verdict"] == "MATCH"
+
+
+def test_logging_warn_guard_is_load_bearing(prep_log):
+    # dropping the WARN_ON guard writes when v<0 -> caught (WARN_ON's condition
+    # semantics survive the strip; the boundary sweep exercises v<0).
+    assert _H.close(prep_log, "set_g(G_G_STATE, a0);\n0\n")["verdict"] == "DIVERGE:state"

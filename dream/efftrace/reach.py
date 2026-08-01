@@ -52,12 +52,22 @@ LOCK_STRIP = {
     "raw_spin_unlock_irqrestore", "mutex_lock", "mutex_unlock",
     "lockdep_assert_held", "assert_spin_locked",
 }
+# pure-logging calls: no effect on the modeled state footprint and they CONTINUE
+# execution (WARN_ON returns its condition + prints; pr_*/dev_* print). Strippable
+# for the state-transition claim exactly like locks. NOT here: BUG/BUG_ON/panic —
+# they ABORT control flow, so no-op'ing them would silently skip a divergent path.
+LOG_STRIP = {
+    "printk", "pr_err", "pr_warn", "pr_info", "pr_debug", "pr_cont", "pr_notice",
+    "pr_err_once", "pr_warn_once", "pr_info_once", "pr_debug_once",
+    "dev_err", "dev_warn", "dev_info", "dev_dbg", "dev_notice",
+    "WARN", "WARN_ON", "WARN_ONCE", "WARN_ON_ONCE",
+}
 _ASM = re.compile(r"\basm\s+goto\b|\basm\s+volatile\b|\b__asm__\b|(?<![A-Za-z_])asm\s*\(")
 _MMIO = re.compile(r"\b(readl|writel|read[bwq]|write[bwq]|ioread\d*|iowrite\d*)\b")
 _FORBID = re.compile(
     r"\bWRITE_ONCE\b|\bREAD_ONCE\b|\batomic_|\brefcount_|\bkref_|\bxchg\b|cmpxchg"
     r"|\bvolatile\b|\bjiffies\b|\bktime|random|\bcurrent\b|this_cpu|per_cpu"
-    r"|\bpr_\w+\s*\(|\bprintk\b|\bWARN|\bBUG\b|container_of|\bgoto\b")
+    r"|\bBUG\b|\bpanic\b|container_of|\bgoto\b")
 
 _SCALAR_TYPES = (
     r"(?:unsigned\s+|signed\s+)?"
@@ -287,7 +297,7 @@ def gate(rel, fn, _cache={}):
     # calls: admit same-file bounded helpers (interprocedural ladder); record
     # each admitted callee's resolve dict, fold globals/defines now, fold the
     # struct-field footprint AFTER params are parsed (needs the caller's nodes).
-    flags = {"locks_stripped": False}
+    flags = {"locks_stripped": False, "logging_stripped": False}
     inlined = {}                 # callee name -> real C text (ladder)
     inlined_globals = {}         # folded callee global footprint
     inlined_defines = {}         # folded callee #define usage
@@ -299,6 +309,9 @@ def gate(rel, fn, _cache={}):
             continue
         if name in LOCK_STRIP:
             flags["locks_stripped"] = True
+            continue
+        if name in LOG_STRIP:
+            flags["logging_stripped"] = True
             continue
         if name in inlined:
             continue

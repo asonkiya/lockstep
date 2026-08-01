@@ -108,6 +108,29 @@ typedef uint64_t __le64; typedef uint64_t __be64;
 #define __init
 #define __exit
 #define __maybe_unused
+/* pure-logging: no state effect, execution continues. WARN returns its
+   condition (used in if-WARN_ON); the pr and dev loggers are void. BUG and
+   panic are NOT here (they abort) — the gate refuses functions using them. */
+#define printk(...) ((void)0)
+#define pr_err(...) ((void)0)
+#define pr_warn(...) ((void)0)
+#define pr_info(...) ((void)0)
+#define pr_debug(...) ((void)0)
+#define pr_cont(...) ((void)0)
+#define pr_notice(...) ((void)0)
+#define pr_err_once(...) ((void)0)
+#define pr_warn_once(...) ((void)0)
+#define pr_info_once(...) ((void)0)
+#define pr_debug_once(...) ((void)0)
+#define dev_err(...) ((void)0)
+#define dev_warn(...) ((void)0)
+#define dev_info(...) ((void)0)
+#define dev_dbg(...) ((void)0)
+#define dev_notice(...) ((void)0)
+#define WARN(c, ...) (!!(c))
+#define WARN_ON(c) (!!(c))
+#define WARN_ONCE(c, ...) (!!(c))
+#define WARN_ON_ONCE(c) (!!(c))
 """ + "\n".join(f"#define {lk}(...) (void)0" for lk in LOCK_NOOPS) + "\n"
 
 
