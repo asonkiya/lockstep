@@ -56,6 +56,15 @@ MUT_OPS = {"list_add", "list_add_tail", "list_del", "list_del_init",
            "list_move", "list_move_tail"}
 ITERS = {"list_for_each_entry", "list_for_each_entry_safe",
          "list_for_each_entry_reverse"}
+# v3: the pop/peek idiom — element extraction by position. _or_null returns
+# NULL on empty (maps to id -1); bare first/last on an empty list is the C's
+# own UB territory (kernel callers guard with list_empty).
+PEEKS = {"list_first_entry", "list_last_entry", "list_first_entry_or_null"}
+_PEEK = re.compile(r"\b(list_first_entry_or_null|list_first_entry|list_last_entry)"
+                   r"\s*\(\s*([^,]+?)\s*,\s*struct\s+(\w+)\s*,\s*(\w+)\s*\)")
+_NODE_DECL_INIT = re.compile(
+    r"\bstruct\s+([A-Za-z_]\w*)\s*\*\s*([A-Za-z_]\w*)\s*=")
+_RET_NODE = re.compile(r"^(?:const\s+)?struct\s+([A-Za-z_]\w*)\s*\*$")
 # single-threaded host: bracket ops strippable; ADT verdict = container half only
 LOCK_STRIP = {
     "spin_lock", "spin_unlock", "spin_lock_irqsave", "spin_unlock_irqrestore",
@@ -152,30 +161,42 @@ def _node_fields(struct, near):
 
 
 def _node_fields_uncached(struct, near):
+    """LENIENT per-field resolution: the ADT harness emits its own host struct
+    from the fields the fn TOUCHES, so unmodelable fields (nested structs,
+    arrays, #if-conditional, bitfields, unions) are SKIPPED, not fatal — the
+    later unknown-field check refuses soundly if the fn actually touches one.
+    Only 'no resolvable source' and 'no embedded list_head' remain fatal.
+    (The strict whole-struct version measured folio/inode/btrfs_* as walls the
+    fn never actually looked behind.)"""
     try:
         src = mirror.resolve_struct_source(struct, near_file=near) or open(near, errors="ignore").read()
-        fields = mirror.parse_struct(src, struct)
-    except mirror.Unsupported as e:
-        raise Refused(f"node-struct {struct}: {str(e)[:36]}")
-    except Exception as e:
-        raise Refused(f"node-struct {struct}: {type(e).__name__}")
-    # descriptor shape: ("__nested__", fname, (yname, n)) for struct-by-value
+        body = mirror._extract_body(purity.mask(src), struct)
+    except (mirror.Unsupported, Exception) as e:
+        raise Refused(f"node-struct {struct}: {str(e)[:36] or type(e).__name__}")
     lh, scalars, tokens = [], {}, []
-    for ctype, fname, extra in fields:
-        if ctype == "__nested__":
-            yname, n = extra
-            if yname == "list_head" and n is None:
-                lh.append(fname)
-                continue
-            raise Refused(f"node-struct {struct}: nested {yname}")
-        if ctype == "__ptr__":
-            tokens.append(fname)          # opaque token: read/compare only
+    seen = set()
+    for raw in body.split(";"):
+        decl = mirror.norm(re.sub(r"/\*.*?\*/", " ", raw, flags=re.DOTALL))
+        if not decl or ":" in decl or re.search(r"\bunion\b", decl):
             continue
-        if extra is not None:
-            raise Refused(f"node-struct {struct}: array field {fname}")
-        if ctype not in mirror.SCALAR:
-            raise Refused(f"node-struct {struct}: field type {ctype!r}")
-        scalars[fname] = ctype
+        for one in mirror._split_multi_decl(decl):
+            try:
+                ctype, fname, extra = mirror._field_from_decl(one, src)
+            except (mirror.Unsupported, Exception):
+                continue
+            if fname in seen:          # #if branches both included: keep first
+                continue
+            seen.add(fname)
+            if ctype == "__nested__":
+                yname, n = extra
+                if yname == "list_head" and n is None:
+                    lh.append(fname)
+                continue                       # other nested: skipped
+            if ctype == "__ptr__":
+                tokens.append(fname)           # opaque token: read/compare only
+                continue
+            if extra is None and ctype in mirror.SCALAR:
+                scalars[fname] = ctype
     if not lh:
         raise Refused(f"node-struct {struct}: no embedded list_head")
     return lh, scalars, tokens
@@ -203,7 +224,11 @@ def gate(rel, fn, _srccache={}):
         raise Refused("no list mutation")
     if _ASM.search(scan) or _MMIO.search(scan):
         raise Refused("asm/mmio")
-    if ret not in INT_RETURNS:
+    ret_node = None
+    rm = _RET_NODE.match(ret)
+    if rm:
+        ret_node = rm.group(1)      # node-pointer return: validated below
+    elif ret not in INT_RETURNS:
         raise Refused(f"ret: {ret[:24]!r}")
 
     near = os.path.join(KSRC, rel)
@@ -248,14 +273,36 @@ def gate(rel, fn, _srccache={}):
             raise Refused(f"local-{e}")
         for n in names:
             cursors[n] = info
+    for m in _NODE_DECL_INIT.finditer(scan):        # `struct X *v = ...;`
+        st, name = m.group(1), m.group(2)
+        if st == "list_head":
+            raise Refused("raw list_head local")
+        if name in cursors:
+            continue
+        try:
+            cursors[name] = (st,) + _node_fields(st, near)
+        except Refused as e:
+            raise Refused(f"local-{e}")
+    # a struct param is a NODE only if the fn uses `&p->field` (linked/unlinked/
+    # anchored); a merely-RESOLVABLE struct used via scalar reads + identity
+    # compares is a TOKEN. (The lenient field resolver made big structs like
+    # `module` resolvable, which must not flip their classification.)
+    for name in list(nodes):
+        if not re.search(rf"&\s*{name}\s*->", scan):
+            tokens[name] = params[name]["struct"]
+            params[name]["kind"] = "token"
+            del nodes[name]
     local_lists = set(_LISTHEAD_LOCAL.findall(scan))
     nodes_all = dict(nodes) | cursors
+    if ret_node is not None and ret_node not in {v[0] for v in nodes_all.values()}:
+        raise Refused(f"ret: non-node ptr {ret_node}")
 
     # ---- call vocabulary ---------------------------------------------------
     flags = {"locks_stripped": False, "alloc_stripped": False}
     for m in purity.CALL.finditer(scan):
         name = m.group(1)
-        if (name in OPS or name in ITERS or name in purity.NONCALL
+        if (name in OPS or name in ITERS or name in PEEKS
+                or name in purity.NONCALL
                 or name in purity.PURE_CALL or name == fn
                 or name in ("LIST_HEAD", "kfree")):
             continue
@@ -304,6 +351,21 @@ def gate(rel, fn, _srccache={}):
             raise Refused(f"iter member {member} not an lh field of {cursors[pos][0]}")
         iters.append({"kind": kind, "cursor": pos, "anchor": anchor, "member": member})
         masked = masked.replace(m.group(0), " ITERHDR ")
+
+    # ---- peek/pop element extraction (v3) ----------------------------------
+    peeks = []
+    struct_types = {v[0]: v for v in nodes_all.values()}
+    for m in _PEEK.finditer(scan):
+        pop, anchor_expr, st, member = m.group(1), m.group(2).strip(), m.group(3), m.group(4)
+        anc = _anchor_ok(anchor_expr)
+        if not anc:
+            raise Refused(f"peek anchor: {anchor_expr[:24]!r}")
+        if st not in struct_types or member not in struct_types[st][1]:
+            raise Refused(f"peek type/member: {st}.{member}")
+        if anc[0] == "param":
+            roles.setdefault(anchor_expr, set()).add("head")
+        peeks.append({"op": pop, "anchor": list(anc), "member": member})
+        masked = masked.replace(m.group(0), " PEEKCALL ")
 
     # ---- list ops ----------------------------------------------------------
     op_sites = 0
@@ -384,18 +446,35 @@ def gate(rel, fn, _srccache={}):
     if _IMPURE_RESIDUAL.search(masked):
         raise Refused(f"impure: {_IMPURE_RESIDUAL.search(masked).group(0)[:16]}")
     owned = (purity.owned_names(text) | purity.KEYWORDS | set(cursors)
-             | {"OPCALL", "NFLD", "TFLD", "TPF", "ITERHDR"} | local_lists)
+             | {"OPCALL", "NFLD", "TFLD", "TPF", "ITERHDR", "PEEKCALL"}
+             | local_lists)
     for am in purity._ASSIGN.finditer(masked):
         if am.group(1) not in owned:
             raise Refused(f"unowned write: {am.group(1)}")
+    # residual identifiers must be resolvable object-like #defines (emitted by
+    # the harness); enum constants are refused honestly (no host value).
+    defines = {}
+    call_names = {m.group(1) for m in purity.CALL.finditer(masked)}
+    type_names = set(re.findall(r"\bstruct\s+(\w+)", masked))
+    for im in re.finditer(r"(?<![\w.>])([A-Za-z_]\w*)\b", masked):
+        n = im.group(1)
+        if (n in owned or n in call_names or n in defines or n in params
+                or n in globals_lh or n in purity.PURE_CALL or n in type_names):
+            continue
+        v = mirror._resolve_define(n, src)
+        if v is None:
+            raise Refused(f"unresolved: {n}")
+        defines[n] = v
 
     shape = ("iter_node" if iters else "node" if nodes_all else "raw")
     return {
         "file": rel, "fn": fn, "shape": shape, "ret": ret or "void",
+        "ret_node": ret_node, "peeks": peeks, "defines": defines,
         "flags": flags, "op_sites": op_sites, "n_iters": len(iters),
         "branches": len(re.findall(r"\bif\s*\(", masked)),
         "globals": sorted({a[1] for a in anchors_used if a[0] == "global"}
-                          | {i["anchor"][1] for i in iters if i["anchor"][0] == "global"}),
+                          | {i["anchor"][1] for i in iters if i["anchor"][0] == "global"}
+                          | {p["anchor"][1] for p in peeks if p["anchor"][0] == "global"}),
         "local_lists": sorted(local_lists),
         "token_reads": {k: sorted(set(v)) for k, v in token_reads.items()},
         "params": [

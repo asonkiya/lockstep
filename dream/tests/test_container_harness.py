@@ -139,3 +139,30 @@ def test_holder_dropped_retire_diverges(prep_holder):
     r = _H.close(prep_holder,
                  "for id in iter(L_CTX_CONFLICT_INODES) { del(id); }\n0\n")
     assert r["verdict"] == "DIVERGE:retire", r
+
+
+# ---- pop idiom (v3): list_first_entry_or_null + del + node-pointer return --
+# sk_psock_link_pop (net/core/skmsg.c): pop the first link off &psock->link
+# under a lock bracket and RETURN it (NULL when empty). The trampoline maps the
+# returned pointer to its arena id (-1 for NULL), so return values compare.
+
+@pytest.fixture(scope="module")
+def prep_pop():
+    return _H.prepare(_R.gate("net/core/skmsg.c", "sk_psock_link_pop"))
+
+
+def test_pop_correct_matches(prep_pop):
+    r = _H.close(prep_pop,
+                 "let id = first(L_PSOCK_LINK);\nif id >= 0 { del(id as u32); }\nid\n")
+    assert r["verdict"] == "MATCH", r
+
+
+def test_pop_wrong_end_diverges(prep_pop):
+    r = _H.close(prep_pop,
+                 "let id = last(L_PSOCK_LINK);\nif id >= 0 { del(id as u32); }\nid\n")
+    assert r["verdict"].startswith("DIVERGE"), r
+
+
+def test_peek_without_del_diverges(prep_pop):
+    r = _H.close(prep_pop, "first(L_PSOCK_LINK)\n")
+    assert r["verdict"] == "DIVERGE:adt", r

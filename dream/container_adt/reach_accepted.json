@@ -1,9 +1,112 @@
 [
  {
+  "file": "lib/klist.c",
+  "fn": "add_head",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "k",
+    "kind": "node",
+    "struct": "klist",
+    "role": null,
+    "lh_fields": [
+     "k_list",
+     "n_node"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "n_klist"
+    ]
+   },
+   {
+    "name": "n",
+    "kind": "node",
+    "struct": "klist_node",
+    "role": null,
+    "lh_fields": [
+     "n_node"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "n_klist"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "lib/klist.c",
+  "fn": "add_tail",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "k",
+    "kind": "node",
+    "struct": "klist",
+    "role": null,
+    "lh_fields": [
+     "k_list",
+     "n_node"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "n_klist"
+    ]
+   },
+   {
+    "name": "n",
+    "kind": "node",
+    "struct": "klist_node",
+    "role": null,
+    "lh_fields": [
+     "n_node"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "n_klist"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
   "file": "lib/dynamic_debug.c",
   "fn": "ddebug_table_free",
   "shape": "node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": false,
    "alloc_stripped": true
@@ -41,6 +144,9 @@
   "fn": "module_unload_ei_list",
   "shape": "iter_node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": true,
    "alloc_stripped": true
@@ -108,10 +214,188 @@
   ]
  },
  {
+  "file": "kernel/stop_machine.c",
+  "fn": "__cpu_stop_queue_work",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "stopper",
+    "kind": "node",
+    "struct": "cpu_stopper",
+    "role": null,
+    "lh_fields": [
+     "works"
+    ],
+    "scalar_fields": {
+     "enabled": "bool",
+     "caller": "unsigned long"
+    },
+    "token_fields": [
+     "thread"
+    ]
+   },
+   {
+    "name": "work",
+    "kind": "node",
+    "struct": "cpu_stop_work",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "caller": "unsigned long"
+    },
+    "token_fields": [
+     "arg",
+     "done"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "kernel/padata.c",
+  "fn": "padata_work_alloc",
+  "shape": "node",
+  "ret": "struct padata_work *",
+  "ret_node": "padata_work",
+  "peeks": [
+   {
+    "op": "list_first_entry",
+    "anchor": [
+     "global",
+     "padata_free_works"
+    ],
+    "member": "pw_list"
+   }
+  ],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [
+   "padata_free_works"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [],
+  "cursors": {
+   "pw": {
+    "struct": "padata_work",
+    "lh_fields": [
+     "pw_list"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "pw_data"
+    ]
+   }
+  },
+  "iters": []
+ },
+ {
+  "file": "kernel/padata.c",
+  "fn": "padata_work_free",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [
+   "padata_free_works"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "pw",
+    "kind": "node",
+    "struct": "padata_work",
+    "role": null,
+    "lh_fields": [
+     "pw_list"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "pw_data"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "kernel/kthread.c",
+  "fn": "__kthread_cancel_work",
+  "shape": "node",
+  "ret": "bool",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "work",
+    "kind": "node",
+    "struct": "kthread_work",
+    "role": null,
+    "lh_fields": [
+     "node"
+    ],
+    "scalar_fields": {
+     "canceling": "int"
+    },
+    "token_fields": [
+     "worker"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
   "file": "kernel/kprobes.c",
   "fn": "kprobe_remove_area_blacklist",
   "shape": "iter_node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": false,
    "alloc_stripped": true
@@ -179,6 +463,9 @@
   "fn": "gcov_info_link",
   "shape": "node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": false,
    "alloc_stripped": false
@@ -218,6 +505,9 @@
   "fn": "free_mem_extents",
   "shape": "iter_node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": false,
    "alloc_stripped": true
@@ -277,6 +567,9 @@
   "fn": "pm_vt_switch_unregister",
   "shape": "iter_node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": true,
    "alloc_stripped": true
@@ -324,38 +617,39 @@
   ]
  },
  {
-  "file": "kernel/trace/trace_dynevent.c",
-  "fn": "dyn_event_register",
+  "file": "kernel/cgroup/rdma.c",
+  "fn": "free_cg_rpool_locked",
   "shape": "node",
-  "ret": "int",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": true,
-   "alloc_stripped": false
+   "alloc_stripped": true
   },
-  "op_sites": 1,
+  "op_sites": 2,
   "n_iters": 0,
-  "branches": 1,
-  "globals": [
-   "dyn_event_ops_list"
-  ],
+  "branches": 0,
+  "globals": [],
   "local_lists": [],
   "token_reads": {},
   "params": [
    {
-    "name": "ops",
+    "name": "rpool",
     "kind": "node",
-    "struct": "dyn_event_operations",
+    "struct": "rdmacg_resource_pool",
     "role": null,
     "lh_fields": [
-     "list"
+     "cg_node",
+     "dev_node"
     ],
-    "scalar_fields": {},
+    "scalar_fields": {
+     "usage_sum": "u64",
+     "num_max_cnt": "int"
+    },
     "token_fields": [
-     "create",
-     "show",
-     "is_busy",
-     "free",
-     "match"
+     "device"
     ]
    }
   ],
@@ -367,6 +661,9 @@
   "fn": "rdmacg_register_device",
   "shape": "node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": true,
    "alloc_stripped": false
@@ -403,6 +700,9 @@
   "fn": "free_cgrp_cset_links",
   "shape": "iter_node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": false,
    "alloc_stripped": true
@@ -460,10 +760,468 @@
   ]
  },
  {
+  "file": "kernel/dma/debug.c",
+  "fn": "hash_bucket_add",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "bucket",
+    "kind": "node",
+    "struct": "hash_bucket",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {},
+    "token_fields": []
+   },
+   {
+    "name": "entry",
+    "kind": "node",
+    "struct": "dma_debug_entry",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "dev_addr": "u64",
+     "size": "u64",
+     "type": "int",
+     "direction": "int",
+     "sg_call_ents": "int",
+     "sg_mapped_ents": "int",
+     "paddr": "phys_addr_t",
+     "attrs": "unsigned long",
+     "stack_len": "unsigned int"
+    },
+    "token_fields": [
+     "dev"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "kernel/dma/debug.c",
+  "fn": "hash_bucket_del",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "entry",
+    "kind": "node",
+    "struct": "dma_debug_entry",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "dev_addr": "u64",
+     "size": "u64",
+     "type": "int",
+     "direction": "int",
+     "sg_call_ents": "int",
+     "sg_mapped_ents": "int",
+     "paddr": "phys_addr_t",
+     "attrs": "unsigned long",
+     "stack_len": "unsigned int"
+    },
+    "token_fields": [
+     "dev"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "mm/memcontrol-v1.c",
+  "fn": "mem_cgroup_oom_unregister_event",
+  "shape": "iter_node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "memcg",
+    "kind": "node",
+    "struct": "mem_cgroup",
+    "role": null,
+    "lh_fields": [
+     "memory_peaks",
+     "swap_peaks",
+     "cgwb_list",
+     "oom_notify",
+     "event_list"
+    ],
+    "scalar_fields": {
+     "zswap_max": "unsigned long",
+     "zswap_writeback": "bool",
+     "oom_group": "bool",
+     "swappiness": "int",
+     "socket_pressure": "u64",
+     "kmemcg_id": "int",
+     "soft_limit": "unsigned long",
+     "oom_lock": "bool",
+     "under_oom": "int",
+     "oom_kill_disable": "int",
+     "tcpmem_active": "bool",
+     "tcpmem_pressure": "int"
+    },
+    "token_fields": [
+     "vmstats",
+     "vmstats_percpu",
+     "events_percpu"
+    ]
+   },
+   {
+    "name": "eventfd",
+    "kind": "token",
+    "struct": "eventfd_ctx",
+    "role": null
+   }
+  ],
+  "cursors": {
+   "ev": {
+    "struct": "mem_cgroup_eventfd_list",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "eventfd"
+    ]
+   },
+   "tmp": {
+    "struct": "mem_cgroup_eventfd_list",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "eventfd"
+    ]
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "ev",
+    "anchor": [
+     "field",
+     "&memcg->oom_notify"
+    ],
+    "member": "list"
+   }
+  ]
+ },
+ {
+  "file": "mm/slub.c",
+  "fn": "barn_put_empty_sheaf",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "barn",
+    "kind": "node",
+    "struct": "node_barn",
+    "role": null,
+    "lh_fields": [
+     "sheaves_full",
+     "sheaves_empty"
+    ],
+    "scalar_fields": {
+     "nr_full": "unsigned int",
+     "nr_empty": "unsigned int"
+    },
+    "token_fields": []
+   },
+   {
+    "name": "sheaf",
+    "kind": "node",
+    "struct": "slab_sheaf",
+    "role": null,
+    "lh_fields": [
+     "barn_list"
+    ],
+    "scalar_fields": {
+     "pfmemalloc": "bool",
+     "size": "unsigned int",
+     "node": "int"
+    },
+    "token_fields": [
+     "cache"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "mm/slub.c",
+  "fn": "barn_put_full_sheaf",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "barn",
+    "kind": "node",
+    "struct": "node_barn",
+    "role": null,
+    "lh_fields": [
+     "sheaves_full",
+     "sheaves_empty"
+    ],
+    "scalar_fields": {
+     "nr_full": "unsigned int",
+     "nr_empty": "unsigned int"
+    },
+    "token_fields": []
+   },
+   {
+    "name": "sheaf",
+    "kind": "node",
+    "struct": "slab_sheaf",
+    "role": null,
+    "lh_fields": [
+     "barn_list"
+    ],
+    "scalar_fields": {
+     "pfmemalloc": "bool",
+     "size": "unsigned int",
+     "node": "int"
+    },
+    "token_fields": [
+     "cache"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "mm/damon/core.c",
+  "fn": "damon_add_filter",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "p",
+    "kind": "node",
+    "struct": "damon_probe",
+    "role": null,
+    "lh_fields": [
+     "filters",
+     "list"
+    ],
+    "scalar_fields": {},
+    "token_fields": []
+   },
+   {
+    "name": "f",
+    "kind": "node",
+    "struct": "damon_filter",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "matching": "bool",
+     "allow": "bool"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "mm/damon/core.c",
+  "fn": "damon_del_filter",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "f",
+    "kind": "node",
+    "struct": "damon_filter",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "matching": "bool",
+     "allow": "bool"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "mm/damon/core.c",
+  "fn": "damon_add_probe",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "ctx",
+    "kind": "node",
+    "struct": "damon_ctx",
+    "role": null,
+    "lh_fields": [
+     "call_controls",
+     "probes",
+     "adaptive_targets",
+     "schemes"
+    ],
+    "scalar_fields": {
+     "passed_sample_intervals": "unsigned long",
+     "next_aggregation_sis": "unsigned long",
+     "next_ops_update_sis": "unsigned long",
+     "next_intervals_tune_sis": "unsigned long",
+     "call_controls_obsolete": "bool",
+     "walk_control_obsolete": "bool",
+     "maybe_corrupted": "bool",
+     "addr_unit": "unsigned long",
+     "min_region_sz": "unsigned long",
+     "pause": "bool"
+    },
+    "token_fields": [
+     "regions_score_histogram",
+     "walk_control",
+     "kdamond"
+    ]
+   },
+   {
+    "name": "probe",
+    "kind": "node",
+    "struct": "damon_probe",
+    "role": null,
+    "lh_fields": [
+     "filters",
+     "list"
+    ],
+    "scalar_fields": {},
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
   "file": "mm/damon/core.c",
   "fn": "damon_del_probe",
   "shape": "node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": false,
    "alloc_stripped": false
@@ -493,9 +1251,328 @@
  },
  {
   "file": "mm/damon/core.c",
+  "fn": "damon_add_region",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "r",
+    "kind": "node",
+    "struct": "damon_region",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "sampling_addr": "unsigned long",
+     "nr_accesses": "unsigned int",
+     "nr_accesses_bp": "unsigned int",
+     "age": "unsigned int",
+     "last_nr_accesses": "unsigned int"
+    },
+    "token_fields": []
+   },
+   {
+    "name": "t",
+    "kind": "node",
+    "struct": "damon_target",
+    "role": null,
+    "lh_fields": [
+     "regions_list",
+     "list"
+    ],
+    "scalar_fields": {
+     "nr_regions": "unsigned int",
+     "obsolete": "bool"
+    },
+    "token_fields": [
+     "pid"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "mm/damon/core.c",
+  "fn": "damos_del_filter",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "f",
+    "kind": "node",
+    "struct": "damos_filter",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "matching": "bool",
+     "allow": "bool",
+     "target_idx": "int"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "mm/damon/core.c",
+  "fn": "damos_add_quota_goal",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "q",
+    "kind": "node",
+    "struct": "damos_quota",
+    "role": null,
+    "lh_fields": [
+     "goals"
+    ],
+    "scalar_fields": {
+     "reset_interval": "unsigned long",
+     "ms": "unsigned long",
+     "sz": "unsigned long",
+     "esz": "unsigned long",
+     "fail_charge_num": "unsigned int",
+     "fail_charge_denom": "unsigned int",
+     "weight_sz": "unsigned int",
+     "weight_nr_accesses": "unsigned int",
+     "weight_age": "unsigned int",
+     "total_charged_sz": "unsigned long",
+     "total_charged_ns": "unsigned long",
+     "charged_sz": "unsigned long",
+     "charged_from": "unsigned long",
+     "charge_addr_from": "unsigned long",
+     "min_score": "unsigned int",
+     "esz_bp": "unsigned long"
+    },
+    "token_fields": [
+     "charge_target_from"
+    ]
+   },
+   {
+    "name": "g",
+    "kind": "node",
+    "struct": "damos_quota_goal",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "target_value": "unsigned long",
+     "current_value": "unsigned long",
+     "memcg_id": "u64"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "mm/damon/core.c",
+  "fn": "damos_del_quota_goal",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "g",
+    "kind": "node",
+    "struct": "damos_quota_goal",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "target_value": "unsigned long",
+     "current_value": "unsigned long",
+     "memcg_id": "u64"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "mm/damon/core.c",
+  "fn": "damon_del_scheme",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "s",
+    "kind": "node",
+    "struct": "damos",
+    "role": null,
+    "lh_fields": [
+     "core_filters",
+     "ops_filters",
+     "list"
+    ],
+    "scalar_fields": {
+     "apply_interval_us": "unsigned long",
+     "next_apply_sis": "unsigned long",
+     "walk_completed": "bool",
+     "core_filters_allowed": "bool",
+     "core_filters_default_reject": "bool",
+     "ops_filters_default_reject": "bool",
+     "max_nr_snapshots": "unsigned long"
+    },
+    "token_fields": [
+     "last_applied"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "mm/damon/core.c",
+  "fn": "damon_add_target",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "ctx",
+    "kind": "node",
+    "struct": "damon_ctx",
+    "role": null,
+    "lh_fields": [
+     "call_controls",
+     "probes",
+     "adaptive_targets",
+     "schemes"
+    ],
+    "scalar_fields": {
+     "passed_sample_intervals": "unsigned long",
+     "next_aggregation_sis": "unsigned long",
+     "next_ops_update_sis": "unsigned long",
+     "next_intervals_tune_sis": "unsigned long",
+     "call_controls_obsolete": "bool",
+     "walk_control_obsolete": "bool",
+     "maybe_corrupted": "bool",
+     "addr_unit": "unsigned long",
+     "min_region_sz": "unsigned long",
+     "pause": "bool"
+    },
+    "token_fields": [
+     "regions_score_histogram",
+     "walk_control",
+     "kdamond"
+    ]
+   },
+   {
+    "name": "t",
+    "kind": "node",
+    "struct": "damon_target",
+    "role": null,
+    "lh_fields": [
+     "regions_list",
+     "list"
+    ],
+    "scalar_fields": {
+     "nr_regions": "unsigned int",
+     "obsolete": "bool"
+    },
+    "token_fields": [
+     "pid"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "mm/damon/core.c",
   "fn": "damon_del_target",
   "shape": "node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": false,
    "alloc_stripped": false
@@ -529,10 +1606,373 @@
   "iters": []
  },
  {
+  "file": "fs/btrfs/extent-io-tree.c",
+  "fn": "btrfs_leak_debug_add_state",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [
+   "states"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "state",
+    "kind": "node",
+    "struct": "extent_state",
+    "role": null,
+    "lh_fields": [
+     "leak_list"
+    ],
+    "scalar_fields": {
+     "start": "u64",
+     "end": "u64",
+     "state": "u32"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/btrfs/extent-io-tree.c",
+  "fn": "btrfs_leak_debug_del_state",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "state",
+    "kind": "node",
+    "struct": "extent_state",
+    "role": null,
+    "lh_fields": [
+     "leak_list"
+    ],
+    "scalar_fields": {
+     "start": "u64",
+     "end": "u64",
+     "state": "u32"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/btrfs/qgroup.c",
+  "fn": "qgroup_dirty",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "fs_info",
+    "kind": "node",
+    "struct": "btrfs_fs_info",
+    "role": null,
+    "lh_fields": [
+     "trans_list",
+     "dead_roots",
+     "caching_block_groups",
+     "delayed_iputs",
+     "tree_mod_seq_list",
+     "ordered_roots",
+     "delalloc_roots",
+     "dirty_cowonly_roots",
+     "space_info",
+     "dirty_qgroups",
+     "reclaim_bgs",
+     "unused_bgs",
+     "fully_remapped_bgs",
+     "zone_active_bgs",
+     "allocated_roots",
+     "allocated_ebs"
+    ],
+    "scalar_fields": {
+     "flags": "unsigned long",
+     "generation": "u64",
+     "last_trans_committed": "u64",
+     "last_reloc_trans": "u64",
+     "last_trans_log_full_commit": "u64",
+     "mount_opt": "unsigned long long",
+     "compress_type": "int",
+     "compress_level": "int",
+     "commit_interval": "u32",
+     "max_inline": "u64",
+     "thread_pool_size": "u32",
+     "dirty_metadata_batch": "s32",
+     "delalloc_batch": "s32",
+     "em_shrinker_last_root": "u64",
+     "em_shrinker_last_ino": "u64",
+     "avail_data_alloc_bits": "u64",
+     "avail_metadata_alloc_bits": "u64",
+     "avail_system_alloc_bits": "u64",
+     "data_chunk_allocations": "u32",
+     "metadata_ratio": "u32",
+     "qgroup_flags": "u64",
+     "qgroup_seq": "u64",
+     "qgroup_rescan_running": "bool",
+     "qgroup_drop_subtree_thres": "u8",
+     "qgroup_enable_gen": "u64",
+     "fs_error": "int",
+     "fs_state": "unsigned long",
+     "backup_root_index": "int",
+     "bg_reclaim_threshold": "int",
+     "nodesize": "u32",
+     "nodesize_bits": "u32",
+     "sectorsize": "u32",
+     "sectorsize_bits": "u32",
+     "block_min_order": "u32",
+     "block_max_order": "u32",
+     "stripesize": "u32",
+     "writeback_bio_size": "u32",
+     "csum_size": "u32",
+     "csums_per_leaf": "u32",
+     "csum_type": "u32",
+     "max_extent_size": "u64",
+     "zone_size": "u64",
+     "max_zone_append_size": "u64",
+     "treelog_bg": "u64",
+     "data_reloc_bg": "u64",
+     "nr_global_roots": "u64",
+     "last_root_drop_gen": "u64"
+    },
+    "token_fields": [
+     "tree_root",
+     "chunk_root",
+     "dev_root",
+     "fs_root",
+     "quota_root",
+     "uuid_root",
+     "data_reloc_root",
+     "block_group_root",
+     "stripe_root",
+     "remap_root",
+     "log_root_tree",
+     "running_transaction",
+     "super_copy",
+     "super_for_commit",
+     "sb",
+     "btree_inode",
+     "stripe_hash_table",
+     "workers",
+     "delalloc_workers",
+     "flush_workers",
+     "endio_workers",
+     "endio_meta_workers",
+     "rmw_workers",
+     "endio_write_workers",
+     "endio_freespace_worker",
+     "caching_workers",
+     "delayed_workers",
+     "transaction_kthread",
+     "cleaner_kthread",
+     "space_info_kobj",
+     "qgroups_kobj",
+     "discard_kobj",
+     "fs_devices",
+     "data_sinfo",
+     "reloc_ctl",
+     "balance_ctl",
+     "scrub_workers",
+     "qgroup_rescan_workers",
+     "active_meta_bg",
+     "active_system_bg",
+     "debug_kobj",
+     "ctl"
+    ]
+   },
+   {
+    "name": "qgroup",
+    "kind": "node",
+    "struct": "btrfs_qgroup",
+    "role": null,
+    "lh_fields": [
+     "groups",
+     "members",
+     "dirty",
+     "iterator",
+     "nested_iterator"
+    ],
+    "scalar_fields": {
+     "qgroupid": "u64",
+     "rfer": "u64",
+     "rfer_cmpr": "u64",
+     "excl": "u64",
+     "excl_cmpr": "u64",
+     "lim_flags": "u64",
+     "max_rfer": "u64",
+     "max_excl": "u64",
+     "rsv_rfer": "u64",
+     "rsv_excl": "u64",
+     "old_refcnt": "u64",
+     "new_refcnt": "u64"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/btrfs/qgroup.c",
+  "fn": "qgroup_iterator_add",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "head",
+    "kind": "lh",
+    "struct": null,
+    "role": "head"
+   },
+   {
+    "name": "qgroup",
+    "kind": "node",
+    "struct": "btrfs_qgroup",
+    "role": null,
+    "lh_fields": [
+     "groups",
+     "members",
+     "dirty",
+     "iterator",
+     "nested_iterator"
+    ],
+    "scalar_fields": {
+     "qgroupid": "u64",
+     "rfer": "u64",
+     "rfer_cmpr": "u64",
+     "excl": "u64",
+     "excl_cmpr": "u64",
+     "lim_flags": "u64",
+     "max_rfer": "u64",
+     "max_excl": "u64",
+     "rsv_rfer": "u64",
+     "rsv_excl": "u64",
+     "old_refcnt": "u64",
+     "new_refcnt": "u64"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/btrfs/qgroup.c",
+  "fn": "qgroup_iterator_nested_add",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "head",
+    "kind": "lh",
+    "struct": null,
+    "role": "head"
+   },
+   {
+    "name": "qgroup",
+    "kind": "node",
+    "struct": "btrfs_qgroup",
+    "role": null,
+    "lh_fields": [
+     "groups",
+     "members",
+     "dirty",
+     "iterator",
+     "nested_iterator"
+    ],
+    "scalar_fields": {
+     "qgroupid": "u64",
+     "rfer": "u64",
+     "rfer_cmpr": "u64",
+     "excl": "u64",
+     "excl_cmpr": "u64",
+     "lim_flags": "u64",
+     "max_rfer": "u64",
+     "max_excl": "u64",
+     "rsv_rfer": "u64",
+     "rsv_excl": "u64",
+     "old_refcnt": "u64",
+     "new_refcnt": "u64"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
   "file": "fs/btrfs/tree-log.c",
   "fn": "btrfs_remove_log_ctx",
   "shape": "node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": true,
    "alloc_stripped": false
@@ -546,9 +1986,43 @@
   "params": [
    {
     "name": "root",
-    "kind": "token",
+    "kind": "node",
     "struct": "btrfs_root",
-    "role": null
+    "role": null,
+    "lh_fields": [
+     "dirty_list",
+     "root_list",
+     "delalloc_inodes",
+     "delalloc_root",
+     "ordered_extents",
+     "ordered_root",
+     "reloc_dirty_list",
+     "leak_list"
+    ],
+    "scalar_fields": {
+     "state": "unsigned long",
+     "log_transid": "int",
+     "log_transid_committed": "int",
+     "last_log_commit": "int",
+     "last_trans": "u64",
+     "free_objectid": "u64",
+     "nr_delalloc_inodes": "u64",
+     "nr_ordered_extents": "u64",
+     "send_in_progress": "int",
+     "dedupe_in_progress": "int",
+     "qgroup_meta_rsv_pertrans": "u64",
+     "qgroup_meta_rsv_prealloc": "u64",
+     "relocation_src_root": "u64",
+     "alloc_bytenr": "u64"
+    },
+    "token_fields": [
+     "node",
+     "commit_root",
+     "log_root",
+     "reloc_root",
+     "fs_info",
+     "block_rsv"
+    ]
    },
    {
     "name": "ctx",
@@ -584,6 +2058,9 @@
   "fn": "free_conflicting_inodes",
   "shape": "iter_node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": false,
    "alloc_stripped": true
@@ -658,10 +2135,2178 @@
   ]
  },
  {
+  "file": "fs/notify/notification.c",
+  "fn": "fsnotify_remove_queued_event",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "group",
+    "kind": "node",
+    "struct": "fsnotify_group",
+    "role": null,
+    "lh_fields": [
+     "notification_list",
+     "marks_list",
+     "access_list",
+     "perm_grp_list"
+    ],
+    "scalar_fields": {
+     "q_len": "unsigned int",
+     "max_events": "unsigned int",
+     "shutdown": "bool",
+     "flags": "int",
+     "owner_flags": "unsigned int",
+     "f_flags": "int"
+    },
+    "token_fields": [
+     "ops",
+     "fsn_fa",
+     "overflow_event",
+     "memcg",
+     "user_ns",
+     "ucounts",
+     "merge_hash"
+    ]
+   },
+   {
+    "name": "event",
+    "kind": "node",
+    "struct": "fsnotify_event",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {},
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/nfs/nfs42proc.c",
+  "fn": "nfs4_copy_dequeue_callback",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 2,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "dst_server",
+    "kind": "node",
+    "struct": "nfs_server",
+    "role": null,
+    "lh_fields": [
+     "client_link",
+     "master_link",
+     "state_owners_lru",
+     "layouts",
+     "delegations",
+     "delegations_return",
+     "delegations_lru",
+     "delegations_delayed",
+     "ss_copies",
+     "ss_src_copies"
+    ],
+    "scalar_fields": {
+     "write_congested": "unsigned int",
+     "flags": "unsigned int",
+     "automount_inherit": "unsigned int",
+     "caps": "unsigned int",
+     "fattr_valid": "__u64",
+     "rsize": "unsigned int",
+     "rpages": "unsigned int",
+     "wsize": "unsigned int",
+     "wtmult": "unsigned int",
+     "dtsize": "unsigned int",
+     "port": "unsigned short",
+     "bsize": "unsigned int",
+     "gxasize": "unsigned int",
+     "sxasize": "unsigned int",
+     "lxasize": "unsigned int",
+     "acregmin": "unsigned int",
+     "acregmax": "unsigned int",
+     "acdirmin": "unsigned int",
+     "acdirmax": "unsigned int",
+     "namelen": "unsigned int",
+     "options": "unsigned int",
+     "clone_blksize": "unsigned int",
+     "s_sysfs_id": "int",
+     "maxfilesize": "__u64",
+     "mount_time": "unsigned long",
+     "fh_expire_type": "u32",
+     "pnfs_blksize": "u32",
+     "acl_bitmask": "u32",
+     "delegation_hash_mask": "unsigned int",
+     "delegation_flags": "unsigned long",
+     "delegation_gen": "unsigned long",
+     "mig_gen": "unsigned long",
+     "mig_status": "unsigned long",
+     "mountd_addrlen": "size_t",
+     "mountd_version": "u32",
+     "mountd_port": "unsigned short",
+     "mountd_protocol": "unsigned short",
+     "read_hdrsize": "unsigned int",
+     "has_sec_mnt_opts": "bool"
+    },
+    "token_fields": [
+     "nfs_client",
+     "client",
+     "client_acl",
+     "nlm_host",
+     "io_stats",
+     "super",
+     "fscache",
+     "fscache_uniq",
+     "pnfs_curr_ld",
+     "delegation_hash_table",
+     "cred"
+    ]
+   },
+   {
+    "name": "src_server",
+    "kind": "node",
+    "struct": "nfs_server",
+    "role": null,
+    "lh_fields": [
+     "client_link",
+     "master_link",
+     "state_owners_lru",
+     "layouts",
+     "delegations",
+     "delegations_return",
+     "delegations_lru",
+     "delegations_delayed",
+     "ss_copies",
+     "ss_src_copies"
+    ],
+    "scalar_fields": {
+     "write_congested": "unsigned int",
+     "flags": "unsigned int",
+     "automount_inherit": "unsigned int",
+     "caps": "unsigned int",
+     "fattr_valid": "__u64",
+     "rsize": "unsigned int",
+     "rpages": "unsigned int",
+     "wsize": "unsigned int",
+     "wtmult": "unsigned int",
+     "dtsize": "unsigned int",
+     "port": "unsigned short",
+     "bsize": "unsigned int",
+     "gxasize": "unsigned int",
+     "sxasize": "unsigned int",
+     "lxasize": "unsigned int",
+     "acregmin": "unsigned int",
+     "acregmax": "unsigned int",
+     "acdirmin": "unsigned int",
+     "acdirmax": "unsigned int",
+     "namelen": "unsigned int",
+     "options": "unsigned int",
+     "clone_blksize": "unsigned int",
+     "s_sysfs_id": "int",
+     "maxfilesize": "__u64",
+     "mount_time": "unsigned long",
+     "fh_expire_type": "u32",
+     "pnfs_blksize": "u32",
+     "acl_bitmask": "u32",
+     "delegation_hash_mask": "unsigned int",
+     "delegation_flags": "unsigned long",
+     "delegation_gen": "unsigned long",
+     "mig_gen": "unsigned long",
+     "mig_status": "unsigned long",
+     "mountd_addrlen": "size_t",
+     "mountd_version": "u32",
+     "mountd_port": "unsigned short",
+     "mountd_protocol": "unsigned short",
+     "read_hdrsize": "unsigned int",
+     "has_sec_mnt_opts": "bool"
+    },
+    "token_fields": [
+     "nfs_client",
+     "client",
+     "client_acl",
+     "nlm_host",
+     "io_stats",
+     "super",
+     "fscache",
+     "fscache_uniq",
+     "pnfs_curr_ld",
+     "delegation_hash_table",
+     "cred"
+    ]
+   },
+   {
+    "name": "copy",
+    "kind": "node",
+    "struct": "nfs4_copy_state",
+    "role": null,
+    "lh_fields": [
+     "copies",
+     "src_copies"
+    ],
+    "scalar_fields": {
+     "error": "int",
+     "flags": "int"
+    },
+    "token_fields": [
+     "parent_src_state",
+     "parent_dst_state"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/ceph/caps.c",
+  "fn": "change_auth_cap_ses",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 2,
+  "n_iters": 0,
+  "branches": 3,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "ci",
+    "kind": "node",
+    "struct": "ceph_inode_info",
+    "role": null,
+    "lh_fields": [
+     "i_dirty_item",
+     "i_flushing_item",
+     "i_cap_flush_list",
+     "i_cap_delay_list",
+     "i_cap_snaps",
+     "i_unsafe_dirops",
+     "i_unsafe_iops",
+     "i_snap_realm_item",
+     "i_snap_flush_item"
+    ],
+    "scalar_fields": {
+     "i_version": "u64",
+     "i_inline_version": "u64",
+     "i_time_warp_seq": "u32",
+     "i_ceph_flags": "unsigned long",
+     "i_rbytes": "u64",
+     "i_rfiles": "u64",
+     "i_rsubdirs": "u64",
+     "i_rsnaps": "u64",
+     "i_files": "u64",
+     "i_subdirs": "u64",
+     "i_max_bytes": "u64",
+     "i_max_files": "u64",
+     "i_subvolume_id": "u64",
+     "i_dir_pin": "s32",
+     "i_fragtree_nsplits": "int",
+     "i_dirty_caps": "unsigned",
+     "i_flushing_caps": "unsigned",
+     "i_hold_caps_max": "unsigned long",
+     "i_snap_caps": "unsigned",
+     "i_last_cap_flush_ack": "u64",
+     "i_last_rd": "unsigned long",
+     "i_last_wr": "unsigned long",
+     "i_truncate_seq": "u32",
+     "i_truncate_size": "u64",
+     "i_truncate_pending": "int",
+     "i_truncate_pagecache_size": "u64",
+     "i_max_size": "u64",
+     "i_reported_size": "u64",
+     "i_wanted_max_size": "u64",
+     "i_requested_max_size": "u64",
+     "i_pin_ref": "int",
+     "i_rd_ref": "int",
+     "i_rdcache_ref": "int",
+     "i_wr_ref": "int",
+     "i_wb_ref": "int",
+     "i_fx_ref": "int",
+     "i_wrbuffer_ref": "int",
+     "i_wrbuffer_ref_head": "int",
+     "i_rdcache_gen": "u32",
+     "i_rdcache_revoking": "u32",
+     "i_work_mask": "unsigned long",
+     "fscrypt_auth_len": "u32",
+     "fscrypt_file_len": "u32"
+    },
+    "token_fields": [
+     "i_symlink",
+     "i_auth_cap",
+     "i_prealloc_cap_flush",
+     "i_head_snapc",
+     "i_snapid_map",
+     "i_crypt_info",
+     "fscrypt_auth",
+     "fscrypt_file"
+    ]
+   },
+   {
+    "name": "session",
+    "kind": "node",
+    "struct": "ceph_mds_session",
+    "role": null,
+    "lh_fields": [
+     "s_caps",
+     "s_cap_releases",
+     "s_cap_dirty",
+     "s_cap_flushing",
+     "s_waiting",
+     "s_unsafe"
+    ],
+    "scalar_fields": {
+     "s_mds": "int",
+     "s_state": "int",
+     "s_ttl": "unsigned long",
+     "s_features": "unsigned long",
+     "s_seq": "u64",
+     "s_cap_ttl": "unsigned long",
+     "s_nr_caps": "int",
+     "s_num_cap_releases": "int",
+     "s_cap_reconnect": "int",
+     "s_readonly": "int",
+     "s_renew_requested": "unsigned long",
+     "s_renew_seq": "u64"
+    },
+    "token_fields": [
+     "s_mdsc",
+     "s_cap_iterator"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/f2fs/shrinker.c",
+  "fn": "f2fs_join_shrinker",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [
+   "f2fs_list"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "sbi",
+    "kind": "node",
+    "struct": "f2fs_sb_info",
+    "role": null,
+    "lh_fields": [
+     "fsync_node_list",
+     "s_list"
+    ],
+    "scalar_fields": {
+     "valid_super_block": "int",
+     "s_flag": "unsigned long",
+     "blocks_per_blkz": "unsigned int",
+     "unusable_blocks_per_sec": "unsigned int",
+     "max_open_zones": "unsigned int",
+     "blkzone_alloc_policy": "unsigned int",
+     "cur_cp_pack": "int",
+     "fsync_seg_id": "unsigned int",
+     "fsync_node_num": "unsigned int",
+     "max_orphans": "unsigned int",
+     "max_read_extent_count": "unsigned int",
+     "hot_data_age_threshold": "unsigned int",
+     "warm_data_age_threshold": "unsigned int",
+     "last_age_weight": "unsigned int",
+     "donate_files": "unsigned int",
+     "log_sectors_per_block": "unsigned int",
+     "log_blocksize": "unsigned int",
+     "blocksize": "unsigned int",
+     "root_ino_num": "unsigned int",
+     "node_ino_num": "unsigned int",
+     "meta_ino_num": "unsigned int",
+     "log_blocks_per_seg": "unsigned int",
+     "blocks_per_seg": "unsigned int",
+     "segs_per_sec": "unsigned int",
+     "secs_per_zone": "unsigned int",
+     "total_sections": "unsigned int",
+     "total_node_count": "unsigned int",
+     "total_valid_node_count": "unsigned int",
+     "dir_level": "int",
+     "readdir_ra": "bool",
+     "max_io_bytes": "unsigned int",
+     "sum_blocksize": "unsigned int",
+     "sums_per_block": "unsigned int",
+     "entries_in_sum": "unsigned int",
+     "sum_entry_size": "unsigned int",
+     "sum_journal_size": "unsigned int",
+     "nat_journal_entries": "unsigned int",
+     "sit_journal_entries": "unsigned int",
+     "nquota_files": "unsigned int",
+     "cur_victim_sec": "unsigned int",
+     "gc_mode": "unsigned int",
+     "gc_remaining_trials": "unsigned int",
+     "skipped_gc_rwsem": "unsigned long long",
+     "reserved_pin_section": "unsigned int",
+     "gc_pin_file_threshold": "unsigned short",
+     "max_victim_search": "unsigned int",
+     "migration_granularity": "unsigned int",
+     "migration_window_granularity": "unsigned int",
+     "io_skip_bggc": "unsigned int",
+     "other_skip_bggc": "unsigned int",
+     "data_io_flag": "unsigned int",
+     "node_io_flag": "unsigned int",
+     "shrinker_run_no": "unsigned int",
+     "s_ndevs": "int",
+     "dirty_device": "unsigned int",
+     "aligned_blksize": "bool",
+     "first_seq_zone_segno": "unsigned int",
+     "bggc_io_aware": "unsigned int",
+     "allocate_section_hint": "unsigned int",
+     "allocate_section_policy": "unsigned int",
+     "sectors_written_start": "u64",
+     "kbytes_written": "u64",
+     "s_chksum_seed": "__u32",
+     "error_dirty": "bool",
+     "stop_reason_dirty": "bool",
+     "gc_segment_mode": "unsigned int",
+     "seq_file_ra_mul": "unsigned int",
+     "max_fragment_chunk": "int",
+     "max_fragment_hole": "int",
+     "peak_atomic_write": "s64",
+     "committed_atomic_block": "u64",
+     "revoked_atomic_block": "u64",
+     "carve_out": "bool",
+     "max_lock_elapsed_time": "unsigned long long",
+     "adjust_lock_priority": "unsigned int",
+     "lock_duration_priority": "unsigned int",
+     "critical_task_priority": "long",
+     "page_array_slab_size": "unsigned int",
+     "compr_written_block": "u64",
+     "compr_saved_block": "u64",
+     "compr_new_inode": "u32",
+     "compress_percent": "unsigned int",
+     "compress_watermark": "unsigned int",
+     "iostat_enable": "bool",
+     "iostat_next_period": "unsigned long",
+     "iostat_period_ms": "unsigned int"
+    },
+    "token_fields": [
+     "sb",
+     "s_proc",
+     "raw_super",
+     "nm_info",
+     "node_inode",
+     "sm_info",
+     "ckpt",
+     "meta_inode",
+     "umount_lock_holder",
+     "gc_thread",
+     "stat_info",
+     "devs",
+     "wq",
+     "page_array_slab",
+     "compress_inode",
+     "iostat_io_lat"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/fuse/dax.c",
+  "fn": "fuse_free_dax_mem_ranges",
+  "shape": "iter_node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 2,
+  "n_iters": 1,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "mem_list",
+    "kind": "lh",
+    "struct": null,
+    "role": "head"
+   }
+  ],
+  "cursors": {
+   "range": {
+    "struct": "fuse_dax_mapping",
+    "lh_fields": [
+     "list",
+     "busy_list"
+    ],
+    "scalar_fields": {
+     "window_offset": "u64",
+     "writable": "bool"
+    },
+    "token_fields": [
+     "inode"
+    ]
+   },
+   "temp": {
+    "struct": "fuse_dax_mapping",
+    "lh_fields": [
+     "list",
+     "busy_list"
+    ],
+    "scalar_fields": {
+     "window_offset": "u64",
+     "writable": "bool"
+    },
+    "token_fields": [
+     "inode"
+    ]
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "range",
+    "anchor": [
+     "param",
+     "mem_list"
+    ],
+    "member": "list"
+   }
+  ]
+ },
+ {
+  "file": "fs/gfs2/log.c",
+  "fn": "__ordered_del_inode",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "ip",
+    "kind": "node",
+    "struct": "gfs2_inode",
+    "role": null,
+    "lh_fields": [
+     "i_ordered"
+    ],
+    "scalar_fields": {
+     "i_no_addr": "u64",
+     "i_no_formal_ino": "u64",
+     "i_generation": "u64",
+     "i_eattr": "u64",
+     "i_flags": "unsigned long",
+     "i_goal": "u64",
+     "i_entries": "u32",
+     "i_diskflags": "u32",
+     "i_height": "u8",
+     "i_depth": "u8",
+     "i_rahead": "u16"
+    },
+    "token_fields": [
+     "i_gl",
+     "i_qadata",
+     "i_hash_cache"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/ext4/fsmap.c",
+  "fn": "ext4_getfsmap_free_fixed_metadata",
+  "shape": "iter_node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "meta_list",
+    "kind": "lh",
+    "struct": null,
+    "role": "head"
+   }
+  ],
+  "cursors": {
+   "p": {
+    "struct": "ext4_fsmap",
+    "lh_fields": [
+     "fmr_list"
+    ],
+    "scalar_fields": {},
+    "token_fields": []
+   },
+   "tmp": {
+    "struct": "ext4_fsmap",
+    "lh_fields": [
+     "fmr_list"
+    ],
+    "scalar_fields": {},
+    "token_fields": []
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "p",
+    "anchor": [
+     "param",
+     "meta_list"
+    ],
+    "member": "fmr_list"
+   }
+  ]
+ },
+ {
+  "file": "fs/lockd/clntlock.c",
+  "fn": "nlmclnt_queue_block",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [
+   "nlm_blocked"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "block",
+    "kind": "node",
+    "struct": "nlm_wait",
+    "role": null,
+    "lh_fields": [
+     "b_list"
+    ],
+    "scalar_fields": {
+     "b_status": "__be32"
+    },
+    "token_fields": [
+     "b_host",
+     "b_lock"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/smb/server/oplock.c",
+  "fn": "lease_add_open",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "lease",
+    "kind": "node",
+    "struct": "lease",
+    "role": null,
+    "lh_fields": [
+     "l_entry",
+     "open_list"
+    ],
+    "scalar_fields": {
+     "state": "__le32",
+     "new_state": "__le32",
+     "flags": "__le32",
+     "duration": "__le64",
+     "version": "int",
+     "epoch": "unsigned short",
+     "is_dir": "bool",
+     "reuse_epoch": "bool"
+    },
+    "token_fields": [
+     "ci",
+     "l_lb"
+    ]
+   },
+   {
+    "name": "opinfo",
+    "kind": "node",
+    "struct": "oplock_info",
+    "role": null,
+    "lh_fields": [
+     "op_entry",
+     "lease_entry"
+    ],
+    "scalar_fields": {
+     "level": "int",
+     "op_state": "int",
+     "pending_break": "unsigned long",
+     "fid": "u64",
+     "Tid": "__u16",
+     "is_lease": "bool",
+     "open_trunc": "bool"
+    },
+    "token_fields": [
+     "conn",
+     "sess",
+     "work",
+     "o_fp",
+     "o_lease"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/resctrl/rdtgroup.c",
+  "fn": "schemata_list_destroy",
+  "shape": "iter_node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 0,
+  "globals": [
+   "resctrl_schema_all"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [],
+  "cursors": {
+   "s": {
+    "struct": "resctrl_schema",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "num_closid": "u32"
+    },
+    "token_fields": [
+     "fmt_str",
+     "res"
+    ]
+   },
+   "tmp": {
+    "struct": "resctrl_schema",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "num_closid": "u32"
+    },
+    "token_fields": [
+     "fmt_str",
+     "res"
+    ]
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "s",
+    "anchor": [
+     "global",
+     "resctrl_schema_all"
+    ],
+    "member": "list"
+   }
+  ]
+ },
+ {
+  "file": "fs/resctrl/rdtgroup.c",
+  "fn": "mon_put_kn_priv",
+  "shape": "iter_node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 0,
+  "globals": [
+   "mon_data_kn_priv_list"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [],
+  "cursors": {
+   "priv": {
+    "struct": "mon_data",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "domid": "int",
+     "sum": "bool"
+    },
+    "token_fields": [
+     "evt"
+    ]
+   },
+   "tmp": {
+    "struct": "mon_data",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "domid": "int",
+     "sum": "bool"
+    },
+    "token_fields": [
+     "evt"
+    ]
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "priv",
+    "anchor": [
+     "global",
+     "mon_data_kn_priv_list"
+    ],
+    "member": "list"
+   }
+  ]
+ },
+ {
+  "file": "fs/ocfs2/reservations.c",
+  "fn": "ocfs2_resv_mark_lru",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 2,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "resmap",
+    "kind": "node",
+    "struct": "ocfs2_reservation_map",
+    "role": null,
+    "lh_fields": [
+     "m_lru"
+    ],
+    "scalar_fields": {
+     "m_bitmap_len": "u32"
+    },
+    "token_fields": [
+     "m_disk_bitmap",
+     "m_osb"
+    ]
+   },
+   {
+    "name": "resv",
+    "kind": "node",
+    "struct": "ocfs2_alloc_reservation",
+    "role": null,
+    "lh_fields": [
+     "r_lru"
+    ],
+    "scalar_fields": {
+     "r_start": "unsigned int",
+     "r_len": "unsigned int",
+     "r_last_len": "unsigned int",
+     "r_last_start": "unsigned int",
+     "r_flags": "unsigned int"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/ocfs2/dlmglue.c",
+  "fn": "ocfs2_remove_lockres_tracking",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "res",
+    "kind": "node",
+    "struct": "ocfs2_lock_res",
+    "role": null,
+    "lh_fields": [
+     "l_blocked_list",
+     "l_mask_waiters",
+     "l_holders",
+     "l_debug_list"
+    ],
+    "scalar_fields": {
+     "l_flags": "unsigned long",
+     "l_ro_holders": "unsigned int",
+     "l_ex_holders": "unsigned int",
+     "l_level": "signed char",
+     "l_requested": "signed char",
+     "l_blocking": "signed char",
+     "l_type": "unsigned char",
+     "l_action": "unsigned char",
+     "l_unlock_action": "unsigned char",
+     "l_pending_gen": "unsigned int",
+     "l_lock_refresh": "u32",
+     "l_lock_wait": "u64"
+    },
+    "token_fields": [
+     "l_priv",
+     "l_ops"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/ocfs2/cluster/netdebug.c",
+  "fn": "o2net_debug_add_nst",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [
+   "send_tracking"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "nst",
+    "kind": "node",
+    "struct": "o2net_send_tracking",
+    "role": null,
+    "lh_fields": [
+     "st_net_debug_item"
+    ],
+    "scalar_fields": {
+     "st_id": "u32",
+     "st_msg_type": "u32",
+     "st_msg_key": "u32",
+     "st_node": "u8"
+    },
+    "token_fields": [
+     "st_task",
+     "st_sc"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/ocfs2/cluster/netdebug.c",
+  "fn": "o2net_debug_del_nst",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "nst",
+    "kind": "node",
+    "struct": "o2net_send_tracking",
+    "role": null,
+    "lh_fields": [
+     "st_net_debug_item"
+    ],
+    "scalar_fields": {
+     "st_id": "u32",
+     "st_msg_type": "u32",
+     "st_msg_key": "u32",
+     "st_node": "u8"
+    },
+    "token_fields": [
+     "st_task",
+     "st_sc"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/ocfs2/cluster/netdebug.c",
+  "fn": "o2net_debug_add_sc",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [
+   "sock_containers"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "sc",
+    "kind": "node",
+    "struct": "o2net_sock_container",
+    "role": null,
+    "lh_fields": [
+     "sc_net_debug_item"
+    ],
+    "scalar_fields": {
+     "sc_page_off": "size_t",
+     "sc_msg_key": "u32",
+     "sc_msg_type": "u16",
+     "sc_send_count": "u32",
+     "sc_recv_count": "u32"
+    },
+    "token_fields": [
+     "sc_sock",
+     "sc_node",
+     "sc_page"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/ocfs2/cluster/netdebug.c",
+  "fn": "o2net_debug_del_sc",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "sc",
+    "kind": "node",
+    "struct": "o2net_sock_container",
+    "role": null,
+    "lh_fields": [
+     "sc_net_debug_item"
+    ],
+    "scalar_fields": {
+     "sc_page_off": "size_t",
+     "sc_msg_key": "u32",
+     "sc_msg_type": "u16",
+     "sc_send_count": "u32",
+     "sc_recv_count": "u32"
+    },
+    "token_fields": [
+     "sc_sock",
+     "sc_node",
+     "sc_page"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/ocfs2/dlm/dlmmaster.c",
+  "fn": "__dlm_mle_attach_hb_events",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "dlm",
+    "kind": "node",
+    "struct": "dlm_ctxt",
+    "role": null,
+    "lh_fields": [
+     "list",
+     "dirty_list",
+     "purge_list",
+     "pending_asts",
+     "pending_basts",
+     "tracking_list",
+     "mle_hb_events",
+     "work_list",
+     "dlm_domain_handlers",
+     "dlm_eviction_callbacks"
+    ],
+    "scalar_fields": {
+     "purge_count": "unsigned int",
+     "node_num": "u8",
+     "key": "u32",
+     "joining_node": "u8",
+     "migrate_done": "u8",
+     "num_joins": "unsigned int"
+    },
+    "token_fields": [
+     "lockres_hash",
+     "name",
+     "master_hash",
+     "dlm_debugfs_subroot",
+     "dlm_thread_task",
+     "dlm_reco_thread_task",
+     "dlm_worker"
+    ]
+   },
+   {
+    "name": "mle",
+    "kind": "node",
+    "struct": "dlm_master_list_entry",
+    "role": null,
+    "lh_fields": [
+     "hb_events"
+    ],
+    "scalar_fields": {
+     "inuse": "int",
+     "master": "u8",
+     "new_master": "u8",
+     "mnamelen": "unsigned int",
+     "mnamehash": "unsigned int"
+    },
+    "token_fields": [
+     "dlm",
+     "mleres"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/ocfs2/dlm/dlmmaster.c",
+  "fn": "__dlm_mle_detach_hb_events",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "dlm",
+    "kind": "token",
+    "struct": "dlm_ctxt",
+    "role": null
+   },
+   {
+    "name": "mle",
+    "kind": "node",
+    "struct": "dlm_master_list_entry",
+    "role": null,
+    "lh_fields": [
+     "hb_events"
+    ],
+    "scalar_fields": {
+     "inuse": "int",
+     "master": "u8",
+     "new_master": "u8",
+     "mnamelen": "unsigned int",
+     "mnamehash": "unsigned int"
+    },
+    "token_fields": [
+     "dlm",
+     "mleres"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "fs/ocfs2/dlm/dlmunlock.c",
+  "fn": "dlm_commit_pending_unlock",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "res",
+    "kind": "token",
+    "struct": "dlm_lock_resource",
+    "role": null
+   },
+   {
+    "name": "lock",
+    "kind": "node",
+    "struct": "dlm_lock",
+    "role": null,
+    "lh_fields": [
+     "list",
+     "ast_list",
+     "bast_list"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "lockres",
+     "ast",
+     "bast",
+     "astdata",
+     "lksb"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "block/blk-zoned.c",
+  "fn": "disk_get_zone_wplugs_work",
+  "shape": "node",
+  "ret": "struct blk_zone_wplug *",
+  "ret_node": "blk_zone_wplug",
+  "peeks": [
+   {
+    "op": "list_first_entry_or_null",
+    "anchor": [
+     "field",
+     "&disk->zone_wplugs_list"
+    ],
+    "member": "entry"
+   }
+  ],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "disk",
+    "kind": "node",
+    "struct": "gendisk",
+    "role": null,
+    "lh_fields": [
+     "slave_bdevs",
+     "zone_wplugs_list",
+     "error_injection_list"
+    ],
+    "scalar_fields": {
+     "major": "int",
+     "first_minor": "int",
+     "minors": "int",
+     "events": "unsigned short",
+     "event_flags": "unsigned short",
+     "flags": "int",
+     "state": "unsigned long",
+     "open_partitions": "unsigned",
+     "nr_zones": "unsigned int",
+     "zone_capacity": "unsigned int",
+     "last_zone_capacity": "unsigned int",
+     "zone_wplugs_hash_bits": "unsigned int",
+     "node_id": "int",
+     "diskseq": "u64"
+    },
+    "token_fields": [
+     "part0",
+     "fops",
+     "queue",
+     "private_data",
+     "bdi",
+     "slave_dir",
+     "random",
+     "ev",
+     "zones_cond",
+     "zone_wplugs_pool",
+     "zone_wplugs_hash",
+     "zone_wplugs_wq",
+     "zone_wplugs_worker",
+     "cdi",
+     "bb",
+     "ia_ranges"
+    ]
+   }
+  ],
+  "cursors": {
+   "zwplug": {
+    "struct": "blk_zone_wplug",
+    "lh_fields": [
+     "entry"
+    ],
+    "scalar_fields": {
+     "flags": "unsigned int",
+     "zone_no": "unsigned int",
+     "wp_offset": "unsigned int"
+    },
+    "token_fields": [
+     "disk"
+    ]
+   }
+  },
+  "iters": []
+ },
+ {
+  "file": "block/sed-opal.c",
+  "fn": "add_suspend_info",
+  "shape": "iter_node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 2,
+  "n_iters": 1,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "dev",
+    "kind": "node",
+    "struct": "opal_dev",
+    "role": null,
+    "lh_fields": [
+     "unlk_lst"
+    ],
+    "scalar_fields": {
+     "flags": "u32",
+     "comid": "u16",
+     "hsn": "u32",
+     "tsn": "u32",
+     "align": "u64",
+     "lowest_lba": "u64",
+     "logical_block_size": "u32",
+     "align_required": "u8",
+     "pos": "size_t",
+     "prev_d_len": "size_t"
+    },
+    "token_fields": [
+     "data",
+     "send_recv",
+     "cmd",
+     "resp",
+     "prev_data"
+    ]
+   },
+   {
+    "name": "sus",
+    "kind": "node",
+    "struct": "opal_suspend_data",
+    "role": null,
+    "lh_fields": [
+     "node"
+    ],
+    "scalar_fields": {
+     "lr": "u8"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {
+   "iter": {
+    "struct": "opal_suspend_data",
+    "lh_fields": [
+     "node"
+    ],
+    "scalar_fields": {
+     "lr": "u8"
+    },
+    "token_fields": []
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry",
+    "cursor": "iter",
+    "anchor": [
+     "field",
+     "&dev->unlk_lst"
+    ],
+    "member": "node"
+   }
+  ]
+ },
+ {
+  "file": "block/sed-opal.c",
+  "fn": "clean_opal_dev",
+  "shape": "iter_node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "dev",
+    "kind": "node",
+    "struct": "opal_dev",
+    "role": null,
+    "lh_fields": [
+     "unlk_lst"
+    ],
+    "scalar_fields": {
+     "flags": "u32",
+     "comid": "u16",
+     "hsn": "u32",
+     "tsn": "u32",
+     "align": "u64",
+     "lowest_lba": "u64",
+     "logical_block_size": "u32",
+     "align_required": "u8",
+     "pos": "size_t",
+     "prev_d_len": "size_t"
+    },
+    "token_fields": [
+     "data",
+     "send_recv",
+     "cmd",
+     "resp",
+     "prev_data"
+    ]
+   }
+  ],
+  "cursors": {
+   "suspend": {
+    "struct": "opal_suspend_data",
+    "lh_fields": [
+     "node"
+    ],
+    "scalar_fields": {
+     "lr": "u8"
+    },
+    "token_fields": []
+   },
+   "next": {
+    "struct": "opal_suspend_data",
+    "lh_fields": [
+     "node"
+    ],
+    "scalar_fields": {
+     "lr": "u8"
+    },
+    "token_fields": []
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "suspend",
+    "anchor": [
+     "field",
+     "&dev->unlk_lst"
+    ],
+    "member": "node"
+   }
+  ]
+ },
+ {
+  "file": "security/device_cgroup.c",
+  "fn": "dev_exceptions_move",
+  "shape": "iter_node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "dest",
+    "kind": "lh",
+    "struct": null,
+    "role": "head"
+   },
+   {
+    "name": "orig",
+    "kind": "lh",
+    "struct": null,
+    "role": "head"
+   }
+  ],
+  "cursors": {
+   "ex": {
+    "struct": "dev_exception_item",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "major": "u32",
+     "minor": "u32",
+     "type": "short",
+     "access": "short"
+    },
+    "token_fields": []
+   },
+   "tmp": {
+    "struct": "dev_exception_item",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "major": "u32",
+     "minor": "u32",
+     "type": "short",
+     "access": "short"
+    },
+    "token_fields": []
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "ex",
+    "anchor": [
+     "param",
+     "orig"
+    ],
+    "member": "list"
+   }
+  ]
+ },
+ {
+  "file": "net/core/skmsg.c",
+  "fn": "sk_psock_link_pop",
+  "shape": "node",
+  "ret": "struct sk_psock_link *",
+  "ret_node": "sk_psock_link",
+  "peeks": [
+   {
+    "op": "list_first_entry_or_null",
+    "anchor": [
+     "field",
+     "&psock->link"
+    ],
+    "member": "list"
+   }
+  ],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "psock",
+    "kind": "node",
+    "struct": "sk_psock",
+    "role": null,
+    "lh_fields": [
+     "ingress_msg",
+     "link"
+    ],
+    "scalar_fields": {
+     "apply_bytes": "u32",
+     "cork_bytes": "u32",
+     "eval": "u32",
+     "redir_ingress": "bool",
+     "copied_seq": "u32",
+     "ingress_bytes": "u32",
+     "msg_tot_len": "u32",
+     "state": "unsigned long"
+    },
+    "token_fields": [
+     "sk",
+     "sk_redir",
+     "cork",
+     "psock",
+     "sk_proto",
+     "sk_pair"
+    ]
+   }
+  ],
+  "cursors": {
+   "link": {
+    "struct": "sk_psock_link",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {},
+    "token_fields": [
+     "map",
+     "link_raw"
+    ]
+   }
+  },
+  "iters": []
+ },
+ {
+  "file": "net/core/dev.c",
+  "fn": "net_unlink_todo",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [
+   "net_unlink_list"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "dev",
+    "kind": "node",
+    "struct": "net_device",
+    "role": null,
+    "lh_fields": [
+     "ptype_specific",
+     "dev_list",
+     "napi_list",
+     "unreg_list",
+     "close_list",
+     "ptype_all",
+     "lower",
+     "unlink_list",
+     "work_node",
+     "todo_list",
+     "link_watch_list",
+     "net_notifier_list"
+    ],
+    "scalar_fields": {
+     "real_num_tx_queues": "unsigned int",
+     "gso_max_size": "unsigned int",
+     "gso_ipv4_max_size": "unsigned int",
+     "gso_max_segs": "u16",
+     "num_tc": "s16",
+     "mtu": "unsigned int",
+     "needed_headroom": "unsigned short",
+     "state": "unsigned long",
+     "flags": "unsigned int",
+     "hard_header_len": "unsigned short",
+     "ifindex": "int",
+     "real_num_rx_queues": "unsigned int",
+     "gro_max_size": "unsigned int",
+     "gro_ipv4_max_size": "unsigned int",
+     "mem_end": "unsigned long",
+     "mem_start": "unsigned long",
+     "base_addr": "unsigned long",
+     "gflags": "unsigned short",
+     "needed_tailroom": "unsigned short",
+     "min_mtu": "unsigned int",
+     "max_mtu": "unsigned int",
+     "type": "unsigned short",
+     "min_header_len": "unsigned char",
+     "name_assign_type": "unsigned char",
+     "group": "int",
+     "operstate": "unsigned int",
+     "link_mode": "unsigned char",
+     "if_port": "unsigned char",
+     "dma": "unsigned char",
+     "addr_assign_type": "unsigned char",
+     "addr_len": "unsigned char",
+     "upper_level": "unsigned char",
+     "lower_level": "unsigned char",
+     "threaded": "u8",
+     "neigh_priv_len": "unsigned short",
+     "dev_id": "unsigned short",
+     "dev_port": "unsigned short",
+     "irq": "int",
+     "priv_len": "u32",
+     "promiscuity": "unsigned int",
+     "allmulti": "unsigned int",
+     "uc_promisc": "bool",
+     "work_pending": "unsigned long",
+     "work_core_pending": "unsigned long",
+     "rx_mode_retry_count": "unsigned int",
+     "nested_level": "unsigned char",
+     "num_rx_queues": "unsigned int",
+     "xdp_zc_max_segs": "unsigned int",
+     "num_tx_queues": "unsigned int",
+     "tx_queue_len": "unsigned int",
+     "watchdog_timeo": "int",
+     "watchdog_ref_held": "bool",
+     "proto_down_reason": "u32",
+     "reg_state": "u8",
+     "dismantle": "bool",
+     "moving_ns": "bool",
+     "rtnl_link_initializing": "bool",
+     "needs_free_netdev": "bool",
+     "tso_max_size": "unsigned int",
+     "tso_max_segs": "u16",
+     "fcoe_ddp_xid": "unsigned int",
+     "proto_down": "bool",
+     "irq_affinity_auto": "bool",
+     "rx_cpu_rmap_auto": "bool",
+     "max_pacing_offload_horizon": "u64",
+     "num_napi_configs": "u32",
+     "napi_defer_hard_irqs": "u32",
+     "gro_flush_timeout": "unsigned long",
+     "up": "bool",
+     "request_ops_lock": "bool"
+    },
+    "token_fields": [
+     "netdev_ops",
+     "header_ops",
+     "_tx",
+     "nf_hooks_egress",
+     "tcx_egress",
+     "tstats",
+     "dstats",
+     "ip6_ptr",
+     "xdp_prog",
+     "_rx",
+     "rx_handler",
+     "rx_handler_data",
+     "npinfo",
+     "tcx_ingress",
+     "name_node",
+     "ifalias",
+     "xdp_metadata_ops",
+     "xsk_tx_metadata_ops",
+     "core_stats",
+     "wireless_handlers",
+     "ethtool_ops",
+     "l3mdev_ops",
+     "ndisc_ops",
+     "xfrmdev_ops",
+     "tlsdev_ops",
+     "queues_kset",
+     "ip_ptr",
+     "vlan_info",
+     "dsa_ptr",
+     "tipc_ptr",
+     "ieee80211_ptr",
+     "ieee802154_ptr",
+     "mpls_ptr",
+     "mctp_ptr",
+     "psp_dev",
+     "dev_addr",
+     "ingress_queue",
+     "nf_hooks_ingress",
+     "rx_cpu_rmap",
+     "qdisc",
+     "xdp_bulkq",
+     "pcpu_refcnt",
+     "ml_priv",
+     "garp_port",
+     "mrp_port",
+     "dm_private",
+     "sysfs_rx_queue_group",
+     "rtnl_link_ops",
+     "stat_ops",
+     "queue_mgmt_ops",
+     "dcbnl_ops",
+     "priomap",
+     "link_topo",
+     "phydev",
+     "sfp_bus",
+     "qdisc_tx_busylock",
+     "macsec_ops",
+     "udp_tunnel_nic_info",
+     "udp_tunnel_nic",
+     "cfg",
+     "cfg_pending",
+     "ethtool",
+     "offload_xstats_l3",
+     "devlink_port",
+     "dpll_pin",
+     "irq_moder",
+     "napi_config",
+     "net_shaper_hierarchy",
+     "hwprov"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "net/core/dev.c",
+  "fn": "net_set_todo",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [
+   "net_todo_list"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "dev",
+    "kind": "node",
+    "struct": "net_device",
+    "role": null,
+    "lh_fields": [
+     "ptype_specific",
+     "dev_list",
+     "napi_list",
+     "unreg_list",
+     "close_list",
+     "ptype_all",
+     "lower",
+     "unlink_list",
+     "work_node",
+     "todo_list",
+     "link_watch_list",
+     "net_notifier_list"
+    ],
+    "scalar_fields": {
+     "real_num_tx_queues": "unsigned int",
+     "gso_max_size": "unsigned int",
+     "gso_ipv4_max_size": "unsigned int",
+     "gso_max_segs": "u16",
+     "num_tc": "s16",
+     "mtu": "unsigned int",
+     "needed_headroom": "unsigned short",
+     "state": "unsigned long",
+     "flags": "unsigned int",
+     "hard_header_len": "unsigned short",
+     "ifindex": "int",
+     "real_num_rx_queues": "unsigned int",
+     "gro_max_size": "unsigned int",
+     "gro_ipv4_max_size": "unsigned int",
+     "mem_end": "unsigned long",
+     "mem_start": "unsigned long",
+     "base_addr": "unsigned long",
+     "gflags": "unsigned short",
+     "needed_tailroom": "unsigned short",
+     "min_mtu": "unsigned int",
+     "max_mtu": "unsigned int",
+     "type": "unsigned short",
+     "min_header_len": "unsigned char",
+     "name_assign_type": "unsigned char",
+     "group": "int",
+     "operstate": "unsigned int",
+     "link_mode": "unsigned char",
+     "if_port": "unsigned char",
+     "dma": "unsigned char",
+     "addr_assign_type": "unsigned char",
+     "addr_len": "unsigned char",
+     "upper_level": "unsigned char",
+     "lower_level": "unsigned char",
+     "threaded": "u8",
+     "neigh_priv_len": "unsigned short",
+     "dev_id": "unsigned short",
+     "dev_port": "unsigned short",
+     "irq": "int",
+     "priv_len": "u32",
+     "promiscuity": "unsigned int",
+     "allmulti": "unsigned int",
+     "uc_promisc": "bool",
+     "work_pending": "unsigned long",
+     "work_core_pending": "unsigned long",
+     "rx_mode_retry_count": "unsigned int",
+     "nested_level": "unsigned char",
+     "num_rx_queues": "unsigned int",
+     "xdp_zc_max_segs": "unsigned int",
+     "num_tx_queues": "unsigned int",
+     "tx_queue_len": "unsigned int",
+     "watchdog_timeo": "int",
+     "watchdog_ref_held": "bool",
+     "proto_down_reason": "u32",
+     "reg_state": "u8",
+     "dismantle": "bool",
+     "moving_ns": "bool",
+     "rtnl_link_initializing": "bool",
+     "needs_free_netdev": "bool",
+     "tso_max_size": "unsigned int",
+     "tso_max_segs": "u16",
+     "fcoe_ddp_xid": "unsigned int",
+     "proto_down": "bool",
+     "irq_affinity_auto": "bool",
+     "rx_cpu_rmap_auto": "bool",
+     "max_pacing_offload_horizon": "u64",
+     "num_napi_configs": "u32",
+     "napi_defer_hard_irqs": "u32",
+     "gro_flush_timeout": "unsigned long",
+     "up": "bool",
+     "request_ops_lock": "bool"
+    },
+    "token_fields": [
+     "netdev_ops",
+     "header_ops",
+     "_tx",
+     "nf_hooks_egress",
+     "tcx_egress",
+     "tstats",
+     "dstats",
+     "ip6_ptr",
+     "xdp_prog",
+     "_rx",
+     "rx_handler",
+     "rx_handler_data",
+     "npinfo",
+     "tcx_ingress",
+     "name_node",
+     "ifalias",
+     "xdp_metadata_ops",
+     "xsk_tx_metadata_ops",
+     "core_stats",
+     "wireless_handlers",
+     "ethtool_ops",
+     "l3mdev_ops",
+     "ndisc_ops",
+     "xfrmdev_ops",
+     "tlsdev_ops",
+     "queues_kset",
+     "ip_ptr",
+     "vlan_info",
+     "dsa_ptr",
+     "tipc_ptr",
+     "ieee80211_ptr",
+     "ieee802154_ptr",
+     "mpls_ptr",
+     "mctp_ptr",
+     "psp_dev",
+     "dev_addr",
+     "ingress_queue",
+     "nf_hooks_ingress",
+     "rx_cpu_rmap",
+     "qdisc",
+     "xdp_bulkq",
+     "pcpu_refcnt",
+     "ml_priv",
+     "garp_port",
+     "mrp_port",
+     "dm_private",
+     "sysfs_rx_queue_group",
+     "rtnl_link_ops",
+     "stat_ops",
+     "queue_mgmt_ops",
+     "dcbnl_ops",
+     "priomap",
+     "link_topo",
+     "phydev",
+     "sfp_bus",
+     "qdisc_tx_busylock",
+     "macsec_ops",
+     "udp_tunnel_nic_info",
+     "udp_tunnel_nic",
+     "cfg",
+     "cfg_pending",
+     "ethtool",
+     "offload_xstats_l3",
+     "devlink_port",
+     "dpll_pin",
+     "irq_moder",
+     "napi_config",
+     "net_shaper_hierarchy",
+     "hwprov"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
   "file": "drivers/acpi/arm64/iort.c",
   "fn": "iort_delete_fwnode",
   "shape": "iter_node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": true,
    "alloc_stripped": true
@@ -723,6 +4368,9 @@
   "fn": "iort_deregister_domain_token",
   "shape": "iter_node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": true,
    "alloc_stripped": true
@@ -784,10 +4432,229 @@
   ]
  },
  {
+  "file": "drivers/block/zram/zram_drv.c",
+  "fn": "zram_select_idle_req",
+  "shape": "node",
+  "ret": "struct zram_wb_req *",
+  "ret_node": "zram_wb_req",
+  "peeks": [
+   {
+    "op": "list_first_entry_or_null",
+    "anchor": [
+     "field",
+     "&wb_ctl->idle_reqs"
+    ],
+    "member": "entry"
+   }
+  ],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "wb_ctl",
+    "kind": "node",
+    "struct": "zram_wb_ctl",
+    "role": null,
+    "lh_fields": [
+     "idle_reqs",
+     "done_reqs"
+    ],
+    "scalar_fields": {},
+    "token_fields": []
+   }
+  ],
+  "cursors": {
+   "req": {
+    "struct": "zram_wb_req",
+    "lh_fields": [
+     "entry"
+    ],
+    "scalar_fields": {
+     "blk_idx": "unsigned long"
+    },
+    "token_fields": [
+     "page",
+     "pps"
+    ]
+   }
+  },
+  "iters": []
+ },
+ {
+  "file": "drivers/gpu/drm/drm_panel.c",
+  "fn": "drm_panel_add",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [
+   "panel_list"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "panel",
+    "kind": "node",
+    "struct": "drm_panel",
+    "role": null,
+    "lh_fields": [
+     "list",
+     "followers"
+    ],
+    "scalar_fields": {
+     "connector_type": "int",
+     "prepare_prev_first": "bool",
+     "prepared": "bool",
+     "enabled": "bool"
+    },
+    "token_fields": [
+     "dev",
+     "backlight",
+     "funcs",
+     "container"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "drivers/gpu/drm/drm_panel.c",
+  "fn": "drm_panel_remove",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "panel",
+    "kind": "node",
+    "struct": "drm_panel",
+    "role": null,
+    "lh_fields": [
+     "list",
+     "followers"
+    ],
+    "scalar_fields": {
+     "connector_type": "int",
+     "prepare_prev_first": "bool",
+     "prepared": "bool",
+     "enabled": "bool"
+    },
+    "token_fields": [
+     "dev",
+     "backlight",
+     "funcs",
+     "container"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "drivers/gpu/drm/xe/xe_guc_relay.c",
+  "fn": "relay_dequeue_transaction",
+  "shape": "node",
+  "ret": "struct relay_transaction *",
+  "ret_node": "relay_transaction",
+  "peeks": [
+   {
+    "op": "list_first_entry_or_null",
+    "anchor": [
+     "field",
+     "&relay->incoming_actions"
+    ],
+    "member": "link"
+   }
+  ],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "relay",
+    "kind": "node",
+    "struct": "xe_guc_relay",
+    "role": null,
+    "lh_fields": [
+     "pending_relays",
+     "incoming_actions"
+    ],
+    "scalar_fields": {
+     "last_rid": "u32"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {
+   "txn": {
+    "struct": "relay_transaction",
+    "lh_fields": [
+     "link"
+    ],
+    "scalar_fields": {
+     "incoming": "bool",
+     "remote": "u32",
+     "rid": "u32",
+     "request_len": "u32",
+     "response_len": "u32",
+     "offset": "u32",
+     "reply": "int"
+    },
+    "token_fields": [
+     "request",
+     "response"
+    ]
+   }
+  },
+  "iters": []
+ },
+ {
   "file": "drivers/md/dm-ps-round-robin.c",
   "fn": "free_paths",
   "shape": "iter_node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": false,
    "alloc_stripped": true
@@ -849,6 +4716,9 @@
   "fn": "deregister_mtd_parser",
   "shape": "node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": true,
    "alloc_stripped": false
@@ -873,8 +4743,7 @@
      "owner",
      "name",
      "of_match_table",
-     "parse_fn",
-     "cleanup"
+     "pparts"
     ]
    }
   ],
@@ -882,10 +4751,69 @@
   "iters": []
  },
  {
+  "file": "drivers/net/ethernet/hisilicon/hns3/hns3vf/hclgevf_main.c",
+  "fn": "hclgevf_clear_list",
+  "shape": "iter_node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "list",
+    "kind": "lh",
+    "struct": null,
+    "role": "head"
+   }
+  ],
+  "cursors": {
+   "mac_node": {
+    "struct": "hclgevf_mac_addr_node",
+    "lh_fields": [
+     "node"
+    ],
+    "scalar_fields": {},
+    "token_fields": []
+   },
+   "tmp": {
+    "struct": "hclgevf_mac_addr_node",
+    "lh_fields": [
+     "node"
+    ],
+    "scalar_fields": {},
+    "token_fields": []
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "mac_node",
+    "anchor": [
+     "param",
+     "list"
+    ],
+    "member": "node"
+   }
+  ]
+ },
+ {
   "file": "drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c",
   "fn": "__resource_del",
   "shape": "node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": false,
    "alloc_stripped": false
@@ -919,10 +4847,355 @@
   "iters": []
  },
  {
+  "file": "drivers/spi/spi-pic32-sqi.c",
+  "fn": "ring_desc_get",
+  "shape": "node",
+  "ret": "struct ring_desc *",
+  "ret_node": "ring_desc",
+  "peeks": [
+   {
+    "op": "list_first_entry",
+    "anchor": [
+     "field",
+     "&sqi->bd_list_free"
+    ],
+    "member": "list"
+   }
+  ],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 1,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "sqi",
+    "kind": "node",
+    "struct": "pic32_sqi",
+    "role": null,
+    "lh_fields": [
+     "bd_list_free",
+     "bd_list_used"
+    ],
+    "scalar_fields": {
+     "irq": "int",
+     "bd_dma": "dma_addr_t",
+     "cur_speed": "u32",
+     "cur_mode": "u8"
+    },
+    "token_fields": [
+     "regs",
+     "sys_clk",
+     "base_clk",
+     "host",
+     "ring",
+     "bd",
+     "cur_spi"
+    ]
+   }
+  ],
+  "cursors": {
+   "rdesc": {
+    "struct": "ring_desc",
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "bd_dma": "dma_addr_t",
+     "xfer_len": "u32"
+    },
+    "token_fields": [
+     "bd"
+    ]
+   }
+  },
+  "iters": []
+ },
+ {
+  "file": "drivers/spi/spi-pic32-sqi.c",
+  "fn": "ring_desc_put",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "sqi",
+    "kind": "node",
+    "struct": "pic32_sqi",
+    "role": null,
+    "lh_fields": [
+     "bd_list_free",
+     "bd_list_used"
+    ],
+    "scalar_fields": {
+     "irq": "int",
+     "bd_dma": "dma_addr_t",
+     "cur_speed": "u32",
+     "cur_mode": "u8"
+    },
+    "token_fields": [
+     "regs",
+     "sys_clk",
+     "base_clk",
+     "host",
+     "ring",
+     "bd",
+     "cur_spi"
+    ]
+   },
+   {
+    "name": "rdesc",
+    "kind": "node",
+    "struct": "ring_desc",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "bd_dma": "dma_addr_t",
+     "xfer_len": "u32"
+    },
+    "token_fields": [
+     "bd"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "drivers/target/target_core_user.c",
+  "fn": "tcmu_remove_all_queued_tmr",
+  "shape": "iter_node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 1,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "udev",
+    "kind": "node",
+    "struct": "tcmu_dev",
+    "role": null,
+    "lh_fields": [
+     "node",
+     "qfull_queue",
+     "tmr_queue",
+     "inflight_queue",
+     "timedout_entry"
+    ],
+    "scalar_fields": {
+     "flags": "unsigned long",
+     "cmdr_size": "u32",
+     "cmdr_last_cleaned": "u32",
+     "data_off": "size_t",
+     "data_area_mb": "int",
+     "mmap_pages": "size_t",
+     "cmd_time_out": "unsigned int",
+     "qfull_time_out": "int",
+     "nl_reply_supported": "int"
+    },
+    "token_fields": [
+     "name",
+     "hba",
+     "inode",
+     "mb_addr",
+     "cmdr",
+     "data_bitmap"
+    ]
+   }
+  ],
+  "cursors": {
+   "tmr": {
+    "struct": "tcmu_tmr",
+    "lh_fields": [
+     "queue_entry"
+    ],
+    "scalar_fields": {},
+    "token_fields": []
+   },
+   "tmp": {
+    "struct": "tcmu_tmr",
+    "lh_fields": [
+     "queue_entry"
+    ],
+    "scalar_fields": {},
+    "token_fields": []
+   }
+  },
+  "iters": [
+   {
+    "kind": "list_for_each_entry_safe",
+    "cursor": "tmr",
+    "anchor": [
+     "field",
+     "&udev->tmr_queue"
+    ],
+    "member": "queue_entry"
+   }
+  ]
+ },
+ {
+  "file": "drivers/tty/vt/vt_ioctl.c",
+  "fn": "__vt_event_queue",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [
+   "vt_events"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "vw",
+    "kind": "node",
+    "struct": "vt_event_wait",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "done": "int"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "drivers/tty/vt/vt_ioctl.c",
+  "fn": "__vt_event_dequeue",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": true,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "vw",
+    "kind": "node",
+    "struct": "vt_event_wait",
+    "role": null,
+    "lh_fields": [
+     "list"
+    ],
+    "scalar_fields": {
+     "done": "int"
+    },
+    "token_fields": []
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
+  "file": "drivers/usb/c67x00/c67x00-sched.c",
+  "fn": "c67x00_release_td",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": true
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "td",
+    "kind": "node",
+    "struct": "c67x00_td",
+    "role": null,
+    "lh_fields": [
+     "td_list"
+    ],
+    "scalar_fields": {
+     "ly_base_addr": "__le16",
+     "port_length": "__le16",
+     "pid_ep": "u8",
+     "dev_addr": "u8",
+     "ctrl_reg": "u8",
+     "status": "u8",
+     "retry_cnt": "u8",
+     "residue": "u8",
+     "next_td_addr": "__le16",
+     "td_addr": "u16",
+     "privdata": "unsigned long",
+     "pipe": "unsigned int"
+    },
+    "token_fields": [
+     "data",
+     "urb",
+     "ep_data"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
+ },
+ {
   "file": "drivers/usb/gadget/legacy/hid.c",
   "fn": "hidg_plat_driver_remove",
   "shape": "iter_node",
   "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
   "flags": {
    "locks_stripped": false,
    "alloc_stripped": true
@@ -980,5 +5253,59 @@
     "member": "node"
    }
   ]
+ },
+ {
+  "file": "drivers/watchdog/watchdog_core.c",
+  "fn": "watchdog_deferred_registration_add",
+  "shape": "node",
+  "ret": "void",
+  "ret_node": null,
+  "peeks": [],
+  "defines": {},
+  "flags": {
+   "locks_stripped": false,
+   "alloc_stripped": false
+  },
+  "op_sites": 1,
+  "n_iters": 0,
+  "branches": 0,
+  "globals": [
+   "wtd_deferred_reg_list"
+  ],
+  "local_lists": [],
+  "token_reads": {},
+  "params": [
+   {
+    "name": "wdd",
+    "kind": "node",
+    "struct": "watchdog_device",
+    "role": null,
+    "lh_fields": [
+     "deferred"
+    ],
+    "scalar_fields": {
+     "id": "int",
+     "bootstatus": "unsigned int",
+     "timeout": "unsigned int",
+     "pretimeout": "unsigned int",
+     "min_timeout": "unsigned int",
+     "max_timeout": "unsigned int",
+     "min_hw_heartbeat_ms": "unsigned int",
+     "max_hw_heartbeat_ms": "unsigned int",
+     "status": "unsigned long"
+    },
+    "token_fields": [
+     "parent",
+     "groups",
+     "info",
+     "ops",
+     "gov",
+     "driver_data",
+     "wd_data"
+    ]
+   }
+  ],
+  "cursors": {},
+  "iters": []
  }
 ]

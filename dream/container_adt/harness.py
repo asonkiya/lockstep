@@ -126,6 +126,10 @@ static int  __cadt_list_empty(const struct list_head *h){ return h->next == h; }
 #define LIST_HEAD(name) struct list_head name = { &(name), &(name) }
 #define cadt_container_of(p, T, m) ((T*)((char*)(p) - offsetof(T, m)))
 #define list_entry(p, T, m) cadt_container_of(p, T, m)
+#define list_first_entry(h, T, m) list_entry((h)->next, T, m)
+#define list_last_entry(h, T, m) list_entry((h)->prev, T, m)
+#define list_first_entry_or_null(h, T, m) \
+    (list_empty(h) ? (T*)0 : list_first_entry(h, T, m))
 #define list_for_each_entry(pos, head, member) \
     for (pos = list_entry((head)->next, __typeof__(*pos), member); \
          &pos->member != (head); \
@@ -173,10 +177,20 @@ def prepare(rec):
     # "free everything hanging off a container object" cleanup pattern. Guarded:
     # only triggers when a distinct-typed cursor exists, so it can't perturb the
     # single-element-type functions.
+    # element type = the struct actually LINKED (entry-position `&v->f` in a
+    # mutation op, or an iteration cursor). Params of other types that only
+    # anchor are holder candidates. (v1 required an iteration cursor; the
+    # add_head(k, n) shape — param element, no iteration — needs entry-scan.)
     cursor_structs = {c["struct"] for c in rec["cursors"].values()}
+    entry_structs = set(cursor_structs)
+    byname = {p["name"]: p for p in rec["params"] if p["kind"] == "node"}
+    for op in MUT_OPS:
+        for mm in re.finditer(rf"\b{op}\s*\(\s*&\s*(\w+)\s*->", fn_text):
+            if mm.group(1) in byname:
+                entry_structs.add(byname[mm.group(1)]["struct"])
     holders = {}      # pname -> (struct, lh_fields, scalars, tokens, [anchored])
-    if len(cursor_structs) == 1:
-        elem_struct = next(iter(cursor_structs))
+    if len(entry_structs) == 1:
+        elem_struct = next(iter(entry_structs))
         for p in rec["params"]:
             if p["kind"] != "node" or p["struct"] == elem_struct:
                 continue
@@ -190,6 +204,10 @@ def prepare(rec):
                 for mm in re.finditer(
                         rf"\b{op}\s*\([^,()]*,\s*&\s*{p['name']}\s*->\s*(\w+)\s*\)", fn_text):
                     anchored.add(mm.group(1))
+            for mm in re.finditer(       # peek head anchors count as holding too
+                    rf"\b(?:list_first_entry(?:_or_null)?|list_last_entry)"
+                    rf"\s*\(\s*&\s*{p['name']}\s*->\s*(\w+)", fn_text):
+                anchored.add(mm.group(1))
             # must NEVER be an element: no op takes &p->field in ENTRY position
             is_elem = any(re.search(rf"\b{op}\s*\(\s*&\s*{p['name']}\s*->", fn_text)
                           for op in MUT_OPS)
@@ -217,14 +235,14 @@ def prepare(rec):
         raise Unsupported("multiple token param types")
     tok_type = next(iter(tok_types), None)
     tok_reads = sorted({f for fs in rec["token_reads"].values() for f in fs})
-    for it in rec["iters"]:
+    for it in rec["iters"] + rec.get("peeks", []):
         if it["anchor"][0] == "field":
             # allowed only when the anchor's holder is a head-holder param
             mm = re.match(r"&(\w+)->", it["anchor"][1].replace(" ", ""))
             if not (mm and mm.group(1) in holders):
                 raise Unsupported("node-field head anchor")
         if it["member"] not in lhf:
-            raise Unsupported(f"iter member {it['member']} not an lh field")
+            raise Unsupported(f"iter/peek member {it['member']} not an lh field")
 
     sites = _mut_sites(fn_text)
     if not sites:
@@ -256,13 +274,19 @@ def prepare(rec):
             entry_used.add(fld)
             if headx:
                 gm = re.match(r"&\s*(\w+)$", headx.strip())
+                hm = re.match(r"&\s*(\w+)\s*->\s*(\w+)$", headx.strip())
                 if gm and gm.group(1) in rec["globals"]:
                     _assoc(gm.group(1), fld)
+                elif hm and hm.group(1) in holders:
+                    _assoc(f"&{hm.group(1)}->{hm.group(2)}", fld)
                 elif re.match(r"^\w+$", headx.strip()):
                     _assoc(headx.strip(), fld)
     for it in rec["iters"]:
         entry_used.add(it["member"])            # iteration walks via the member
         _assoc(it["anchor"][1], it["member"])
+    for pk in rec.get("peeks", []):             # peeks read position via member
+        entry_used.add(pk["member"])
+        _assoc(pk["anchor"][1], pk["member"])
     for m in re.finditer(r"\bINIT_LIST_HEAD\s*\(\s*&\s*(\w+)\s*->\s*(\w+)\s*\)", fn_text):
         if m.group(1) in node_vars and m.group(2) in m_ix:
             init_used.add(m.group(2))
@@ -325,6 +349,8 @@ def prepare(rec):
 
     # ---- C reference TU ----------------------------------------------------
     c = [CADT_H]
+    for n, v in rec.get("defines", {}).items():
+        c.append(f"#define {n} {v}")
     c.append(f"struct {ntype} {{")
     for f in members:
         c.append(f"    struct list_head {f};")
@@ -465,7 +491,19 @@ int cadt_retlog(int *buf, int cap){{
         else:
             call_args.append(a)
     callexpr = f"{rec['fn']}({', '.join(call_args)})"
-    if rec["ret"] == "void":
+    if rec.get("ret_node"):
+        if rec["ret_node"] != ntype:
+            raise Unsupported(f"ret_node {rec['ret_node']} != element {ntype}")
+        # node-pointer return -> arena id; NULL -> -1; out-of-arena (the C's
+        # own UB on an unguarded empty-list peek) -> -2, unproducible by the
+        # model, so it can only DIVERGE (sound).
+        c.append(f"""long cadt_call({', '.join(tramp_args) or 'void'}){{
+    struct {ntype} *__r = {callexpr};
+    if (!__r) return -1;
+    if (__r < CADT_ARENA || __r >= CADT_ARENA + {NN}) return -2;
+    return (long)(__r - CADT_ARENA);
+}}""")
+    elif rec["ret"] == "void":
         c.append(f"long cadt_call({', '.join(tramp_args) or 'void'})"
                  f"{{ {callexpr}; return 0; }}")
     else:
@@ -475,7 +513,7 @@ int cadt_retlog(int *buf, int cap){{
 
     # ---- Rust ADT surface --------------------------------------------------
     nf, nt, ntf, nl = len(fields), len(tokf), max(len(tok_reads), 1), len(lists)
-    consts = []
+    consts = [f"const {n}: i64 = {v};" for n, v in rec.get("defines", {}).items()]
     for f, i in sf_ix.items():
         consts.append(f"const F_{f.upper()}: usize = {i};")
     for f, i in tf_ix.items():
@@ -539,6 +577,8 @@ fn empty(l: usize) -> bool {{ unsafe {{ LISTS[l].is_empty() }} }}
 {del_fns}
 fn push_back(l: usize, id: u32) {{ unsafe {{ LISTS[l].push(id); }} }}
 fn push_front(l: usize, id: u32) {{ unsafe {{ LISTS[l].insert(0, id); }} }}
+fn first(l: usize) -> i64 {{ unsafe {{ LISTS[l].first().map(|&x| x as i64).unwrap_or(-1) }} }}  // list_first_entry[_or_null]
+fn last(l: usize) -> i64 {{ unsafe {{ LISTS[l].last().map(|&x| x as i64).unwrap_or(-1) }} }}    // list_last_entry
 fn move_tail(l: usize, id: u32) {{ {del_call}; push_back(l, id); }}
 fn move_front(l: usize, id: u32) {{ {del_call}; push_front(l, id); }}
 fn field(id: u32, f: usize) -> i64 {{ unsafe {{ SF[id as usize][f] }} }}
@@ -652,8 +692,12 @@ fn retire(id: u32) {{ unsafe {{ RETIRED.push(id); }} }}
            + "\n// Helpers: iter(l)->Vec<u32> (snapshot), empty(l), "
            + ("del_m(M_*,id)," if multi else "del(id),")
            + "\n//   push_back/push_front(l,id) [list_add_tail/list_add],"
-           + "\n//   move_tail/move_front(l,id), field(id,F_*), set_field,"
+           + "\n//   move_tail/move_front(l,id), first(l)/last(l)->i64 id or -1"
+           + "\n//   [list_first_entry(_or_null)/list_last_entry],"
+           + "\n//   field(id,F_*), set_field,"
            + "\n//   tokf(id,T_*)->i64 token, tok_field(h,P_*)->i64, retire(id) [kfree]."
+           + ("\n// RETURN: this fn returns a NODE POINTER — return the node id"
+              " (i64), or -1 for NULL." if rec.get("ret_node") else "")
            + "\n// Args: " + ", ".join(
                f"a{i}={p['name']}({p['kind']})" for i, p in enumerate(rec["params"])))
 
