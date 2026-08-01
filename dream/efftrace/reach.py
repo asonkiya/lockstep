@@ -96,18 +96,32 @@ def _sig_split(text):
     return " ".join(ret.split()), text[op + 1:i], text[text.find("{", i):]
 
 
+_SSF_CACHE = {}
+
+
 def _struct_scalar_fields(struct, near):
     """{field: ctype} for the struct's SCALAR fields (non-scalar fields are
     fine as long as the fn never touches them — the host struct is emitted
     self-consistently from just the touched subset, no kernel layout needed).
-    Refused only if the struct itself is unresolvable."""
+    Refused only if the struct itself is unresolvable. Cached by (struct, dir)
+    — resolve_struct_source globs include/ per miss, the interproc hot path."""
+    key = (struct, os.path.dirname(near))
+    hit = _SSF_CACHE.get(key)
+    if hit is not None:
+        if isinstance(hit, Refused):
+            raise hit
+        return hit
     try:
         src = mirror.resolve_struct_source(struct, near_file=near) or open(near, errors="ignore").read()
         fields = mirror.parse_struct(src, struct)
     except mirror.Unsupported as e:
-        raise Refused(f"param-struct {struct}: {str(e)[:36]}")
+        r = Refused(f"param-struct {struct}: {str(e)[:36]}")
+        _SSF_CACHE[key] = r
+        raise r
     except Exception as e:
-        raise Refused(f"param-struct {struct}: {type(e).__name__}")
+        r = Refused(f"param-struct {struct}: {type(e).__name__}")
+        _SSF_CACHE[key] = r
+        raise r
     out = {}
     for ctype, fname, extra in fields:
         if ctype in ("__nested__", "__ptr__") or extra is not None:
@@ -115,43 +129,101 @@ def _struct_scalar_fields(struct, near):
         if ctype in mirror.SCALAR:
             out[fname] = ctype
     if not out:
-        raise Refused(f"param-struct {struct}: no scalar fields")
+        r = Refused(f"param-struct {struct}: no scalar fields")
+        _SSF_CACHE[key] = r
+        raise r
+    _SSF_CACHE[key] = out
     return out
 
 
-def _resolve_callee(name, src, src_masked):
-    """INTERPROCEDURAL LADDER (v1): admit a same-file callee whose footprint is
-    pure or global-only and depth-1 (calls only pure builtins). Returns
-    (text, globals_dict) or None (not admissible -> caller refuses as opaque).
+_FUNCS_CACHE = {}
 
-    Soundness: the reference TU inlines the callee's REAL C, F's cell vector is
-    extended with the callee's global footprint (reads+writes), and the
-    differential compares the COMPLETE composite footprint. So even an untrusted
-    callee is safe — a wrong composite translation diverges; we only require the
-    footprint be BOUNDED (completeness) and the source includable (fidelity)."""
-    try:
-        text = cluster.functions(src)[name]
-    except Exception:
+
+def _file_funcs(src):
+    """Parsed {name: text} for a file, cached by src identity — _resolve_callee
+    is hit once per opaque call, and re-parsing the whole file each time was the
+    dominant cost of the interprocedural scan."""
+    key = id(src)
+    hit = _FUNCS_CACHE.get(key)
+    if hit is None or hit[0] is not src:
+        _FUNCS_CACHE.clear()
+        funcs = {}
+        try:
+            for n, f in cluster.functions(src).items():
+                funcs[n] = f["text"] if isinstance(f, dict) else f
+        except Exception:
+            funcs = {}
+        _FUNCS_CACHE[key] = (src, funcs)
+        hit = _FUNCS_CACHE[key]
+    return hit[1]
+
+
+def _resolve_callee(name, src, src_masked, near):
+    """INTERPROCEDURAL LADDER: admit a same-file, depth-1 (pure-builtin-only)
+    callee whose footprint is bounded — file-globals AND/OR fields of a struct
+    pointer param (the common `F(p) calls setter(p)` shape; global-only helpers
+    measured ~0 real reach). Returns a dict {text, globals, defines, sparams}
+    where sparams maps each struct-ptr param name -> (struct, {fields touched}),
+    or None (not admissible -> caller refuses as opaque).
+
+    Soundness: the reference TU inlines the callee's REAL C, the caller's cell
+    vector is extended with the callee's global + struct-field footprint, and
+    the differential compares the COMPLETE composite. The callee is never
+    trusted; admission needs only a BOUNDED footprint + includable source."""
+    text = _file_funcs(src).get(name)
+    if text is None:
         return None
-    text = text["text"] if isinstance(text, dict) else text
-    cret, _cparams, cbody = _sig_split(text)
+    cret, cparams_str, cbody = _sig_split(text)
     cscan = purity.mask(cbody)
     if _ASM.search(cscan) or _MMIO.search(cscan) or entangle._GRAPH.search(cscan):
         return None
     if _FORBID.search(cscan) or _FN_STATIC.search(cscan[cscan.find("{") + 1:]):
         return None
-    if _PTR_LOCAL.search(cscan) or "->" in cscan or re.search(r"\w+\s*\.\s*\w+", cscan):
-        return None                      # v1: no struct params / field access
+    if _PTR_LOCAL.search(cscan):
+        return None
     for m in purity.CALL.finditer(cscan):
         nm = m.group(1)
         if nm not in purity.NONCALL and nm not in purity.PURE_CALL and nm != name:
-            return None                  # v1: depth-1 (pure builtins only)
+            return None                  # depth-1 (pure builtins only)
+
+    # struct-pointer params: each may be accessed only as q->scalar_field
+    sparams = {}                          # pname -> (struct, {field: ctype})
+    for piece in [p.strip() for p in cparams_str.split(",") if p.strip()]:
+        if piece == "void":
+            continue
+        sm = _PARAM_STRUCT.match(piece)
+        if sm and sm.group(2) == "*":
+            try:
+                sparams[sm.group(3)] = (sm.group(1),
+                                        _struct_scalar_fields(sm.group(1), near))
+            except Refused:
+                return None
+        elif _SCALAR_PARAM.match(piece):
+            continue
+        else:
+            return None                  # unmodelable param (out-ptr, ptr-ptr, ...)
+
+    # every field path must be q->scalar where q is a struct param; collect fields
+    touched = {p: set() for p in sparams}
+    for m in _FIELD_PATH.finditer(cscan):
+        full = re.sub(r"\s+", "", m.group(0))
+        if full.count("->") + full.count(".") > 1:
+            return None                  # chain
+        var, arrow, fld = m.group(1), m.group(2), m.group(3)
+        if arrow != "->" or var not in sparams or fld not in sparams[var][1]:
+            return None
+        touched[var].add(fld)
+    if re.search(r"\w+\s*\.\s*\w+", cscan):
+        return None                      # by-value struct field access
+
     owned = purity.owned_names(text) | purity.KEYWORDS
     cglobals, cdefines = {}, {}
-    for m in re.finditer(r"(?<![\w.>])([A-Za-z_]\w*)\b", cscan[cscan.find("{"):]):
+    body_scan = cscan[cscan.find("{"):]
+    body_scan = _FIELD_PATH.sub(" NFLD ", body_scan)
+    for m in re.finditer(r"(?<![\w.>])([A-Za-z_]\w*)\b", body_scan):
         n = m.group(1)
-        if (n in owned or n in purity.PURE_CALL or n in cglobals
-                or n in cdefines or n == name):
+        if (n in owned or n in purity.PURE_CALL or n in cglobals or n in cdefines
+                or n in sparams or n == name or n == "NFLD"):
             continue
         if re.search(rf"\b{n}\s*\(", cscan):     # a call, not a var
             continue
@@ -164,7 +236,8 @@ def _resolve_callee(name, src, src_masked):
             cdefines[n] = v
             continue
         return None                              # unresolvable -> not admissible
-    return text, cglobals, cdefines
+    return {"text": text, "globals": cglobals, "defines": cdefines,
+            "sparams": {p: (sparams[p][0], sorted(touched[p])) for p in sparams}}
 
 
 # file-scope (column-0) scalar global with an optional integer initializer
@@ -189,9 +262,8 @@ def gate(rel, fn, _cache={}):
         src = open(os.path.join(KSRC, rel), errors="ignore").read()
         _cache[rel] = (src, purity.mask(src))
     src, src_masked = _cache[rel]
-    try:
-        text = cluster.functions(src)[fn]["text"]
-    except Exception:
+    text = _file_funcs(src).get(fn)
+    if text is None:
         raise Refused("no-source")
     ret, params_str, body = _sig_split(text)
     scan = purity.mask(body)
@@ -210,11 +282,16 @@ def gate(rel, fn, _cache={}):
     if _PTR_LOCAL.search(inner):
         raise Refused("pointer local")
 
-    # calls
+    near = os.path.join(KSRC, rel)
+
+    # calls: admit same-file bounded helpers (interprocedural ladder); record
+    # each admitted callee's resolve dict, fold globals/defines now, fold the
+    # struct-field footprint AFTER params are parsed (needs the caller's nodes).
     flags = {"locks_stripped": False}
     inlined = {}                 # callee name -> real C text (ladder)
     inlined_globals = {}         # folded callee global footprint
     inlined_defines = {}         # folded callee #define usage
+    admitted = {}                # callee name -> resolve dict (for field folding)
     interproc = os.environ.get("INTERPROC", "1") != "0"
     for m in purity.CALL.finditer(scan):
         name = m.group(1)
@@ -225,17 +302,17 @@ def gate(rel, fn, _cache={}):
             continue
         if name in inlined:
             continue
-        res = _resolve_callee(name, src, src_masked) if interproc else None
+        res = _resolve_callee(name, src, src_masked, near) if interproc else None
         if res is not None:
-            inlined[name] = res[0]
-            inlined_globals.update(res[1])
-            inlined_defines.update(res[2])
+            inlined[name] = res["text"]
+            inlined_globals.update(res["globals"])
+            inlined_defines.update(res["defines"])
+            admitted[name] = res
             continue
         raise Refused(f"opaque: {name}")
 
     # params: scalar | struct-of-(touched-)scalars ptr | scalar OUT-param ptr
     params, nodes, outp = {}, {}, set()
-    near = os.path.join(KSRC, rel)
     for piece in [p.strip() for p in params_str.split(",") if p.strip()]:
         if piece == "void":
             continue
@@ -258,6 +335,45 @@ def gate(rel, fn, _cache={}):
             params[cm.group(1)] = {"kind": "scalar", "struct": None}
             continue
         raise Refused(f"param: {piece!r}")
+
+    # fold each admitted callee's STRUCT-field footprint into the caller's node
+    # cells: map the callee's struct param (positionally, via the call site) to
+    # a caller struct param of the same type, and extend that node's tracked
+    # scalar fields with the fields the callee touches. So a helper writing
+    # p->field lands in a compared cell of F's own struct.
+    inlined_wfields = set()
+    for cname, res in admitted.items():
+        if not res["sparams"]:
+            continue
+        cm2 = re.search(rf"\b{cname}\s*\(([^()]*)\)", scan)
+        if cm2 is None:
+            raise Refused(f"callee {cname}: call site not found")
+        cargs = [a.strip() for a in cm2.group(1).split(",")] if cm2.group(1).strip() else []
+        # positional map: which call-arg feeds each of the callee's params.
+        # the callee sig order == sparams+scalars; recover order from the sig.
+        _, csig, _ = _sig_split(inlined[cname])
+        corder = [re.match(r".*?([A-Za-z_]\w*)$", p.strip()).group(1)
+                  for p in csig.split(",") if p.strip() and p.strip() != "void"]
+        for qname, (qstruct, qfields) in res["sparams"].items():
+            try:
+                argexpr = cargs[corder.index(qname)]
+            except (ValueError, IndexError):
+                raise Refused(f"callee {cname}: arg map for {qname}")
+            fp = argexpr if re.fullmatch(r"[A-Za-z_]\w*", argexpr) else None
+            if fp is None or fp not in nodes or nodes[fp][0] != qstruct:
+                raise Refused(f"callee {cname}: {qname} not a caller {qstruct} param")
+            all_fields = _struct_scalar_fields(qstruct, near)
+            merged = dict(nodes[fp][1])
+            for f in qfields:                      # all touched -> cells (seeded)
+                if f in all_fields:
+                    merged[f] = all_fields[f]
+            nodes[fp] = (nodes[fp][0], merged)
+            params[fp] = {"kind": "node", "struct": nodes[fp][0]}
+            cmask = purity.mask(inlined[cname])
+            for f in qfields:                      # only WRITTEN -> coverage target
+                if re.search(rf"\b{qname}\s*->\s*{f}\s*(?:=[^=]|\+\+|--|[-+*/|&^]=|<<=|>>=)",
+                             cmask):
+                    inlined_wfields.add((fp, f))
 
     # strip lock brackets, mask out-param derefs, then resolve every field
     # path + escaping identifier
@@ -333,7 +449,7 @@ def gate(rel, fn, _cache={}):
             for m in rx.finditer(cmask):
                 if m.group(1) in globals_:
                     writes.add(m.group(1))
-    wfields = set()
+    wfields = set(inlined_wfields)       # callee struct-field writes (folded)
     for m in re.finditer(
             r"([A-Za-z_]\w*)\s*->\s*([A-Za-z_]\w*)\s*(?:=[^=]|\+\+|--|[-+*/|&^]=|<<=|>>=)",
             masked):

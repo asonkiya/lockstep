@@ -177,3 +177,52 @@ def test_ladder_dropped_guard_diverges(prep_ip):
     body = ("set_g(G_G_TOTAL,g(G_G_TOTAL)+a0); set_g(G_G_COUNT,g(G_G_COUNT)+1);\n"
             "set_g(G_G_TOTAL,g(G_G_TOTAL)+a1); set_g(G_G_COUNT,g(G_G_COUNT)+1);\n0\n")
     assert _H.close(prep_ip, body)["verdict"] == "DIVERGE:state"
+
+
+# ---- interprocedural ladder: STRUCT-mutating helper -----------------------
+# The pattern with real reach: F(struct*, ...) calls a same-file setter G(q,...)
+# that writes q->fields. The ladder maps G's struct param to F's, folds G's
+# field-writes into F's struct cell vector, inlines G's C, and the differential
+# arbitrates the composite. (Global-only helpers measured ~0 real reach.)
+
+_IPS_SRC = """struct st {
+\tint a;
+\tint b;
+\tint n;
+};
+static void set_ab(struct st *q, int v){ q->a = v; q->b = v + 1; q->n++; }
+void configure(struct st *p, int x){ set_ab(p, x); if (x > 10) p->b = 0; }
+"""
+
+
+@pytest.fixture(scope="module")
+def prep_ips():
+    ksrc = os.environ.get("KSRC", "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux")
+    path = os.path.join(ksrc, "_lockstep_ips_test.c")
+    open(path, "w").write(_IPS_SRC)
+    try:
+        yield _H.prepare(_R.gate("_lockstep_ips_test.c", "configure"))
+    finally:
+        os.remove(path)
+
+
+def test_struct_helper_folds_fields(prep_ips):
+    assert "set_ab" in prep_ips["rec"]["inlined_callees"]
+    # the helper's field writes are folded into the caller's struct footprint
+    assert set(prep_ips["rec"]["write_fields"]) == {"p->a", "p->b", "p->n"}
+
+
+_IPS_CORRECT = ("set_field(F0_A,a0,a1); set_field(F0_B,a0,a1+1); "
+                "set_field(F0_N,a0,field(F0_N,a0)+1);\nif a1>10 { set_field(F0_B,a0,0); }\n0\n")
+
+
+def test_struct_helper_correct_matches(prep_ips):
+    assert _H.close(prep_ips, _IPS_CORRECT)["verdict"] == "MATCH"
+
+
+def test_struct_helper_over_credit_diverges(prep_ips):
+    # drops the helper's n++ on the folded field -> caught only because the
+    # callee's field footprint was folded into the compared cell vector.
+    body = ("set_field(F0_A,a0,a1); set_field(F0_B,a0,a1+1);\n"
+            "if a1>10 { set_field(F0_B,a0,0); }\n0\n")
+    assert _H.close(prep_ips, body)["verdict"] == "DIVERGE:state"
