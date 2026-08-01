@@ -49,6 +49,8 @@ LOCK_NOOPS = (
 )
 
 NN, R, W = 4, 4, 12          # arena slots per struct param / rounds / calls
+# boundary values every scalar arg must sweep (round 2) to cover input branches
+_BSWEEP = (0, -1, 1, 2, 7, -8, 100, 3, 255, -2, 5, 4096)
 
 EFF_H = r"""
 #include <stddef.h>
@@ -261,6 +263,12 @@ def prepare(rec):
         c.append(f"static struct {p['struct']} EP{pi}[{NN}];")
     for oi, p in enumerate(outs):
         c.append(f"static {p['ctype']} EOP{oi};")
+    # interprocedural ladder: inline each admitted callee's REAL C before F, so
+    # the reference runs the true composite and the differential (over the
+    # folded footprint) arbitrates the whole thing.
+    for cname, ctext in rec.get("inlined_callees", {}).items():
+        c.append(f"/* inlined callee: {cname} */")
+        c.append(ctext)
     c.append('#line 1000 "fnsrc"')
     c.append(fn_text)
 
@@ -404,14 +412,21 @@ fn set_field(base: usize, slot: i64, v: i64) {{ unsafe {{ let ix = base + slot a
         for k in range(W):
             row = []
             pi_seen = 0
-            for p in rec["params"]:
+            for pidx, p in enumerate(rec["params"]):
                 if p["kind"] == "node":
                     row.append((k + pi_seen) % NN if r == 1 else next(g_) % NN)
                     pi_seen += 1
                 elif p["kind"] == "outp":
                     row.append(0)
                 else:
-                    v = vals[next(g_) % 8]
+                    # round 2: PER-PARAM boundary sweep — each scalar arg
+                    # independently cycles {0,-1,1,2,7,-8,...} so every guard on
+                    # an argument (`if (b > 0)`, `if (!x)`) gets BOTH branches,
+                    # regardless of the shared-LCG draw order. else: random pool.
+                    if r == 2:
+                        v = _BSWEEP[(k + pidx) % len(_BSWEEP)]
+                    else:
+                        v = vals[next(g_) % 8]
                     row.append(_norm_bits(*pw[len(row)], v) if pw[len(row)] else v)
             calls.append(row)
         rounds.append({"seeds": seeds, "calls": calls})
@@ -435,8 +450,14 @@ fn set_field(base: usize, slot: i64, v: i64) {{ unsafe {{ let ix = base + slot a
                           f" itself is an opaque non-null handle — ignore it)")
         else:
             argdoc.append(f"a{i}={p['name']} (scalar)")
+    callee_doc = ""
+    for cname, ctext in rec.get("inlined_callees", {}).items():
+        callee_doc += (f"\n// helper {cname} (called by the fn — translate its"
+                       f" effect INLINE into the cell model):\n"
+                       + "\n".join("//   " + ln for ln in ctext.split("\n")))
     doc = (f"// C function under translation (from {rec['file']}):\n"
            + "\n".join("// " + ln for ln in fn_text.split("\n"))
+           + callee_doc
            + "\n// Available constants:\n"
            + "\n".join("//   " + cc for cc in consts)
            + "\n// State cells are i64. Helpers: g(G_*), set_g(G_*, v),"

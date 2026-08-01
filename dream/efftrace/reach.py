@@ -119,6 +119,54 @@ def _struct_scalar_fields(struct, near):
     return out
 
 
+def _resolve_callee(name, src, src_masked):
+    """INTERPROCEDURAL LADDER (v1): admit a same-file callee whose footprint is
+    pure or global-only and depth-1 (calls only pure builtins). Returns
+    (text, globals_dict) or None (not admissible -> caller refuses as opaque).
+
+    Soundness: the reference TU inlines the callee's REAL C, F's cell vector is
+    extended with the callee's global footprint (reads+writes), and the
+    differential compares the COMPLETE composite footprint. So even an untrusted
+    callee is safe — a wrong composite translation diverges; we only require the
+    footprint be BOUNDED (completeness) and the source includable (fidelity)."""
+    try:
+        text = cluster.functions(src)[name]
+    except Exception:
+        return None
+    text = text["text"] if isinstance(text, dict) else text
+    cret, _cparams, cbody = _sig_split(text)
+    cscan = purity.mask(cbody)
+    if _ASM.search(cscan) or _MMIO.search(cscan) or entangle._GRAPH.search(cscan):
+        return None
+    if _FORBID.search(cscan) or _FN_STATIC.search(cscan[cscan.find("{") + 1:]):
+        return None
+    if _PTR_LOCAL.search(cscan) or "->" in cscan or re.search(r"\w+\s*\.\s*\w+", cscan):
+        return None                      # v1: no struct params / field access
+    for m in purity.CALL.finditer(cscan):
+        nm = m.group(1)
+        if nm not in purity.NONCALL and nm not in purity.PURE_CALL and nm != name:
+            return None                  # v1: depth-1 (pure builtins only)
+    owned = purity.owned_names(text) | purity.KEYWORDS
+    cglobals, cdefines = {}, {}
+    for m in re.finditer(r"(?<![\w.>])([A-Za-z_]\w*)\b", cscan[cscan.find("{"):]):
+        n = m.group(1)
+        if (n in owned or n in purity.PURE_CALL or n in cglobals
+                or n in cdefines or n == name):
+            continue
+        if re.search(rf"\b{n}\s*\(", cscan):     # a call, not a var
+            continue
+        g = _global_decl(n, src_masked)
+        if g is not None and g["init"] is not None:
+            cglobals[n] = g
+            continue
+        v = mirror._resolve_define(n, src)       # a #define the callee uses
+        if v is not None:
+            cdefines[n] = v
+            continue
+        return None                              # unresolvable -> not admissible
+    return text, cglobals, cdefines
+
+
 # file-scope (column-0) scalar global with an optional integer initializer
 def _global_decl(name, src_masked):
     m = re.search(
@@ -164,12 +212,24 @@ def gate(rel, fn, _cache={}):
 
     # calls
     flags = {"locks_stripped": False}
+    inlined = {}                 # callee name -> real C text (ladder)
+    inlined_globals = {}         # folded callee global footprint
+    inlined_defines = {}         # folded callee #define usage
+    interproc = os.environ.get("INTERPROC", "1") != "0"
     for m in purity.CALL.finditer(scan):
         name = m.group(1)
         if name in purity.NONCALL or name in purity.PURE_CALL or name == fn:
             continue
         if name in LOCK_STRIP:
             flags["locks_stripped"] = True
+            continue
+        if name in inlined:
+            continue
+        res = _resolve_callee(name, src, src_masked) if interproc else None
+        if res is not None:
+            inlined[name] = res[0]
+            inlined_globals.update(res[1])
+            inlined_defines.update(res[2])
             continue
         raise Refused(f"opaque: {name}")
 
@@ -251,12 +311,28 @@ def gate(rel, fn, _cache={}):
             continue
         raise Refused(f"unresolved: {n}")
 
-    # effectful? at least one escaping write (global, param field, out-param)
+    # fold each inlined callee's global footprint into the caller's cells, so
+    # the differential compares the COMPLETE composite state (an effect the
+    # callee has on a global the caller's own body never mentions is now a
+    # seeded, compared cell — closes the over-credit hole).
+    for gn, gd in inlined_globals.items():
+        globals_.setdefault(gn, gd)
+    for dn, dv in inlined_defines.items():
+        defines.setdefault(dn, dv)
+
+    # effectful? at least one escaping write (global, param field, out-param).
+    # a global a callee WRITES counts as an effect of the composite.
     writes = set()
     for rx in (purity._ASSIGN, purity._PREINC, purity._IDX_ASSIGN):
         for m in rx.finditer(masked):
             if m.group(1) in globals_:
                 writes.add(m.group(1))
+    for cname, ctext in inlined.items():
+        cmask = purity.mask(ctext)
+        for rx in (purity._ASSIGN, purity._PREINC, purity._IDX_ASSIGN):
+            for m in rx.finditer(cmask):
+                if m.group(1) in globals_:
+                    writes.add(m.group(1))
     wfields = set()
     for m in re.finditer(
             r"([A-Za-z_]\w*)\s*->\s*([A-Za-z_]\w*)\s*(?:=[^=]|\+\+|--|[-+*/|&^]=|<<=|>>=)",
@@ -274,6 +350,7 @@ def gate(rel, fn, _cache={}):
         "write_globals": sorted(writes),
         "write_outp": sorted(opw),
         "write_fields": sorted(f"{v}->{f}" for v, f in wfields),
+        "inlined_callees": inlined,      # name -> real C text (ladder rungs)
         "branches": len(re.findall(r"\bif\s*\(|\bwhile\s*\(|\bfor\s*\(", masked)),
         "params": [{"name": p, "kind": params[p]["kind"],
                     "struct": params[p]["struct"],

@@ -105,14 +105,18 @@ def ctx_prep():
     return _H.prepare(_R.gate(*_CTX))
 
 
-def test_undirected_refuses_conditional_write(ctx_prep):
+def test_baseline_boundary_sweep_covers_arg_guard(ctx_prep):
+    # ctx_set_mount_opt's `|= flag` writes are ARGUMENT-driven; the round-2
+    # per-param boundary sweep now covers them without directed search. (It
+    # formerly REFUSED_COVERAGE; the stronger baseline closed this arg-branch
+    # gap. Directed synth remains for STATE-dependent guards below.)
     r = _H.close(ctx_prep, _CTX_CORRECT)
-    assert r["verdict"] == "REFUSED_COVERAGE", r
+    assert r["verdict"] == "MATCH", r
 
 
-def test_directed_drives_conditional_write(ctx_prep):
+def test_directed_still_matches_correct(ctx_prep):
+    # directed synth only ADDS rounds -> a correct candidate still matches.
     d = _H.with_directed(ctx_prep)
-    assert d.get("directed_added", 0) > 0, "search found no covering rounds"
     r = _H.close(d, _CTX_CORRECT)
     assert r["verdict"] == "MATCH", r
 
@@ -121,3 +125,55 @@ def test_directed_still_catches_wrong(ctx_prep):
     d = _H.with_directed(ctx_prep)
     r = _H.close(d, _CTX_WRONG)
     assert r["verdict"].startswith("DIVERGE"), r
+
+
+# ---- interprocedural ladder ------------------------------------------------
+# A caller F that calls a same-file global-mutating helper G. The ladder admits
+# G (inlines its real C, folds its global footprint g_total/g_count into F's
+# cell vector), and the differential arbitrates the whole composite. Written to
+# a temp file under $KSRC so gate() can resolve it, then cleaned up.
+
+_IP_SRC = """static long g_total;
+static int g_count;
+static void bump(int by){ g_total += by; g_count++; }
+void accumulate(int a, int b){ bump(a); if (b > 0) bump(b); }
+"""
+
+
+@pytest.fixture(scope="module")
+def prep_ip():
+    ksrc = os.environ.get("KSRC", "/Users/aryaman/.claude/jobs/8a8bcefc/tmp/linux")
+    path = os.path.join(ksrc, "_lockstep_ip_test.c")
+    open(path, "w").write(_IP_SRC)
+    try:
+        yield _H.prepare(_R.gate("_lockstep_ip_test.c", "accumulate"))
+    finally:
+        os.remove(path)
+
+
+def test_ladder_admits_and_folds(prep_ip):
+    assert "bump" in prep_ip["rec"]["inlined_callees"]
+    assert set(prep_ip["rec"]["globals"]) == {"g_total", "g_count"}
+
+
+_IP_CORRECT = ("set_g(G_G_TOTAL,g(G_G_TOTAL)+a0); set_g(G_G_COUNT,g(G_G_COUNT)+1);\n"
+               "if a1>0 { set_g(G_G_TOTAL,g(G_G_TOTAL)+a1); set_g(G_G_COUNT,g(G_G_COUNT)+1); }\n0\n")
+
+
+def test_ladder_correct_composite_matches(prep_ip):
+    assert _H.close(prep_ip, _IP_CORRECT)["verdict"] == "MATCH"
+
+
+def test_ladder_over_credit_diverges(prep_ip):
+    # drops the helper's count++ effect on the folded global -> caught only
+    # because the callee footprint was folded into the compared cell vector.
+    body = ("set_g(G_G_TOTAL,g(G_G_TOTAL)+a0);\nif a1>0 { set_g(G_G_TOTAL,g(G_G_TOTAL)+a1); }\n0\n")
+    assert _H.close(prep_ip, body)["verdict"] == "DIVERGE:state"
+
+
+def test_ladder_dropped_guard_diverges(prep_ip):
+    # calls the helper unconditionally -> caught by the round-2 arg boundary
+    # sweep (b <= 0 exercised), not the shared-LCG draw.
+    body = ("set_g(G_G_TOTAL,g(G_G_TOTAL)+a0); set_g(G_G_COUNT,g(G_G_COUNT)+1);\n"
+            "set_g(G_G_TOTAL,g(G_G_TOTAL)+a1); set_g(G_G_COUNT,g(G_G_COUNT)+1);\n0\n")
+    assert _H.close(prep_ip, body)["verdict"] == "DIVERGE:state"
