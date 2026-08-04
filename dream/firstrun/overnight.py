@@ -69,6 +69,8 @@ cadt_harness = _load_by_path(
     "cadt_harness", os.path.join(HERE, "..", "container_adt", "harness.py"))
 eff_harness = _load_by_path(
     "eff_harness", os.path.join(HERE, "..", "efftrace", "harness.py"))
+alloc_harness = _load_by_path(
+    "alloc_harness", os.path.join(HERE, "..", "allocmodel", "harness.py"))
 shardlib = _load_by_path("shardlib", os.path.join(HERE, "shardlib.py"))
 
 BUDGET_CAP = float(os.environ.get("BUDGET_CAP", "7.5"))
@@ -466,6 +468,78 @@ def solve_efftrace(item, done):
 
 
 # ---------------------------------------------------------------------------
+# corpus B4: alloc-init fns, gated boot-free by the fresh-slot differential
+# ---------------------------------------------------------------------------
+
+_ALLOC_PROMPT = """Translate this Linux kernel allocate-and-initialize function into the BODY
+of a Rust function operating on a flat state-cell model with a fresh-slot
+allocator. Exact signature (write ONLY the code inside its braces; it must
+end in an i64 value — the allocated slot id for `return p`, or -1 for a NULL
+return):
+{sig}
+
+{doc}
+
+Helper signatures (EXACT — these are the ONLY functions that exist):
+  fn alloc() -> i64                        // fresh ZEROED slot id; NEVER fails
+  fn af(base: usize, id: i64) -> i64       // read allocated-object field A_*
+  fn set_af(base: usize, id: i64, v: i64)  // write allocated-object field A_*
+  fn g(ix: usize) -> i64                   // read global cell G_*
+  fn set_g(ix: usize, v: i64)
+  fn field(base: usize, slot: i64) -> i64  // struct-param field F*_X at slot
+  fn set_field(base: usize, slot: i64, v: i64)
+
+Rules: call alloc() exactly once per C allocation, at the same point in the
+control flow. The C's `if (!p) return NULL` allocation-failure branch is DEAD
+in this model (alloc never fails) — OMIT it. kzalloc ZEROES: fields you don't
+write stay 0. kfree is a no-op. gfp flag arguments are irrelevant. Use ONLY
+the helpers, the documented constants, and the a0..aN args. When the C
+branches on a named constant, USE the named constant from the list — do NOT
+hardcode a guessed value. PRESERVE C SEMANTICS EXACTLY on the i64 cells
+(+= is not |=; C unsigned comparisons cast both sides `as u64`). A store to a
+narrow field WRAPS to that width — replicate the C's VALUE logic only.
+No unsafe, no statics, no external calls, no panics. If the C does something
+the helpers can't express, reply exactly `// UNSUPPORTED`. Output ONLY the
+body, no signature, no outer braces, no ``` fences.
+"""
+
+
+def solve_alloc(item, done):
+    fn, rel = item["fn"], item["file"]
+    key = f"alloc_{fn}"
+    if key in done or time_left() < 300:
+        return None
+    try:
+        prep = alloc_harness.prepare(item)
+    except Exception as e:
+        log(f"  ✗ alloc {fn} prepare-refuse ({str(e)[:48]})")
+        return None
+    prompt = _ALLOC_PROMPT.format(sig=prep["rs_sig"], doc=prep["doc"])
+
+    def gate(body):
+        if "UNSUPPORTED" in body:
+            return False, ""
+        with tempfile.TemporaryDirectory() as d:
+            r = alloc_harness.close(prep, body, workdir=d)
+        if r["verdict"] == "MATCH":
+            return True, ""
+        fb = r["out"] if r["verdict"].startswith(("BUILD_FAIL", "DIVERGE")) else ""
+        return False, fb
+
+    body, model, cost = ladder(prompt, gate, repair=True)
+    if body:
+        open(os.path.join(VERIFIED, f"{key}.rs"), "w").write(
+            prep["surface"] + "\n" + prep["rs_sig"] + " {\n" + body + "\n}\n")
+        fl = prep["flags"]
+        log(f"  ✓ alloc {fn} via {model} (${cost:.4f}) "
+            f"[kmalloc_zero_modeled={fl['kmalloc_zero_modeled']}]")
+        return {"sym": fn, "kind": "alloc-init", "model": model, "cost": cost,
+                "file": rel, "flags": fl}
+    log(f"  ✗ alloc {fn} unsolved ({model})")
+    return None
+
+
+# ---------------------------------------------------------------------------
 # phase 2: weave verified freestanding leaves into a booting kernel (one boot)
 # ---------------------------------------------------------------------------
 
@@ -622,6 +696,24 @@ def main():
                 if time_left() < 300:
                     break
 
+    # corpus B4 — alloc-init fns (ALLOCMODEL=1). Boot-free fresh-slot
+    # differential over allocmodel/reach_accepted.json.
+    if os.environ.get("ALLOCMODEL") == "1":
+        aj = os.path.join(HERE, "..", "allocmodel", "reach_accepted.json")
+        aitems = shardlib.shard_env(json.load(open(aj)) if os.path.exists(aj) else [])
+        log(f"phase 1B4: {len(aitems)} alloc-init fns "
+            f"(fresh-slot differential, boot-free, workers={WORKERS})")
+        with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
+            futs = {ex.submit(solve_alloc, it, done): it for it in aitems}
+            for fut in cf.as_completed(futs):
+                r = fut.result()
+                if r:
+                    solved.append(r)
+                    done.add(f"alloc_{r['sym']}")
+                    json.dump({"done": sorted(done)}, open(PROGRESS, "w"))
+                if time_left() < 300:
+                    break
+
     # corpus C — scalar leaves via the ladder, boot-free hostdiff gate
     log("phase 1C: harvesting scalar exported leaves...")
     # shard the RAW harvest before done-filtering/capping (see shardlib docstring)
@@ -648,7 +740,7 @@ def main():
     # solves (else phase 2 under-weaves after a resume). reader_/container_
     # artifacts are boot-free oracle candidates, NOT freestanding kernel objects.
     for f in os.listdir(VERIFIED):
-        if f.endswith(".rs") and not f.startswith(("reader_", "container_", "efftrace_")):
+        if f.endswith(".rs") and not f.startswith(("reader_", "container_", "efftrace_", "alloc_")):
             leaf_syms.add(f[:-3])
     log(f"phase 1 done: {len(solved)} new this session; {len(leaf_syms)} freestanding "
         f"leaves total to weave (${spent():.4f} spent).")

@@ -1,0 +1,630 @@
+[
+ {
+  "file": "kernel/resource.c",
+  "fn": "alloc_resource",
+  "ret": "struct resource *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "resource",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "desc": "unsigned long",
+   "end": "resource_size_t",
+   "flags": "unsigned long",
+   "start": "resource_size_t"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": [
+   {
+    "name": "flags",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "kernel/kprobes.c",
+  "fn": "alloc_aggr_kprobe",
+  "ret": "struct kprobe *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "kprobe",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "flags": "u32",
+   "nmissed": "unsigned long",
+   "offset": "unsigned int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": [
+   {
+    "name": "p",
+    "kind": "node",
+    "struct": "kprobe",
+    "scalar_fields": {
+     "nmissed": "unsigned long",
+     "offset": "unsigned int",
+     "flags": "u32"
+    }
+   }
+  ]
+ },
+ {
+  "file": "mm/damon/sysfs-schemes.c",
+  "fn": "damos_sysfs_probe_alloc",
+  "ret": "struct damos_sysfs_probe *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damos_sysfs_probe",
+  "alloc_var": "probe",
+  "alloc_fields": {
+   "hits": "unsigned char"
+  },
+  "write_afields": [
+   "hits"
+  ],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 1,
+  "params": [
+   {
+    "name": "hits",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "mm/damon/sysfs-schemes.c",
+  "fn": "damos_sysfs_probes_alloc",
+  "ret": "struct damos_sysfs_probes *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damos_sysfs_probes",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "nr": "int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs-schemes.c",
+  "fn": "damon_sysfs_stats_alloc",
+  "ret": "struct damon_sysfs_stats *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damon_sysfs_stats",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "max_nr_snapshots": "unsigned long",
+   "nr_applied": "unsigned long",
+   "nr_snapshots": "unsigned long",
+   "nr_tried": "unsigned long",
+   "qt_exceeds": "unsigned long",
+   "sz_applied": "unsigned long",
+   "sz_ops_filter_passed": "unsigned long",
+   "sz_tried": "unsigned long"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs-schemes.c",
+  "fn": "damos_sysfs_quota_goal_alloc",
+  "ret": "struct damos_sysfs_quota_goal *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damos_sysfs_quota_goal",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "current_value": "unsigned long",
+   "nid": "int",
+   "target_value": "unsigned long"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs-schemes.c",
+  "fn": "damos_sysfs_quota_goals_alloc",
+  "ret": "struct damos_sysfs_quota_goals *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damos_sysfs_quota_goals",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "nr": "int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs-schemes.c",
+  "fn": "damon_sysfs_quotas_alloc",
+  "ret": "struct damon_sysfs_quotas *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damon_sysfs_quotas",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "effective_sz": "unsigned long",
+   "fail_charge_denom": "unsigned int",
+   "fail_charge_num": "unsigned int",
+   "ms": "unsigned long",
+   "reset_interval_ms": "unsigned long",
+   "sz": "unsigned long"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs-schemes.c",
+  "fn": "damos_sysfs_dest_alloc",
+  "ret": "struct damos_sysfs_dest *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damos_sysfs_dest",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "id": "unsigned int",
+   "weight": "unsigned int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs-schemes.c",
+  "fn": "damon_sysfs_schemes_alloc",
+  "ret": "struct damon_sysfs_schemes *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damon_sysfs_schemes",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "nr": "int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs.c",
+  "fn": "damon_sysfs_regions_alloc",
+  "ret": "struct damon_sysfs_regions *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damon_sysfs_regions",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "nr": "int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs.c",
+  "fn": "damon_sysfs_target_alloc",
+  "ret": "struct damon_sysfs_target *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damon_sysfs_target",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "obsolete": "bool",
+   "pid": "int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs.c",
+  "fn": "damon_sysfs_targets_alloc",
+  "ret": "struct damon_sysfs_targets *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damon_sysfs_targets",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "nr": "int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs.c",
+  "fn": "damon_sysfs_filter_alloc",
+  "ret": "struct damon_sysfs_filter *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damon_sysfs_filter",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "allow": "bool",
+   "matching": "bool"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs.c",
+  "fn": "damon_sysfs_filters_alloc",
+  "ret": "struct damon_sysfs_filters *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damon_sysfs_filters",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "nr": "int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs.c",
+  "fn": "damon_sysfs_probes_alloc",
+  "ret": "struct damon_sysfs_probes *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damon_sysfs_probes",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "nr": "int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs.c",
+  "fn": "damon_sysfs_contexts_alloc",
+  "ret": "struct damon_sysfs_contexts *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damon_sysfs_contexts",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "nr": "int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs.c",
+  "fn": "damon_sysfs_kdamond_alloc",
+  "ret": "struct damon_sysfs_kdamond *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damon_sysfs_kdamond",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "refresh_ms": "unsigned int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "mm/damon/sysfs.c",
+  "fn": "damon_sysfs_kdamonds_alloc",
+  "ret": "struct damon_sysfs_kdamonds *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "damon_sysfs_kdamonds",
+  "alloc_var": "__direct__",
+  "alloc_fields": {
+   "nr": "int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 0,
+  "params": []
+ },
+ {
+  "file": "lib/xz/xz_dec_bcj.c",
+  "fn": "xz_dec_bcj_create",
+  "ret": "struct xz_dec_bcj *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": true,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "xz_dec_bcj",
+  "alloc_var": "s",
+  "alloc_fields": {
+   "out_pos": "size_t",
+   "out_size": "size_t",
+   "single_call": "bool",
+   "size": "size_t"
+  },
+  "write_afields": [
+   "single_call"
+  ],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 1,
+  "params": [
+   {
+    "name": "single_call",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/nfs/pnfs_nfs.c",
+  "fn": "nfs4_pnfs_ds_addr_alloc",
+  "ret": "struct nfs4_pnfs_ds_addr *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": true
+  },
+  "alloc_struct": "nfs4_pnfs_ds_addr",
+  "alloc_var": "da",
+  "alloc_fields": {
+   "da_addrlen": "size_t",
+   "da_transport": "int"
+  },
+  "write_afields": [],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 1,
+  "params": [
+   {
+    "name": "gfp_flags",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ },
+ {
+  "file": "fs/nfs/inode.c",
+  "fn": "nfs_alloc_fhandle",
+  "ret": "struct nfs_fh *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": true,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "nfs_fh",
+  "alloc_var": "fh",
+  "alloc_fields": {
+   "size": "unsigned short"
+  },
+  "write_afields": [
+   "size"
+  ],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 1,
+  "params": []
+ },
+ {
+  "file": "fs/ntfs3/lznt.c",
+  "fn": "get_lznt_ctx",
+  "ret": "struct lznt *",
+  "flags": {
+   "locks_stripped": false,
+   "logging_stripped": false,
+   "alloc_stripped": true,
+   "kmalloc_zero_modeled": false,
+   "list_init_stripped": false
+  },
+  "alloc_struct": "lznt",
+  "alloc_var": "r",
+  "alloc_fields": {
+   "max_len": "size_t",
+   "std": "bool"
+  },
+  "write_afields": [
+   "std"
+  ],
+  "globals": {},
+  "defines": {},
+  "write_globals": [],
+  "write_fields": [],
+  "branches": 1,
+  "params": [
+   {
+    "name": "level",
+    "kind": "scalar",
+    "struct": null
+   }
+  ]
+ }
+]
