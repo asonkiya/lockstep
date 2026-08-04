@@ -27,8 +27,10 @@ with this script (follow-on wiring).
 `burst.sh up N [cax31|cax41]` rents N arm64 KVM boxes hourly (~€0.02/hr each),
 provisions them with the same grinder kit (repo via rsync — no secrets on
 ephemeral boxes), shards work by phase; `status` / `collect DIR` / `down`.
-4 boxes × a weekend ≈ **€5–8 total**. Finer-than-phase sharding needs
-`overnight.py --shard` support (not built yet).
+4 boxes × a weekend ≈ **€5–8 total**. Work shards properly: every box runs all
+phases with `GRIND_SHARD=k`/`GRIND_OF=N`; `firstrun/shardlib.py` slices each
+raw worklist modulo — disjoint and exhaustive by construction
+(`dream/tests/test_shard.py`).
 
 ## Secrets discipline
 

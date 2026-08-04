@@ -69,6 +69,7 @@ cadt_harness = _load_by_path(
     "cadt_harness", os.path.join(HERE, "..", "container_adt", "harness.py"))
 eff_harness = _load_by_path(
     "eff_harness", os.path.join(HERE, "..", "efftrace", "harness.py"))
+shardlib = _load_by_path("shardlib", os.path.join(HERE, "shardlib.py"))
 
 BUDGET_CAP = float(os.environ.get("BUDGET_CAP", "7.5"))
 RUNTIME_CAP_H = float(os.environ.get("RUNTIME_CAP_H", "7"))
@@ -557,8 +558,10 @@ def main():
     done = set()
     if os.path.exists(PROGRESS):
         done = set(json.load(open(PROGRESS)).get("done", []))
+    _sh = os.environ.get("GRIND_SHARD"), os.environ.get("GRIND_OF")
     log(f"=== first official minimal rewrite: budget ${BUDGET_CAP} / {RUNTIME_CAP_H}h "
-        f"/ {WORKERS} workers / resume={len(done)} done ===")
+        f"/ {WORKERS} workers / resume={len(done)} done"
+        f"{f' / shard {_sh[0]}/{_sh[1]}' if _sh[0] else ''} ===")
     solved = []
 
     # corpus A — $0, guaranteed, always runs first so there is always a result
@@ -569,7 +572,7 @@ def main():
     # class (reach_accepted.json); boot-free, gate-arbitrated like everything else.
     if os.environ.get("READERS") == "1":
         rj = os.path.join(HERE, "..", "structdiff", "reach_accepted.json")
-        readers = json.load(open(rj)) if os.path.exists(rj) else []
+        readers = shardlib.shard_env(json.load(open(rj)) if os.path.exists(rj) else [])
         log(f"phase 1B: {len(readers)} struct-readers (structdiff, boot-free, workers={WORKERS})")
         with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
             futs = {ex.submit(solve_reader, it, done): it for it in readers}
@@ -587,7 +590,7 @@ def main():
     # halves (locks -> concgate, alloc -> allocator model).
     if os.environ.get("CONTAINERS") == "1":
         cj = os.path.join(HERE, "..", "container_adt", "reach_accepted.json")
-        citems = json.load(open(cj)) if os.path.exists(cj) else []
+        citems = shardlib.shard_env(json.load(open(cj)) if os.path.exists(cj) else [])
         log(f"phase 1B2: {len(citems)} container-ADT mutators "
             f"(ADT differential, boot-free, workers={WORKERS})")
         with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
@@ -605,7 +608,7 @@ def main():
     # full-footprint state differential over efftrace/reach_accepted.json.
     if os.environ.get("EFFTRACE") == "1":
         ej = os.path.join(HERE, "..", "efftrace", "reach_accepted.json")
-        eitems = json.load(open(ej)) if os.path.exists(ej) else []
+        eitems = shardlib.shard_env(json.load(open(ej)) if os.path.exists(ej) else [])
         log(f"phase 1B3: {len(eitems)} bounded-state fns "
             f"(state differential, boot-free, workers={WORKERS})")
         with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
@@ -621,7 +624,9 @@ def main():
 
     # corpus C — scalar leaves via the ladder, boot-free hostdiff gate
     log("phase 1C: harvesting scalar exported leaves...")
-    work = [w for w in widerun.harvest() if w["sym"] not in done][:N_LEAVES]
+    # shard the RAW harvest before done-filtering/capping (see shardlib docstring)
+    work = [w for w in shardlib.shard_env(widerun.harvest())
+            if w["sym"] not in done][:N_LEAVES]
     log(f"phase 1C: {len(work)} leaves to solve (workers={WORKERS})")
     with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
         futs = {ex.submit(solve_leaf, w, done): w for w in work}

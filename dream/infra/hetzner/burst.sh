@@ -17,9 +17,10 @@
 #                                 billing stops; results are NOT auto-collected)
 #
 # Economics [MEASURED basis]: a CAX31 runs a full overnight.py boot-free pass
-# comfortably; 4 boxes x a weekend ~ €5-8 total. Work is sharded by PHASE
-# (box k gets PHASES[k mod n]); finer-grained sharding needs overnight.py
-# --shard support (not built yet — noted, not hidden).
+# comfortably; 4 boxes x a weekend ~ €5-8 total. Work is sharded properly:
+# every box runs ALL phases with GRIND_SHARD=k/GRIND_OF=N — shardlib slices
+# each raw worklist modulo, so shards are disjoint and exhaustive by
+# construction (dream/tests/test_shard.py pins the contract).
 #
 # No secrets land on burst boxes: the repo goes up via rsync (not deploy keys),
 # results come back via rsync. Pass --with-haiku on `up` to ALSO push the
@@ -29,7 +30,7 @@ set -euo pipefail
 LABEL=lockstep-burst
 IMAGE=ubuntu-24.04
 REPO=$(cd "$(dirname "$0")/../../.." && pwd)   # lockstep checkout root
-PHASES=("EFFTRACE=1 PHASE2=0" "CONTAINERS=1 PHASE2=0" "READERS=1 PHASE2=0" "PHASE2=0")
+ALL_PHASES="READERS=1 CONTAINERS=1 EFFTRACE=1 PHASE2=0"
 
 need() { command -v "$1" >/dev/null || { echo "missing: $1" >&2; exit 2; }; }
 need hcloud; need rsync
@@ -56,13 +57,14 @@ up)
         rsync -az --delete -e "ssh -o StrictHostKeyChecking=accept-new" \
             --exclude .git --exclude 'dream/firstrun/verified' \
             "$REPO/" "root@$ip:/root/grind/lockstep/"
-        PH=${PHASES[$((i % ${#PHASES[@]}))]}
-        $SSH "mkdir -p /root/grind && printf 'GRIND_PHASES=\"%s\"\n' '$PH' > /root/grind/.env && chmod 600 /root/grind/.env"
+        $SSH "mkdir -p /root/grind && { printf 'GRIND_PHASES=\"%s\"\n' '$ALL_PHASES';
+              printf 'GRIND_SHARD=%s\nGRIND_OF=%s\n' '$((i + 1))' '$N'; } > /root/grind/.env \
+              && chmod 600 /root/grind/.env"
         if [ "$WITH_HAIKU" = 1 ] && [ -f "$REPO/../llm-semantic-compilers/.env" ]; then
             grep '^ANTHROPIC_API_KEY=' "$REPO/../llm-semantic-compilers/.env" | $SSH 'cat >> /root/grind/.env'
         fi
         $SSH 'systemctl --user start grind.service || bash /root/grind/lockstep/dream/infra/grinder/grind.sh &'
-        echo "$name: grinding [$PH]"
+        echo "$name: grinding shard $((i + 1))/$N [$ALL_PHASES]"
         i=$((i+1))
     done
     ;;
