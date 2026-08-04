@@ -230,3 +230,41 @@ synthesizes:
   qemu-aarch64-hvf; sam4k.com virtualised-linux-empire.
 - Free ARM: github.blog changelog 2025-01-16 + 2025-08-07 (arm64 runners);
   Oracle Always Free A1 (4 OCPU/24 GB); Hetzner CAX post-2026-06 pricing.
+
+---
+
+## Addendum 2026-08-03 — the bill as things stand (post oracle-family session)
+
+New `[MEASURED]` unit costs from the boot-free oracle live fires:
+
+| oracle | solved | model spend | $/solve | notes |
+|---|---|---|---|---|
+| effect-trace | 109/110 | $0.094 | ~$0.0009 | 5 census-fix cycles: 41→109 |
+| container-ADT | 72/80 | $0.089 | ~$0.0012 | multi-lh + head-holder + pop idiom |
+| wide run (pure) | 71 synth | $0.10 | ~$0.0014 | prior measurement, consistent |
+
+Ladder economics confirmed at scale: **60–70% of solves cost $0.0000** (template or
+local qwen2.5-coder), the Haiku tail runs $0.001–0.007/fn. Total model spend across
+the ENTIRE dream to date remains **< $2**.
+
+**The one revision the conjunction finding forces on §1's model:** COSTDOWN assumed
+T0 host-diff covers ~80–90% of the eligible set once the shim library exists. The
+session's measured reality: each front gate is a deep *conjunction* of narrow
+filters, so gate-clean slices today are **hundreds, not thousands** (efftrace 110
+tree-wide, container 83, alloc-init 63), and single-filter widenings buy single
+digits (interproc +2, logging +6). The cost center is therefore NOT tokens and NOT
+boots — it is **harness generality**, bought in census→fix→rerun cycles (~an hour
+of agent time per cycle, each cycle worth +10–40 fns). The $/fn framing understates
+this; the honest unit is $/harness-increment.
+
+Re-modeled bill by milestone `[MODELED]`, minimal arm64 config (24k fns):
+
+| milestone | fns | model $ | wall-clock | dominated by |
+|---|---|---|---|---|
+| A. everything-now (~17% strongly-verifiable) | ~4k | ~$5 | ~1 wk background | alloc harness build + T0 grind |
+| B. majority-Rust minimal kernel | ~12.5k | $15–40 | 2–6 wks background | ksdk mirrors (~300–800 families @ 1 mirror → ~6 fns, scripted + fail-closed) + config coverage |
+| C. the 89% ceiling | ~21.5k | $30–60 (≤$90 all-Haiku) | 1–3 mo background | per-driver trace recordings + quarantine adjudication (purity router quarantined 59/72) |
+
+Cash stays ≈ pocket change at every milestone; the currency the project actually
+spends is background fleet-hours and harness-generality increments. Ring 7's
+near-linear worker scaling means milestone wall-clocks divide by workers provisioned.
