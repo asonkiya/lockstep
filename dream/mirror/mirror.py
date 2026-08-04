@@ -115,6 +115,86 @@ def _opaque_field(ctype):
     return rty, size, align
 
 
+import threading as _threading
+
+# ---- pinned-config #if resolution (the mirror factory's core widener) ------
+# Struct bodies with CONFIG_* conditionals have a FIXED layout once a config
+# is pinned. strip_config_ifs evaluates the simple forms (#ifdef/#ifndef
+# CONFIG_X, #if defined(CONFIG_X), #if IS_ENABLED(CONFIG_X), #else, nesting);
+# anything not statically decidable raises Unsupported — the refusal backstop
+# in parse_struct is unchanged. Mirrors built this way are flagged
+# config_pinned=True: the layout claim is scoped to the pinned config.
+_PINNED_CONFIG = None
+_TLS = _threading.local()
+
+
+def set_pinned_config(cfg):
+    """cfg: a set of enabled CONFIG_* names, or None to disable."""
+    global _PINNED_CONFIG
+    _PINNED_CONFIG = set(cfg) if cfg is not None else None
+
+
+def load_pinned_config(path):
+    cfg = set()
+    for ln in open(path):
+        m = re.match(r"(CONFIG_\w+)=([ym])", ln)
+        if m:
+            cfg.add(m.group(1))
+    set_pinned_config(cfg)
+    return cfg
+
+
+_IFLINE = re.compile(r"^\s*#\s*(ifdef|ifndef|if|elif|else|endif)\b[ \t]*(.*?)\s*$")
+
+
+def _cond(kind, expr):
+    if kind in ("ifdef", "ifndef"):
+        tok = expr.split("/*")[0].strip()
+        if not re.fullmatch(r"CONFIG_\w+", tok):
+            raise Unsupported(f"#{kind} {tok[:30]}: not a CONFIG_* symbol")
+        val = tok in _PINNED_CONFIG
+        return (not val) if kind == "ifndef" else val
+    m = (re.fullmatch(r"defined\s*\(\s*(CONFIG_\w+)\s*\)", expr)
+         or re.fullmatch(r"IS_ENABLED\s*\(\s*(CONFIG_\w+)\s*\)", expr))
+    if not m:
+        raise Unsupported(f"#if not statically decidable: {expr[:40]}")
+    return m.group(1) in _PINNED_CONFIG
+
+
+def strip_config_ifs(body, cfg):
+    """Resolve simple CONFIG conditionals in a struct body against cfg.
+    Raises Unsupported on any form it cannot decide statically."""
+    global _PINNED_CONFIG
+    saved = _PINNED_CONFIG
+    _PINNED_CONFIG = set(cfg)
+    try:
+        out, stack = [], []          # stack of [branch_active]
+        for line in body.splitlines():
+            m = _IFLINE.match(line)
+            if not m:
+                if all(stack) if stack else True:
+                    out.append(line)
+                continue
+            kind, expr = m.group(1), m.group(2)
+            if kind in ("ifdef", "ifndef", "if"):
+                stack.append(_cond(kind, expr))
+            elif kind == "elif":
+                raise Unsupported("#elif — not statically resolved")
+            elif kind == "else":
+                if not stack:
+                    raise Unsupported("dangling #else")
+                stack[-1] = not stack[-1]
+            else:                    # endif
+                if not stack:
+                    raise Unsupported("dangling #endif")
+                stack.pop()
+        if stack:
+            raise Unsupported("unterminated #if")
+        return "\n".join(out) + ("\n" if body.endswith("\n") else "")
+    finally:
+        _PINNED_CONFIG = saved
+
+
 class Unsupported(Exception):
     pass
 
@@ -254,7 +334,11 @@ def _extract_body(src, name):
     m = re.search(rf"\bstruct\s+{re.escape(name)}\s*\{{(.*?)\n\}}[ \t\w()]*;", src, re.DOTALL)
     if not m:
         raise Unsupported(f"struct {name} not found")
-    return m.group(1)
+    body = m.group(1)
+    if _PINNED_CONFIG is not None and "#if" in body:
+        body = strip_config_ifs(body, _PINNED_CONFIG)
+        _TLS.config_pinned = True     # thread-local: mirror() snapshots this
+    return body
 
 
 def parse_struct(src, name):
@@ -528,6 +612,7 @@ def mirror(src, name, near_file=None):
     Returns a dict; `rust`/`c_guard` are the parent's emission. Any nested
     struct-by-value mirrors are inlined into `rust`/`c_guard` (deduplicated,
     dependencies first) so a single emission is self-contained."""
+    _TLS.config_pinned = False
     top = _mirror_impl(src, name, near_file, 0)
 
     # flatten nested mirrors (dependencies first), dedup by struct name
@@ -555,6 +640,7 @@ def mirror(src, name, near_file=None):
         "c_guard": "\n".join(guard_parts),
         "fields": top["fields"],
         "nested": [ex["name"] for ex in ordered],
+        "config_pinned": bool(getattr(_TLS, "config_pinned", False)),
     }
 
 
@@ -567,3 +653,18 @@ if __name__ == "__main__":
         print(json.dumps(mirror(src, name, near)))
     except Unsupported as e:
         print(json.dumps({"name": name, "refused": str(e)}))
+
+
+# auto-load a pinned config: MIRROR_CONFIG=/path/to/.config, else the
+# committed minimal config this project's KSRC is built against
+# (dream/mirrorfactory/pinned.config). Config-pinning is the standing baseline
+# so config-aware reach is reproducible by default (Milestone B); every
+# admitted function still faces its full differential gate, and the in-kernel
+# BUILD_BUG_ON re-certifies at transplant, so this only ADDS soundly-scoped
+# reach. Set MIRROR_CONFIG="" to force it off.
+_cfg = os.environ.get("MIRROR_CONFIG")
+if _cfg is None:
+    _cfg = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                        "..", "mirrorfactory", "pinned.config")
+if _cfg and os.path.isfile(_cfg):
+    load_pinned_config(_cfg)

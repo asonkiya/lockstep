@@ -81,6 +81,22 @@
   "branches": 3
  },
  {
+  "file": "kernel/sched/fair.c",
+  "fn": "__refill_cfs_bandwidth_runtime",
+  "structs": [
+   "cfs_bandwidth"
+  ],
+  "branches": 2
+ },
+ {
+  "file": "kernel/dma/swiotlb.c",
+  "fn": "wrap_area_index",
+  "structs": [
+   "io_tlb_pool"
+  ],
+  "branches": 1
+ },
+ {
   "file": "kernel/bpf/log.c",
   "fn": "bpf_vlog_update_len_max",
   "structs": [
@@ -143,6 +159,22 @@
    "dentry_operations"
   ],
   "branches": 8
+ },
+ {
+  "file": "fs/proc/task_mmu.c",
+  "fn": "add_to_pagemap",
+  "structs": [
+   "pagemapread"
+  ],
+  "branches": 1
+ },
+ {
+  "file": "fs/proc/task_mmu.c",
+  "fn": "pagemap_scan_is_interesting_page",
+  "structs": [
+   "pagemap_scan_private"
+  ],
+  "branches": 2
  },
  {
   "file": "fs/btrfs/backref.c",
@@ -353,6 +385,14 @@
   "branches": 1
  },
  {
+  "file": "net/ipv4/netfilter/arp_tables.c",
+  "fn": "arp_checkentry",
+  "structs": [
+   "arpt_arp"
+  ],
+  "branches": 2
+ },
+ {
   "file": "drivers/acpi/arm64/iort.c",
   "fn": "arm_smmu_v3_is_combined_irq",
   "structs": [
@@ -407,6 +447,14 @@
    "axp_mc_drvdata"
   ],
   "branches": 5
+ },
+ {
+  "file": "drivers/gpu/drm/i915/display/skl_watermark.c",
+  "fn": "skl_ddb_entry_union",
+  "structs": [
+   "skl_ddb_entry"
+  ],
+  "branches": 2
  },
  {
   "file": "drivers/gpu/drm/msm/disp/dpu1/dpu_hw_top.c",

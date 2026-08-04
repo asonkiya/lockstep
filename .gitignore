@@ -80,3 +80,10 @@ dream/firstrun/cand/
 dream/widetest/reports/
 dream/firstrun/ambitious/
 dream/infra/hvf/out/
+dream/mirrorfactory/bank/
+dream/mirrorfactory/registry.json
+dream/mirrorfactory/blockers.json
+dream/mirrorfactory/ksdk_mirrors.rs
+dream/firstrun/run1/
+dream/firstrun/run2/
+dream/firstrun/run1-archive/
