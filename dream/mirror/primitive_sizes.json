@@ -11,6 +11,42 @@
     4,
     4
   ],
+  "cpumask_var_t": [
+    8,
+    8
+  ],
+  "fl_owner_t": [
+    8,
+    8
+  ],
+  "gfp_t": [
+    4,
+    4
+  ],
+  "kgid_t": [
+    4,
+    4
+  ],
+  "ktime_t": [
+    8,
+    8
+  ],
+  "kuid_t": [
+    4,
+    4
+  ],
+  "loff_t": [
+    8,
+    8
+  ],
+  "notifier_fn_t": [
+    8,
+    8
+  ],
+  "pgoff_t": [
+    8,
+    8
+  ],
   "raw_spinlock_t": [
     64,
     8
@@ -43,8 +79,20 @@
     88,
     8
   ],
+  "struct cpumask": [
+    64,
+    8
+  ],
   "struct delayed_work": [
     168,
+    8
+  ],
+  "struct device": [
+    1248,
+    8
+  ],
+  "struct device_node": [
+    208,
     8
   ],
   "struct hlist_head": [
@@ -59,9 +107,17 @@
     80,
     8
   ],
+  "struct kobject": [
+    64,
+    8
+  ],
   "struct kref": [
     4,
     4
+  ],
+  "struct kset": [
+    152,
+    8
   ],
   "struct list_head": [
     16,
@@ -106,6 +162,10 @@
   "struct work_struct": [
     72,
     8
+  ],
+  "uint32_t": [
+    4,
+    4
   ],
   "wait_queue_head_t": [
     80,

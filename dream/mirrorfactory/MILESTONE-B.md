@@ -39,20 +39,53 @@ transplant time (Ring 8's gate) — the host guards catch generator/layout
 drift early and cheaply. Nothing is guessed: 92 refusals carry reasons
 (`registry.json`) and are the factory's own census-fix backlog.
 
-## Refusal backlog (census-order, Run-3 wideners)
+## Opaque-primitive probe (Run-3 widener, landed)
+
+The probe (`dream/mirror/probe_primitives.py`) measures config-dependent opaque
+types **in-kernel** — a probe.c compiled inside the real kernel build with
+`char cgir_sz_T[sizeof(T)]` per type; the ELF symbol size IS the value, read
+via `nm`. Extended census-driven (reads the factory's own refusal registry) +
+a curated set of the top blockers. Now robust: an undeclared type (subsystem
+typedef without its header, or config-gated) is dropped and re-probed, so the
+probe measures whatever the real build declares and honestly reports the rest.
+
+Measured this pass (43 primitives total, up from 28): `struct kobject` 64,
+`struct device` 1248, `struct device_node` 208, `struct kset` 152,
+`struct cpumask` 64, `ktime_t`/`pgoff_t`/`loff_t` 8, `kuid_t`/`kgid_t` 4.
+Correctly dropped (unavailable in this config / header): acpi_handle,
+cpu_stop_fn_t, ftrace_func_t, mempool_t, ….
+
+**Re-bank delta: 131 → 153 banked (+22), 92 → 70 refused** — exactly the
+census projection. 22 new parents unblocked (damon_sysfs_* families,
+platform_device, tick_sched, file_ra_state, seq_file, …); 67 banked mirrors
+now carry `opaque_probed` provenance. Export: 172 repr(C) types, compiles.
+
+Soundness: a probed type is emitted as an alignment-matching blob of the
+measured size; the license to emit is PRIMITIVE_SIZES membership (probing a
+type IS the license — an unprobed opaque type still refuses). The blob anchors
+the parent's downstream field offsets; the probe (in-kernel) is ground truth
+for the size, and the parent's BUILD_BUG_ON re-certifies at transplant. The
+host cc guard checks the generator's packing around the blob — the opaque
+field's real size is anchored by probe + in-kernel gate, flagged
+`opaque_probed` so that dependency is recorded, never hidden.
+
+## Refusal backlog (census-order, remaining Run-3+ wideners)
+
+After the opaque probe landed (70 refused remaining):
 
 | count | class | widener |
 |---|---|---|
-| 17 | `field kobj` (struct kobject etc.) | opaque-primitive probe (probe_primitives.py exists; unrun) |
-| 10 | contains a union | tagged-union host layout |
+| 12 | contains a union | tagged-union host layout (largest remaining) |
 | 4 | bitfield | bitfield → explicit mask accessors |
-| 3 | `field dev` (struct device) | opaque-primitive probe |
-| others | enums-as-field-types, fn-ptr typedefs, `#if` non-CONFIG | type-alias table |
+| 4 | unparsable field | parser hardening (fn-ptr-in-typedef, multi-line) |
+| 3 | non-CONFIG `#if` | expression evaluator beyond CONFIG symbols |
+| ~6 | enum-as-field-type | `enum X` → i32 (kernel enums are int) |
+| tail | fn-ptr typedefs, mempool_t, subsystem types | header-broadening in the probe |
 
-The opaque-primitive probe alone (kobj + dev + the other kernel primitives)
-would convert ~25 of the 92 — the highest-ROI next widener, and it reuses the
-existing `probe_primitives.py` + PRIMITIVE_SIZES machinery (in-kernel sizeof,
-gate-recertified).
+The next highest-ROI widener is **`enum X` → i32** (~6, trivial and sound —
+kernel enums are `int`) plus **union host-layout** (12, the biggest but needs
+tagged-union care). Neither is a percentage-mover on its own; the lever now
+shifts from wideners to provisioning workers (`dream/infra/`).
 
 ## How it plugs in
 

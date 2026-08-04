@@ -97,6 +97,11 @@ def _load_primitive_sizes():
 # and the gate build the SAME .config, so they are consistent by construction.
 PRIMITIVE_SIZES = _load_primitive_sizes()
 
+# Probing a type IS the license to emit it as an opaque blob: any measured
+# type joins the refuse-by-name set, so a parent using it mirrors (blob of the
+# probed size+align) while an UNPROBED opaque type still refuses.
+OPAQUE_KERNEL_TYPES |= set(PRIMITIVE_SIZES)
+
 _ALIGN_INT = {1: "u8", 2: "u16", 4: "u32", 8: "u64"}
 
 
@@ -112,6 +117,7 @@ def _opaque_field(ctype):
         return None  # unexpected shape -> refuse (sound); the gate is not risked
     count = size // align
     rty = elem if count == 1 else f"[{elem}; {count}]"
+    _TLS.opaque_probed = True     # mirror() snapshots this (like config_pinned)
     return rty, size, align
 
 
@@ -613,6 +619,7 @@ def mirror(src, name, near_file=None):
     struct-by-value mirrors are inlined into `rust`/`c_guard` (deduplicated,
     dependencies first) so a single emission is self-contained."""
     _TLS.config_pinned = False
+    _TLS.opaque_probed = False
     top = _mirror_impl(src, name, near_file, 0)
 
     # flatten nested mirrors (dependencies first), dedup by struct name
@@ -641,6 +648,7 @@ def mirror(src, name, near_file=None):
         "fields": top["fields"],
         "nested": [ex["name"] for ex in ordered],
         "config_pinned": bool(getattr(_TLS, "config_pinned", False)),
+        "opaque_probed": bool(getattr(_TLS, "opaque_probed", False)),
     }
 
 

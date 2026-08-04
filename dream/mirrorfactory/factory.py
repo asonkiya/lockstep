@@ -192,6 +192,7 @@ def build_one(struct, near_rel=None):
     return True, {"size": m["size"], "align": m["align"],
                   "rust_type": m["rust_type"], "nested": m["nested"],
                   "config_pinned": m.get("config_pinned", False),
+                  "opaque_probed": m.get("opaque_probed", False),
                   "c_guard_deferred": c_deferred,
                   "fields": [f for _, f, _ in m["fields"]]}
 

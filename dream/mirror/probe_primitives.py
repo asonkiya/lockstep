@@ -69,7 +69,55 @@ PRIMITIVES = [
     ("struct rb_root", "linux/rbtree.h"),
     ("struct rb_node", "linux/rbtree.h"),
     ("struct callback_head", "linux/types.h"),
+    # --- Milestone-B census additions: the top opaque field types blocking the
+    # accepted Tier-B surface. Structs sized as layout blobs; scalar/pointer
+    # typedefs sized as the alignment-matching integer. All measured in-kernel,
+    # re-certified by the parent's BUILD_BUG_ON at transplant. ---
+    ("struct kobject", "linux/kobject.h"),
+    ("struct kset", "linux/kobject.h"),
+    ("struct device", "linux/device.h"),
+    ("struct device_node", "linux/of.h"),
+    ("struct cpumask", "linux/cpumask.h"),
+    ("ktime_t", "linux/ktime.h"),
+    ("kuid_t", "linux/uidgid.h"),
+    ("kgid_t", "linux/uidgid.h"),
+    ("pgoff_t", "linux/types.h"),
+    ("loff_t", "linux/types.h"),
+    ("acpi_handle", "linux/acpi.h"),
 ]
+
+# Extra headers for the census additions (broad, fail-loud at compile).
+_CENSUS_HEADERS = [
+    "linux/kobject.h", "linux/device.h", "linux/of.h", "linux/cpumask.h",
+    "linux/ktime.h", "linux/uidgid.h",
+]
+
+
+def census_extra_types(registry_path=None):
+    """Opaque field types the mirror factory REFUSED — so the probe list is
+    driven by measured demand, not a static guess. Returns [(ctype, header?)]
+    for struct/typedef refusals not already covered."""
+    import json as _json
+    registry_path = registry_path or os.path.join(
+        HERE, "..", "mirrorfactory", "registry.json")
+    if not os.path.isfile(registry_path):
+        return []
+    reg = _json.load(open(registry_path))
+    have = {c for c, _ in PRIMITIVES}
+    seen, out = set(have), []
+    for info in reg.get("refused", {}).values():
+        m = re.search(r"type '([^']+)'", info.get("reason", ""))
+        if not m:
+            continue
+        t = m.group(1).strip()
+        # only plain struct/typedef names (no ptr/enum/array/fn-ptr) — those
+        # are other wideners; the probe sizes concrete named types.
+        if (t in seen or "*" in t or "enum " in t or "[" in t
+                or "(" in t or "#" in t or " " in t.replace("struct ", "")):
+            continue
+        seen.add(t)
+        out.append((t, None))
+    return out
 
 # Umbrella headers pull in almost everything above transitively; probing inside
 # a real kernel build these resolve. Kept explicit and broad so a missing type
@@ -80,7 +128,7 @@ HEADERS = [
     "linux/completion.h", "linux/atomic.h", "linux/refcount.h", "linux/wait.h",
     "linux/list.h", "linux/llist.h", "linux/rbtree.h", "linux/kref.h",
     "linux/workqueue.h", "linux/timer.h", "linux/hrtimer.h",
-]
+] + _CENSUS_HEADERS
 
 
 def tag_of(ctype):
@@ -119,12 +167,14 @@ def parse_nm(nm_out, primitives=PRIMITIVES):
     return result
 
 
-def run_probe():
-    """Build the probe inside the kernel and read the symbol table. Returns dict."""
+_UNDECLARED = re.compile(r"error: '([^']+)' undeclared")
+
+
+def _build_and_read(primitives):
+    """Emit + build the probe once. Returns (nm_output, compile_errors)."""
     os.makedirs(OUT, exist_ok=True)
-    open(os.path.join(OUT, "probe.c"), "w").write(emit_probe_c())
+    open(os.path.join(OUT, "probe.c"), "w").write(emit_probe_c(primitives))
     vol, img, gate = "cgir-kbuild", "cgir-kernel-gate", "crypto/lockstep_gate"
-    # Stage the probe into the kernel tree (own Kbuild), build it, dump symbols.
     subprocess.run([
         "docker", "run", "--rm", "-v", f"{vol}:/build", "-v", f"{OUT}:/o:ro", img,
         "bash", "-euc",
@@ -132,15 +182,45 @@ def run_probe():
         f"grep -q 'obj-y += lockstep_gate/' crypto/Makefile || echo 'obj-y += lockstep_gate/' >> crypto/Makefile; "
         f"cd {gate}; rm -f probe.c probe.o; cp /o/probe.c .; printf 'obj-y := probe.o\\n' > Kbuild",
     ], check=True)
-    out = subprocess.run([
+    r = subprocess.run([
         "docker", "run", "--rm", "-v", f"{vol}:/build", img,
-        "bash", "-eo", "pipefail", "-uc",
-        f"cd /build/linux && make -s {gate}/probe.o 2>&1 | tail -3 && "
-        f"nm --print-size --defined-only {gate}/probe.o",
-    ], check=True, capture_output=True, text=True)
-    sizes = parse_nm(out.stdout)
+        "bash", "-uc",
+        f"cd /build/linux && make -s {gate}/probe.o 2>&1 | tail -60 && "
+        f"nm --print-size --defined-only {gate}/probe.o 2>/dev/null || true",
+    ], capture_output=True, text=True)
+    return r.stdout
+
+
+def run_probe(primitives=None, max_drops=6):
+    """Build the probe inside the kernel and read the symbol table. Returns dict.
+    An UNDECLARED type (subsystem typedef whose header isn't pulled in, or a
+    config-gated type) drops that type and re-probes — the probe measures
+    whatever the real build actually declares, and honestly reports the rest as
+    missing. Fail-closed: an undecidable type is dropped, never guessed."""
+    if primitives is None:
+        primitives = PRIMITIVES + census_extra_types()
+    prims = list(primitives)
+    for _ in range(max_drops):
+        out = _build_and_read(prims)
+        bad = set(_UNDECLARED.findall(out))
+        # map an undeclared token back to the primitive whose tag/name uses it
+        if bad:
+            keep = [(c, h) for c, h in prims
+                    if c not in bad and c.replace("struct ", "") not in bad]
+            dropped = [c for c, _ in prims if (c, None) not in [(k, None) for k, _ in keep]]
+            sys.stderr.write(f"  dropping undeclared: {', '.join(sorted(bad))[:120]}\n")
+            if len(keep) == len(prims):    # couldn't attribute -> stop
+                break
+            prims = keep
+            continue
+        sizes = parse_nm(out, prims)
+        if sizes:
+            return sizes
+        sys.stderr.write("probe produced no sizes:\n" + out[-800:] + "\n")
+        raise SystemExit(1)
+    # final attempt after drops
+    sizes = parse_nm(_build_and_read(prims), prims)
     if not sizes:
-        sys.stderr.write("probe produced no sizes:\n" + out.stdout + "\n")
         raise SystemExit(1)
     return sizes
 
@@ -152,12 +232,16 @@ def load_cache():
 
 
 def main():
-    sizes = run_probe()
+    primitives = PRIMITIVES + census_extra_types()
+    new_sizes = run_probe(primitives)
+    sizes = load_cache()
+    sizes.update(new_sizes)           # merge: never lose a prior measurement
     json.dump(sizes, open(CACHE, "w"), indent=2, sort_keys=True)
-    print(f"-> {os.path.relpath(CACHE)}  ({len(sizes)}/{len(PRIMITIVES)} primitives sized)")
-    for ctype, (s, a) in sorted(sizes.items()):
-        print(f"   {ctype:28s} size={s:3d} align={a}")
-    missing = [c for c, _ in PRIMITIVES if c not in sizes]
+    print(f"-> {os.path.relpath(CACHE)}  ({len(new_sizes)} probed this run, "
+          f"{len(sizes)} total)")
+    for ctype, (sz, a) in sorted(new_sizes.items()):
+        print(f"   {ctype:28s} size={sz:3d} align={a}")
+    missing = [c for c, _ in primitives if c not in new_sizes]
     if missing:
         print("   MISSING (did not compile/resolve):", ", ".join(missing))
 

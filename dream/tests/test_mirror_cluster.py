@@ -146,8 +146,11 @@ def test_mirror_refuses_union():
     assert "union" in str(ei.value).lower()
 
 
-def test_mirror_refuses_ifdef_field():
-    # synthetic deterministic #if case
+def test_mirror_resolves_config_ifdef_under_pinning():
+    # Milestone B: config-pinning is the standing default (pinned.config auto-
+    # loaded). A CONFIG-conditional field resolves to the pinned layout and the
+    # mirror is flagged config_pinned. CONFIG_SMP is enabled in the pinned
+    # minimal config, so `maybe` is present.
     src = textwrap.dedent(
         """
         struct cfg {
@@ -159,17 +162,28 @@ def test_mirror_refuses_ifdef_field():
         };
         """
     )
-    with pytest.raises(M.Unsupported) as ei:
-        M.mirror(src, "cfg")
-    assert "#if" in str(ei.value) or "config" in str(ei.value).lower()
+    m = M.mirror(src, "cfg")
+    assert [f for _, f, _ in m["fields"]] == ["always", "maybe", "tail"]
+    assert m["config_pinned"] is True
 
 
-def test_mirror_refuses_real_irq_desc_ifdef():
-    # real one: irq_desc is riddled with #ifdef CONFIG_* fields
+def test_mirror_still_refuses_undecidable_if():
+    # the widener is scoped: a #if the resolver cannot decide statically (not a
+    # bare CONFIG symbol) STILL refuses — never guessed.
+    src = "struct cfg2 {\n\tu32 a;\n#if CONFIG_NR_CPUS > 2\n\tu32 b;\n#endif\n};\n"
+    with pytest.raises(M.Unsupported):
+        M.mirror(src, "cfg2")
+
+
+def test_mirror_refuses_real_irq_desc_unmappable_field():
+    # irq_desc's #ifdef CONFIG_* fields now RESOLVE under pinning; it is still
+    # refused, but for a genuinely-unmappable field (unsigned int __private, a
+    # sparse annotation), NOT for #if — pinning resolves conditionals without
+    # recklessly accepting unmappable members.
     src = _ksrc_file("include/linux/irqdesc.h")
     with pytest.raises(M.Unsupported) as ei:
         M.mirror(src, "irq_desc")
-    assert "#if" in str(ei.value) or "config" in str(ei.value).lower()
+    assert "#if" not in str(ei.value)
 
 
 def test_mirror_refuses_nested_struct_by_value():
