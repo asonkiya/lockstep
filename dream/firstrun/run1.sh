@@ -61,10 +61,10 @@ print(f'harvest frozen: {len(w)} leaves -> denominator = first 200')"
         && { touch "$R1/controls-ok"; echo "CONTROLS 8/8 — cleared to run"; } \
         || { echo "CONTROLS NOT 8/8 — run is NOT cleared (invariant 2)"; exit 1; }
     ;;
-readers)    phase readers    READERS=1    PHASE2=0 BUDGET_CAP=0.50 ;;
-containers) phase containers CONTAINERS=1 PHASE2=0 BUDGET_CAP=0.50 ;;
-efftrace)   phase efftrace   EFFTRACE=1   PHASE2=0 BUDGET_CAP=0.50 ;;
-alloc)      phase alloc      ALLOCMODEL=1 PHASE2=0 BUDGET_CAP=0.50 ;;
+readers)    phase readers    READERS=1    PHASE2=0 BUDGET_CAP=0.50 N_LEAVES=0 ;;
+containers) phase containers CONTAINERS=1 PHASE2=0 BUDGET_CAP=0.50 N_LEAVES=0 ;;
+efftrace)   phase efftrace   EFFTRACE=1   PHASE2=0 BUDGET_CAP=0.50 N_LEAVES=0 ;;
+alloc)      phase alloc      ALLOCMODEL=1 PHASE2=0 BUDGET_CAP=0.50 N_LEAVES=0 ;;
 leaves)     phase leaves     N_LEAVES=200 PHASE2=0 BUDGET_CAP=2.50 ;;
 boot)       phase boot       PHASE2=1 N_LEAVES=0 BUDGET_CAP=0.05 ;;
 status)
