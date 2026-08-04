@@ -475,6 +475,22 @@ def _field_from_decl(decl, src):
     if pm:
         return ("__ptr__", pm.group(2), None)
 
+    # enum field: a kernel enum is `int` (4/4) on the target ABI; the in-kernel
+    # BUILD_BUG_ON re-certifies the size, so a packed/non-int enum fails the
+    # gate (sound). Handles `enum foo x`, `enum {A,B} x`, `enum foo {A,B} x`,
+    # and enum arrays. (Unlike a union blob, an enum field is readable.)
+    if re.match(r"\s*enum\b", decl):
+        em = re.match(r"enum\b.*?([A-Za-z_]\w*)\s*(?:\[\s*(.+?)\s*\])?$", decl, re.DOTALL)
+        if em:
+            fname = em.group(1)
+            if em.group(2) is not None:                 # enum array
+                n = _resolve_define(em.group(2).strip(), src)
+                if n is None or n <= 0:
+                    raise Unsupported(f"enum array {fname}[{em.group(2)!r}]: "
+                                      f"size not a resolvable literal/#define")
+                return ("int", fname, n)
+            return ("int", fname, None)
+
     # array:  type name[SIZE]  (SIZE = literal OR resolvable object-like #define)
     am = re.match(r"(.+?\b)([A-Za-z_]\w*)\s*\[\s*(.+?)\s*\]$", decl)
     if am:
