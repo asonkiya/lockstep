@@ -29,7 +29,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, "..", "cluster"))
 sys.path.insert(0, os.path.join(HERE, "..", "mmiogen"))
 sys.path.insert(0, os.path.join(HERE, "..", "mirror"))
+sys.path.insert(0, os.path.join(HERE, "..", "widerun"))
 import cluster   # noqa: E402
+import purity    # noqa: E402  (owned_names, for the foreign-array front gate)
 import cfg       # noqa: E402
 import mirror    # noqa: E402
 import reach     # noqa: E402
@@ -57,14 +59,76 @@ typedef unsigned long long size_t_k;
 #define ENOSPC 28
 #define EBUSY 16
 #define ENOMEM 12
+#define EPERM 1
+#define ENOENT 2
+#define E2BIG 7
+#define EAGAIN 11
+#define EFAULT 14
+#define EEXIST 17
+#define ENODEV 19
+#define ERANGE 34
+#define ENODATA 61
+#define EOVERFLOW 75
+#define EOPNOTSUPP 95
+#define ETIMEDOUT 110
 #define EExx 0
+#include <limits.h>
+#define min(a,b) ((a) < (b) ? (a) : (b))
+#define max(a,b) ((a) > (b) ? (a) : (b))
+#define min_t(t,a,b) ((t)(a) < (t)(b) ? (t)(a) : (t)(b))
+#define max_t(t,a,b) ((t)(a) > (t)(b) ? (t)(a) : (t)(b))
+#define clamp(v,lo,hi) min(max(v,lo),hi)
+#define clamp_t(t,v,lo,hi) min_t(t,max_t(t,v,lo),hi)
+#define round_up(x,y) ((((x) + (y) - 1) / (y)) * (y))
+#define round_down(x,y) (((x) / (y)) * (y))
+#define DIV_ROUND_UP(n,d) (((n) + (d) - 1) / (d))
+#define BIT(n) (1ULL << (n))
+#define GENMASK(h,l) ((~0ULL >> (63 - (h))) & (~0ULL << (l)))
+#define likely(x) (x)
+#define unlikely(x) (x)
 """
+
+# names PRELUDE (or C itself) already provides — the define-resolver skips these
+_PRELUDE_NAMES = (set(re.findall(r"#define (\w+)", PRELUDE))
+                  | {"NULL", "ULONG_MAX", "UINT_MAX", "INT_MAX", "INT_MIN",
+                     "LONG_MAX", "LONG_MIN", "ULLONG_MAX", "LLONG_MAX",
+                     "USHRT_MAX", "SHRT_MAX", "UCHAR_MAX", "CHAR_BIT"})
 
 _SCALAR_RS = set(_RS2C)
 
 
 class Refused(Exception):
     pass
+
+
+def _resolve_defines(ftext: str, src: str) -> str:
+    """#define lines for ALL-CAPS constants the fn references beyond PRELUDE,
+    resolved from the file + its reachable defines (mirror._resolve_define).
+    Raises Refused on an unresolvable one — at PREPARE time, so the fn is
+    refused up front (front-gate honesty) instead of failing every candidate
+    at build. (Run 1 census: 'use of undeclared identifier' was the largest
+    real readers build-fail class.)"""
+    out = {}
+    body = ftext[ftext.find("{"):]
+    body = re.sub(r'/\*.*?\*/|//[^\n]*|"(?:[^"\\]|\\.)*"', " ", body, flags=re.S)
+    for m in re.finditer(r"\b([A-Z][A-Z0-9_]{2,})\b", body):
+        n = m.group(1)
+        if n in out or n in _PRELUDE_NAMES:
+            continue
+        v = mirror._resolve_define(n, src)
+        if v is None:
+            raise Refused(f"unresolved constant {n}")
+        out[n] = v
+    # file-scope ARRAY reads (lookup tables: `tbl[i]` where tbl is not a param
+    # or local) — the emitter does not carry file-scope data, so the reference
+    # TU can never build. Refuse HERE, not at candidate-build time. (Const-
+    # array emission + a Rust-side const mirror is the Run-3 widener.)
+    owned = purity.owned_names(ftext) | purity.KEYWORDS
+    for m in re.finditer(r"\b([a-z_]\w*)\s*\[", body):
+        n = m.group(1)
+        if n not in owned and n not in out:
+            raise Refused(f"file-scope array {n}")
+    return "".join(f"#define {n} {v}\n" for n, v in out.items())
 
 
 def _c_field(rty: str, name: str) -> str:
@@ -307,14 +371,18 @@ def prepare(rel: str, fn: str) -> dict:
     _RET_CACHE[fn] = ret_c
     _instr, _ncov, sig_params, _fn = instrument(ftext)
     params = classify_params(sig_params)
+    _resolve_defines(ftext, src)    # front-gate: refuse unresolvable constants
     structs, mdefs = {}, []
+    seen_structs = set()
     for p in params:
         if p["kind"] == "struct":
             near = os.path.join(KSRC, rel)
             ssrc = mirror.resolve_struct_source(p["struct"], near_file=near) or src
             m = mirror.mirror(ssrc, p["struct"], near_file=near)
             structs[p["name"]] = (p["struct"], m)
-            mdefs.append(m["rust"])
+            if p["struct"] not in seen_structs:   # two params of one type: emit ONCE
+                seen_structs.add(p["struct"])
+                mdefs.append(m["rust"])
     rp = []
     for p in params:
         if p["kind"] == "struct":
@@ -350,7 +418,8 @@ def close(rel: str, fn: str, candidate_rs: str, workdir: str) -> tuple[str, str]
             ssrc = mirror.resolve_struct_source(p["struct"], near_file=near) or src
             structs[p["name"]] = (p["struct"], mirror.mirror(ssrc, p["struct"], near_file=near))
     os.makedirs(workdir, exist_ok=True)
-    ref = PRELUDE + "extern unsigned char __cov[];\n" + _all_struct_defs(structs) + "\n" + instr
+    ref = (PRELUDE + _resolve_defines(ftext, src)
+           + "extern unsigned char __cov[];\n" + _all_struct_defs(structs) + "\n" + instr)
     open(os.path.join(workdir, "ref.c"), "w").write(ref)
     open(os.path.join(workdir, "cand.rs"), "w").write(candidate_rs)
     sweep = sweep_values(ftext)

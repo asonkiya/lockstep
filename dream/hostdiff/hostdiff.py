@@ -228,6 +228,11 @@ def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
     subprocess.run(["rm", "-rf", w], check=True)
     os.makedirs(w)
     subprocess.run(["cp", os.path.join(HERE, "kshim.h"), w], check=True)
+    # the file's own directory, so TU-local headers (block/blk.h, fs/internal.h)
+    # resolve — Run 1's dominant leaf failure was CC_TU_FAIL on exactly these.
+    # -I{w} stays FIRST so the shim keeps priority over any same-named header.
+    fdir = os.path.dirname(os.path.join(ksrc, path))
+    incs = [f"-I{w}", f"-I{fdir}"]
 
     # dep TUs first (their exported prototypes feed the main TU)
     protos, objs = [], []
@@ -236,14 +241,14 @@ def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
         open(f"{w}/dep{i}.c", "w").write(dsrc)
         protos.append(extern_protos(open(os.path.join(ksrc, d)).read()))
         objs.append(f"{w}/dep{i}.o")
-        r = subprocess.run(["cc", "-O2", f"-I{w}", "-c", f"{w}/dep{i}.c", "-o", objs[-1]],
+        r = subprocess.run(["cc", "-O2", *incs, "-c", f"{w}/dep{i}.c", "-o", objs[-1]],
                            capture_output=True, text=True, timeout=90)
         if r.returncode:
             return {"verdict": "CC_DEP_FAIL", "detail": r.stderr[:400]}
 
     main_src = shim_tu(path, ksrc, "\n".join(protos))
     open(f"{w}/tu.c", "w").write(main_src)
-    r = subprocess.run(["cc", "-O2", f"-I{w}", "-c", f"{w}/tu.c", "-o", f"{w}/tu.o"],
+    r = subprocess.run(["cc", "-O2", *incs, "-c", f"{w}/tu.c", "-o", f"{w}/tu.o"],
                        capture_output=True, text=True, timeout=90)
     if r.returncode:
         # fallback: function-scoped extraction — drop sibling/struct pollution and
@@ -253,7 +258,7 @@ def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
         scoped = False
         try:
             open(f"{w}/tu.c", "w").write(minimal_tu(path, ksrc, func, "\n".join(protos)))
-            r2 = subprocess.run(["cc", "-O2", f"-I{w}", "-c", f"{w}/tu.c", "-o", f"{w}/tu.o"],
+            r2 = subprocess.run(["cc", "-O2", *incs, "-c", f"{w}/tu.c", "-o", f"{w}/tu.o"],
                                 capture_output=True, text=True, timeout=90)
             scoped = r2.returncode == 0
         except Exception:
@@ -285,7 +290,7 @@ def run(path: str, func: str, cand: str, deps: list[str], ksrc: str, nrand: int,
         return {"verdict": "DELEGATION",
                 "detail": f"candidate references TU-defined symbols: {delegated}"}
 
-    r = subprocess.run(["cc", "-O2", f"-I{w}", f"{w}/probe.c", f"{w}/tu.o", *objs,
+    r = subprocess.run(["cc", "-O2", *incs, f"{w}/probe.c", f"{w}/tu.o", *objs,
                         f"{w}/libcand.a", "-o", f"{w}/diff"], capture_output=True, text=True, timeout=90)
     if r.returncode:
         return {"verdict": "LINK_FAIL", "detail": r.stderr[:400]}
@@ -326,3 +331,30 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+
+def tu_compiles(path: str, ksrc: str, func: str | None = None) -> tuple[bool, str]:
+    """Front-gate probe (Run 2 leaf scoping): does the shimmed TU — or the
+    function-scoped fallback — compile on the host? Same shim/include setup as
+    run(), no candidate needed. A leaf whose TU can't lift is refused UP FRONT
+    instead of sitting in the denominator failing every synth attempt."""
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="hostdiff_scope_") as w:
+        subprocess.run(["cp", os.path.join(HERE, "kshim.h"), w], check=True)
+        fdir = os.path.dirname(os.path.join(ksrc, path))
+        incs = [f"-I{w}", f"-I{fdir}"]
+        open(f"{w}/tu.c", "w").write(shim_tu(path, ksrc))
+        r = subprocess.run(["cc", "-O2", *incs, "-c", f"{w}/tu.c", "-o", f"{w}/tu.o"],
+                           capture_output=True, text=True, timeout=90)
+        if r.returncode == 0:
+            return True, ""
+        if func:
+            try:
+                open(f"{w}/tu.c", "w").write(minimal_tu(path, ksrc, func))
+                r2 = subprocess.run(["cc", "-O2", *incs, "-c", f"{w}/tu.c", "-o", f"{w}/tu.o"],
+                                    capture_output=True, text=True, timeout=90)
+                if r2.returncode == 0:
+                    return True, ""
+            except Exception:
+                pass
+        return False, r.stderr[:200]

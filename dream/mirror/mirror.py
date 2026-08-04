@@ -454,15 +454,36 @@ def layout(fields):
 # emission
 # --------------------------------------------------------------------------
 
+# C field names that are Rust keywords need raw identifiers (`r#type`) in the
+# mirror — a bare `type` breaks both the struct decl and offset_of! (Run 1:
+# 22 readers BUILD_FAIL(rust) traced to exactly this). self/super/crate can't
+# even be raw idents; refuse those (vanishingly rare as C field names).
+_RUST_KW = {
+    "as", "break", "const", "continue", "dyn", "else", "enum", "extern",
+    "false", "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod",
+    "move", "mut", "pub", "ref", "return", "static", "struct", "trait",
+    "true", "type", "unsafe", "use", "where", "while", "async", "await",
+    "abstract", "become", "box", "do", "final", "macro", "override", "priv",
+    "try", "typeof", "unsized", "virtual", "yield",
+}
+_NO_RAW = {"self", "Self", "super", "crate"}
+
+
+def _rs_field(fname):
+    if fname in _NO_RAW:
+        raise Unsupported(f"field {fname}: reserved, not raw-identifiable")
+    return f"r#{fname}" if fname in _RUST_KW else fname
+
+
 def emit_rust(name, rows, size):
     rty = _rust_type_name(name)
     lines = ["#[repr(C)]", f"pub struct {rty} {{"]
     for r, fn, _ in rows:
-        lines.append(f"    pub {fn}: {r},")
+        lines.append(f"    pub {_rs_field(fn)}: {r},")
     lines.append("}")
     lines.append(f"const _: () = assert!(core::mem::size_of::<{rty}>() == {size});")
     for r, fn, off in rows:
-        lines.append(f"const _: () = assert!(core::mem::offset_of!({rty}, {fn}) == {off});")
+        lines.append(f"const _: () = assert!(core::mem::offset_of!({rty}, {_rs_field(fn)}) == {off});")
     return "\n".join(lines), rty
 
 

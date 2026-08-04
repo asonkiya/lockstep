@@ -48,6 +48,7 @@ for p in ("widerun", "hostdiff", "family", "structdiff"):
     sys.path.insert(0, os.path.join(HERE, "..", p))
 sys.path.insert(0, os.path.join(REPO, "synthesis"))
 import hostdiff            # noqa: E402
+import purity              # noqa: E402  (leaf front gate: purity routing)
 import widerun             # noqa: E402  (harvest, SCALAR, rsig, build_boot, probe, PRELUDE)
 import template_synth      # noqa: E402
 import gpio_family         # noqa: E402
@@ -282,13 +283,21 @@ C source:
 """
 
 
+def _key(kind, rel, fn):
+    """File-qualified checkpoint key. Same-named fns in different files MUST
+    NOT collide — Run 1's invariant-4 breach was exactly this (cache_contiguous
+    in two files silently skipped under the bare-name key)."""
+    return f"{kind}_{rel.replace('/', '__')}_{fn}"
+
+
 def _reader_cand(p, body):
     return p["mirror_rust"] + "\n" + p["sig"] + " { unsafe {\n" + body + "\n}}\n"
 
 
 def solve_reader(item, done):
     rel, fn = item["file"], item["fn"]
-    if fn in done or time_left() < 300:
+    key = _key("reader", rel, fn)
+    if key in done or time_left() < 300:
         return None
     try:
         p = sd_harness.prepare(rel, fn)
@@ -306,9 +315,10 @@ def solve_reader(item, done):
 
     body, model, cost = ladder(prompt, gate)
     if body:
-        open(os.path.join(VERIFIED, f"reader_{fn}.rs"), "w").write(_reader_cand(p, body))
+        open(os.path.join(VERIFIED, f"{key}.rs"), "w").write(_reader_cand(p, body))
         log(f"  ✓ reader {fn} via {model} (${cost:.4f}) [spent ${spent():.3f}]")
-        return {"sym": fn, "kind": "struct-reader", "model": model, "cost": cost, "file": rel}
+        return {"sym": fn, "kind": "struct-reader", "model": model, "cost": cost,
+                "file": rel, "key": key}
     log(f"  ✗ reader {fn} unsolved ({model})")
     return None
 
@@ -355,7 +365,7 @@ panics. If the C does something the helpers can't express, reply exactly
 
 def solve_container(item, done):
     fn, rel = item["fn"], item["file"]
-    key = f"container_{fn}"
+    key = _key("container", rel, fn)
     if key in done or time_left() < 300:
         return None
     try:
@@ -430,7 +440,7 @@ no signature, no outer braces, no ``` fences.
 
 def solve_efftrace(item, done):
     fn, rel = item["fn"], item["file"]
-    key = f"efftrace_{fn}"
+    key = _key("efftrace", rel, fn)
     if key in done or time_left() < 300:
         return None
     try:
@@ -506,7 +516,7 @@ body, no signature, no outer braces, no ``` fences.
 
 def solve_alloc(item, done):
     fn, rel = item["fn"], item["file"]
-    key = f"alloc_{fn}"
+    key = _key("alloc", rel, fn)
     if key in done or time_left() < 300:
         return None
     try:
@@ -654,7 +664,7 @@ def main():
                 r = fut.result()
                 if r:
                     solved.append(r)
-                    done.add(r["sym"])
+                    done.add(_key("reader", r["file"], r["sym"]))
                     json.dump({"done": sorted(done)}, open(PROGRESS, "w"))
                 if time_left() < 300:
                     break
@@ -673,7 +683,7 @@ def main():
                 r = fut.result()
                 if r:
                     solved.append(r)
-                    done.add(f"container_{r['sym']}")
+                    done.add(_key("container", r["file"], r["sym"]))
                     json.dump({"done": sorted(done)}, open(PROGRESS, "w"))
                 if time_left() < 300:
                     break
@@ -691,7 +701,7 @@ def main():
                 r = fut.result()
                 if r:
                     solved.append(r)
-                    done.add(f"efftrace_{r['sym']}")
+                    done.add(_key("efftrace", r["file"], r["sym"]))
                     json.dump({"done": sorted(done)}, open(PROGRESS, "w"))
                 if time_left() < 300:
                     break
@@ -709,16 +719,35 @@ def main():
                 r = fut.result()
                 if r:
                     solved.append(r)
-                    done.add(f"alloc_{r['sym']}")
+                    done.add(_key("alloc", r["file"], r["sym"]))
                     json.dump({"done": sorted(done)}, open(PROGRESS, "w"))
                 if time_left() < 300:
                     break
 
-    # corpus C — scalar leaves via the ladder, boot-free hostdiff gate
+    # corpus C — scalar leaves via the ladder, boot-free hostdiff gate.
+    # LEAF FRONT GATE (Run 2): only purity-pure, TU-liftable leaves enter the
+    # denominator. Run 1 measured the unscoped harvest — 2/72, with most
+    # misses CC_TU_FAIL or impure fns the router correctly refuses: honest
+    # refusals in a dishonest denominator. Refusals are logged by class.
     log("phase 1C: harvesting scalar exported leaves...")
-    # shard the RAW harvest before done-filtering/capping (see shardlib docstring)
-    work = [w for w in shardlib.shard_env(widerun.harvest())
-            if w["sym"] not in done][:N_LEAVES]
+    raw = shardlib.shard_env(widerun.harvest()) if N_LEAVES else []
+    work, scope_refused = [], {}
+    for w in raw:
+        cls, why = purity.classify(w["body"], set())
+        if cls != "pure":
+            scope_refused.setdefault(f"impure: {why[:36]}", []).append(w["sym"])
+            continue
+        ok, detail = hostdiff.tu_compiles(w["file"], KSRC, w["sym"])
+        if not ok:
+            scope_refused.setdefault(f"tu: {detail.splitlines()[-1][:44] if detail else '?'}",
+                                     []).append(w["sym"])
+            continue
+        work.append(w)
+    for k, v in sorted(scope_refused.items(), key=lambda kv: -len(kv[1])):
+        log(f"  leaf-scope refuse {len(v):3d}  {k}  e.g. {v[0]}")
+    log(f"phase 1C: scoped denominator {len(work)}/{len(raw)}")
+    # sharding/scoping on the RAW list above; now done-filter + cap
+    work = [w for w in work if w["sym"] not in done][:N_LEAVES]
     log(f"phase 1C: {len(work)} leaves to solve (workers={WORKERS})")
     with cf.ThreadPoolExecutor(max_workers=WORKERS) as ex:
         futs = {ex.submit(solve_leaf, w, done): w for w in work}
