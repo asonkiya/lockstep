@@ -12,7 +12,7 @@ proves each ABI-correct TWO independent ways:
 Build passes iff rustc-layout == generator-model == kernel-layout, so a wrong
 mirror (or a config that shifts a field) fails to build — the BUILD_BUG_ON the
 research called load-bearing, now automatic. Conservative: anything it can't lay
-out soundly (bitfields, unions, struct-by-value it can't recursively mirror,
+out soundly (bitfields, struct-by-value it can't recursively mirror,
 #ifdef fields, unresolvable macro array sizes) is REFUSED, not guessed.
 
 Host-sound extensions (config-independent, gate-validated):
@@ -359,13 +359,71 @@ def parse_struct(src, name):
     body = _extract_body(src, name)
     if "#if" in body or "#ifdef" in body or "#endif" in body:
         raise Unsupported("config-dependent (#if) fields — layout not fixed")
-    if re.search(r"\bunion\b", body):
-        raise Unsupported("contains a union — repr(C) union needs manual review")
+    return _parse_body_fields(body, src)
+
+
+_UNION_PAD = [0]  # counter for anonymous-union padding-field names
+
+
+def _lift_unions(body, src):
+    """Replace each `union [tag] { ... } [name];` in a struct body with a
+    sentinel `__UNIONFIELD__k;` and return (rewritten_body, {k: (fname, members)}).
+    Members are parsed recursively so they can be sized. Brace-matched so nested
+    braces don't confuse the semicolon split that follows."""
+    stash = {}
+    out, i, k = [], 0, 0
+    while True:
+        m = re.search(r"\bunion\b", body[i:])
+        if not m:
+            out.append(body[i:])
+            break
+        start = i + m.start()
+        brace = body.find("{", start)
+        if brace == -1:
+            out.append(body[i:])
+            break
+        depth, j = 0, brace
+        while j < len(body):
+            depth += (body[j] == "{") - (body[j] == "}")
+            if depth == 0:
+                break
+            j += 1
+        semi = body.find(";", j)
+        if semi == -1:
+            raise Unsupported("union: no terminating ';'")
+        inner = body[brace + 1:j]
+        trailer = body[j + 1:semi].strip()          # the field name, or "" (anon)
+        fm = re.match(r"(?:__\w+\s+)*\**\s*([A-Za-z_]\w*)\s*(?:\[[^\]]*\])?$", trailer)
+        if trailer and not fm:
+            raise Unsupported(f"union trailer {trailer!r}: unsupported declarator")
+        fname = fm.group(1) if fm else f"__union_pad_{_UNION_PAD[0]}"
+        _UNION_PAD[0] += 1
+        members = _parse_body_fields(inner, src)     # recursive
+        out.append(body[i:start])
+        out.append(f" __UNIONFIELD__{k}; ")
+        stash[k] = (fname, members)
+        k += 1
+        i = semi + 1
+    return "".join(out), stash
+
+
+def _parse_body_fields(body, src):
+    """Parse a struct/union body (between the braces) into field descriptors."""
+    body = re.sub(r"/\*.*?\*/", " ", body, flags=re.DOTALL)   # strip before brace-match
+    body = re.sub(r"//[^\n]*", " ", body)
+    body, unions = _lift_unions(body, src)
     fields = []
     for raw in body.split(";"):
         decl = norm(re.sub(r"/\*.*?\*/", " ", raw, flags=re.DOTALL))
         if not decl:
             continue
+
+        um = re.match(r"__UNIONFIELD__(\d+)$", decl)
+        if um:
+            fname, members = unions[int(um.group(1))]
+            fields.append(("__union__", fname, members))
+            continue
+
         if ":" in decl:
             raise Unsupported(f"bitfield ({decl!r}) — Rust repr(C) has no bitfields")
 
@@ -466,6 +524,66 @@ def _mirror_nested(yname, src, near_file, depth):
     return inner
 
 
+def _size_one(ctype, fname, arr, src, near_file, depth):
+    """One field descriptor -> (rty, size, align, extras). The per-field sizing
+    shared by struct layout AND union member sizing (a union takes the max)."""
+    extras = []
+    if ctype in OPAQUE_KERNEL_TYPES:
+        opq = _opaque_field(ctype)
+        if opq is None:
+            raise Unsupported(
+                f"field {fname}: {ctype} is an opaque kernel type "
+                f"(config-dependent — run probe_primitives.py to size it) — refused")
+        rty, sz, al = opq
+        if arr is not None:
+            rty, sz = f"[{rty}; {arr}]", sz * arr
+        return rty, sz, al, extras
+    if ctype == "__ptr__":
+        rty, sz, al = PTR
+    elif ctype == "__union__":
+        # arr carries the parsed member descriptors; the union occupies
+        # max(member size) padded to max(member align), emitted as a blob so
+        # downstream offsets are correct. A member that can't be sized refuses.
+        members = arr
+        usize, ualign = 0, 1
+        for mctype, mname, marr in members:
+            mrty, msz, mal, mextra = _size_one(mctype, mname, marr, src, near_file, depth)
+            extras += mextra
+            usize = max(usize, msz)
+            ualign = max(ualign, mal)
+        usize = (usize + ualign - 1) // ualign * ualign
+        elem = _ALIGN_INT.get(ualign)
+        if elem is None:
+            raise Unsupported(f"union {fname}: align {ualign} not 1/2/4/8")
+        cnt = usize // ualign
+        rty = elem if cnt == 1 else f"[{elem}; {cnt}]"
+        return rty, usize, ualign, extras
+    elif ctype == "__nested__":
+        yname, ycount = arr
+        if f"struct {yname}" in OPAQUE_KERNEL_TYPES:
+            opq = _opaque_field(f"struct {yname}")
+            if opq is None:
+                raise Unsupported(
+                    f"field {fname}: struct {yname} is an opaque kernel type "
+                    f"(config-dependent — run probe_primitives.py to size it) — refused")
+            rty, sz, al = opq
+        else:
+            inner = _mirror_nested(yname, src, near_file, depth)
+            rty, sz, al = inner["rust_type"], inner["size"], inner["align"]
+            extras.append(inner)
+        if ycount is not None:
+            rty, sz = f"[{rty}; {ycount}]", sz * ycount
+        return rty, sz, al, extras
+    elif ctype in SCALAR:
+        rty, sz, al = SCALAR[ctype]
+    else:
+        raise Unsupported(f"field {fname}: type {ctype!r} not a scalar/pointer "
+                          f"(nested struct-by-value needs its own mirror)")
+    if arr is not None:
+        rty, sz = f"[{rty}; {arr}]", sz * arr
+    return rty, sz, al, extras
+
+
 def _layout(fields, src, near_file, depth):
     """(rows, size, align, extras) with rows = [(rustty, name, offset)];
     LP64 packing rules. `extras` collects (rust, guard) emissions for any nested
@@ -473,55 +591,8 @@ def _layout(fields, src, near_file, depth):
     off, align, rows = 0, 1, []
     extras = []  # list of dicts: {name, rust, c_guard} for nested structs
     for ctype, fname, arr in fields:
-        if ctype in OPAQUE_KERNEL_TYPES:
-            opq = _opaque_field(ctype)
-            if opq is None:
-                raise Unsupported(
-                    f"field {fname}: {ctype} is an opaque kernel type "
-                    f"(config-dependent — run probe_primitives.py to size it) — refused")
-            rty, sz, al = opq
-            if arr is not None:
-                rty, sz = f"[{rty}; {arr}]", sz * arr
-            off = (off + al - 1) // al * al
-            rows.append((rty, fname, off))
-            off += sz
-            align = max(align, al)
-            continue
-        if ctype == "__ptr__":
-            rty, sz, al = PTR
-        elif ctype == "__nested__":
-            yname, ycount = arr  # arr repurposed: (struct-name, count-or-None)
-            if f"struct {yname}" in OPAQUE_KERNEL_TYPES:
-                opq = _opaque_field(f"struct {yname}")
-                if opq is None:
-                    raise Unsupported(
-                        f"field {fname}: struct {yname} is an opaque kernel type "
-                        f"(config-dependent — run probe_primitives.py to size it) — refused")
-                rty, sz, al = opq
-                if ycount is not None:
-                    rty, sz = f"[{rty}; {ycount}]", sz * ycount
-                off = (off + al - 1) // al * al
-                rows.append((rty, fname, off))
-                off += sz
-                align = max(align, al)
-                continue
-            inner = _mirror_nested(yname, src, near_file, depth)
-            rty, sz, al = inner["rust_type"], inner["size"], inner["align"]
-            extras.append(inner)
-            if ycount is not None:
-                rty, sz = f"[{rty}; {ycount}]", sz * ycount
-            off = (off + al - 1) // al * al
-            rows.append((rty, fname, off))
-            off += sz
-            align = max(align, al)
-            continue
-        elif ctype in SCALAR:
-            rty, sz, al = SCALAR[ctype]
-        else:
-            raise Unsupported(f"field {fname}: type {ctype!r} not a scalar/pointer "
-                              f"(nested struct-by-value needs its own mirror)")
-        if arr is not None:
-            rty, sz = f"[{rty}; {arr}]", sz * arr
+        rty, sz, al, ex = _size_one(ctype, fname, arr, src, near_file, depth)
+        extras += ex
         off = (off + al - 1) // al * al   # pad to field alignment
         rows.append((rty, fname, off))
         off += sz

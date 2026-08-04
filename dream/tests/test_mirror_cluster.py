@@ -132,7 +132,10 @@ def test_mirror_refuses_bitfield():
     assert "bitfield" in str(ei.value).lower()
 
 
-def test_mirror_refuses_union():
+def test_mirror_resolves_union_as_blob():
+    # Sweep-1 widener: a union lays out as max(member size) padded to max align,
+    # emitted as a blob so downstream field offsets are correct (test_mirror_union
+    # has the full contract). tag@0(4) -> u@8 (align 8, size 8) -> size 16.
     src = textwrap.dedent(
         """
         struct hasu {
@@ -141,9 +144,9 @@ def test_mirror_refuses_union():
         };
         """
     )
-    with pytest.raises(M.Unsupported) as ei:
-        M.mirror(src, "hasu")
-    assert "union" in str(ei.value).lower()
+    m = M.mirror(src, "hasu")
+    o = {f: off for _, f, off in m["fields"]}
+    assert o["tag"] == 0 and o["u"] == 8 and m["size"] == 16
 
 
 def test_mirror_resolves_config_ifdef_under_pinning():
