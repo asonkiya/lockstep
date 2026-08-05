@@ -38,7 +38,7 @@ queue this doc executes), `realize/REALIZE.md` (the model→real mechanism),
   (cannot create accounts). Everything here runs locally on this host.
 
 ────────────────────────────────────────────────────────────────────────────
-## 1. WHERE THINGS STAND (as of commit 86b1d65)
+## 1. WHERE THINGS STAND (as of commit 7bba005; A1+A2 done)
 
 The pipeline: sweep-verified C→Rust candidates (host differential, 0 false
 passes) → `realize.py` transpiles efftrace cell-models to real-struct fns →
@@ -54,16 +54,26 @@ efftrace, 344 container, 41 alloc = ~1,124.
 non-const field base, 18 cross-slot, ~11 misc.
 
 **Woven into the booting `cgir-kbuild-defconfig` vmlinux RIGHT NOW**: 64 Rust
-fns = 54 realized + 10 readers, boot-digest green. Of the 54 realized, **51
-carry tier-(b) machine-checked safe cores** (`#![forbid(unsafe_code)]` module
-over `&mut Mirror` + one `&mut *p` boundary deref); 3 are tier-(a) (multi-node
-struct copiers, correctly refused the lift). The 10 readers are tier-(a).
+fns = 54 realized + 10 readers, boot-digest green. After A1 (sound), **31 of
+the 54 realized carry tier-(b) machine-checked safe cores** (field-granular:
+`#![forbid(unsafe_code)]` core taking `&mut TY` per field + a boundary of
+per-field `&mut (*p).field`); 23 are tier-(a) (20 concurrency-audit-demoted —
+fields touched locklessly somewhere in the tree — + 3 multi-node copiers).
+The 10 readers are tier-(a).
 
-**Safety-tier dashboard**: 51 tier-b + 13 tier-a = 64.
+**Safety-tier dashboard**: 31 tier-b + 33 tier-a = 64. **A2 metrics**: 32%
+safe-logic (139/434 translated LOC in forbid cores), 214 raw-derefs all in
+field-scoped boundaries / 0 in cores.
+
+**Reach ceiling for efftrace safe-lift**: of the 480 realized MATCH, 317 are
+single-node liftable, **199 (63%) pass the concurrency audit = tier-b
+eligible** (the honest safe-Rust ceiling for this class). Grow the woven
+tier-b count by weaving more of those 199 (config-permitting) + lifting
+tier-a classes.
 
 **Last verify**: `weave_realized.py batch --lift` booted green (commit
-d4432ee). Full test suite 314 green (`pytest dream/tests/`, 16 KSRC-env-gated
-pass when `KSRC=...` is set).
+ef8578a, A1). Test suite green (`pytest dream/tests/` with `KSRC=...`);
+test_lift.py 10, test_metrics.py 4, test_realize.py 4.
 
 ────────────────────────────────────────────────────────────────────────────
 ## 2. A1 — DONE (commit ef8578a). Kept here as the design record.
