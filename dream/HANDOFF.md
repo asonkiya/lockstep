@@ -146,10 +146,9 @@ function.
 ────────────────────────────────────────────────────────────────────────────
 ## 3. AMENDMENTS QUEUE (after A1) — ordered, from RESEARCH-SAFE-RUST.md
 
-- **A2 metrics**: alongside the tier system, report unsafe-LOC% and raw-pointer
-  counts per woven fn (the field's standard metrics) so results are comparable
-  to Laertes/Crown/C2SaferRust. Cheap: count `unsafe`/`*mut`/`(*` tokens in
-  each rust_obj. Add to the batch dashboard.
+- **A2 metrics**: DONE (aa08c77). `dream/realize/metrics.py` +
+  test_metrics.py; wired into `batch --lift` dashboard. Fleet: 32% safe-logic
+  (139/434 LOC in forbid cores), 214 raw-derefs all in boundaries.
 - **A3 readers lift**: the 10 readers are model-WRITTEN bodies (not
   deterministic transpiles), so they can't use realize's mechanical lift. Use
   the SACTOR stage-2 protocol: pin the ABI, re-run the SAME structdiff harness
