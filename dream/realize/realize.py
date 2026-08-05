@@ -121,6 +121,98 @@ def store_cast(ctype):
 # the transpile
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Wrapping arithmetic (A4 finding). The verified bodies use bare `+ - *`, which
+# PANIC on overflow when overflow-checks are on. C wraps (the kernel builds
+# -fno-strict-overflow; unsigned C wraps by definition), and a panic inside a
+# freestanding kernel object lands in `loop {}` = a kernel hang. Kani proved
+# the exposure real (seqbuf_seek: `pos + offset` over the full i64 domain).
+# So emit EXPLICITLY wrapping arithmetic: same values as today's -O build (which
+# has checks off), but pinned in the source regardless of build flags.
+#
+# Precedence-aware, paren-safe, and CONSERVATIVE: anything it cannot split
+# confidently is returned unchanged (the candidate then stays PANIC_RISK —
+# flagged, never silently "fixed"). The differential + Kani arbitrate the
+# result, so a bad rewrite cannot ship.
+# ---------------------------------------------------------------------------
+
+_WRAP_OP = {"+": "wrapping_add", "-": "wrapping_sub", "*": "wrapping_mul"}
+# operator chars that, immediately before a +/-/*, mean it is NOT a binary op
+_NOT_OPERAND_END = set("+-*/%<>=!&|^~,;([{:")
+
+
+def _split_top(e, ops):
+    """Index of the LAST top-level binary operator from `ops` (left-assoc), or
+    -1. Skips anything inside brackets and rejects unary/compound forms."""
+    depth = 0
+    for i in range(len(e) - 1, -1, -1):
+        c = e[i]
+        if c in ")]}":
+            depth += 1
+        elif c in "([{":
+            depth -= 1
+        elif depth == 0 and c in ops:
+            if i == 0 or i + 1 >= len(e):
+                continue
+            # compound assignment / shift / comparison / arrow -> not our op
+            if e[i + 1] in "=><+-*&|" or e[i - 1] in "=><&|":
+                continue
+            prev = e[:i].rstrip()
+            if not prev or prev[-1] in _NOT_OPERAND_END:
+                continue                      # unary sign, not binary
+            return i
+    return -1
+
+
+def wrapify(e, depth=0):
+    """Rewrite top-level binary + - * into wrapping method calls, recursively."""
+    if depth > 24:
+        return e
+    s = e.strip()
+    if not s:
+        return e
+    for ops in ("+-", "*"):                   # lowest precedence first
+        i = _split_top(s, ops)
+        if i < 0:
+            continue
+        op = _WRAP_OP.get(s[i])
+        if op is None:
+            continue
+        lhs, rhs = s[:i], s[i + 1:]
+        if not lhs.strip() or not rhs.strip():
+            return e
+        return f"({wrapify(lhs, depth + 1)}).{op}({wrapify(rhs, depth + 1)})"
+    # no top-level op: peel ONE fully-enclosing paren pair and recurse
+    if s.startswith("(") and s.endswith(")"):
+        d, closes_at_end = 0, True
+        for j, c in enumerate(s):
+            if c == "(":
+                d += 1
+            elif c == ")":
+                d -= 1
+                if d == 0 and j != len(s) - 1:
+                    closes_at_end = False
+                    break
+        if closes_at_end:
+            inner = wrapify(s[1:-1], depth + 1)
+            return f"({inner})"
+    return e
+
+
+def wrapify_stmts(body):
+    """Apply wrapify to the RHS of `let` bindings and to whole expression
+    statements — the two shapes the verified bodies use for arithmetic. Lines
+    it does not recognise pass through untouched."""
+    out = []
+    for ln in body.splitlines():
+        m = re.match(r"^(\s*let\s+(?:mut\s+)?[\w:<>, ]+=\s*)(.+?)(;\s*)$", ln)
+        if m and any(o in m.group(2) for o in "+-*"):
+            out.append(m.group(1) + wrapify(m.group(2)) + m.group(3))
+            continue
+        out.append(ln)
+    return "\n".join(out)
+
+
 _HELPER_RE = re.compile(r"(?<![\w])(set_field|field|set_g|g|set_out|out)\s*\(")
 _FORBIDDEN = re.compile(r"(?<![\w])(S\s*\[|norm\s*\(|CW\s*\[|NSTATE|rs_set|rs_reset|rs_state|return)\b")
 
@@ -244,6 +336,10 @@ def transpile(rec, body):
             i = 0
             text = text[nxt:]
 
+    # A4 fix: pin wrapping semantics in the SOURCE (see wrapify). Applied to the
+    # body BEFORE the helper rewrite so tier-(a) and tier-(b) get the identical
+    # transform and stay provably equivalent.
+    body = wrapify_stmts(body)
     realized = rw(body)
 
     # every remaining ALL-CAPS identifier must be a known define: an unresolved

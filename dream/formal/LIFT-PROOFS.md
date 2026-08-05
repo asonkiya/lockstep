@@ -14,9 +14,12 @@ than to the translation.
 ## Results (14 woven tier-b candidates)
 
 ```
-A4 lift proofs: 13 PROVEN (lift equivalence + panic-freedom over the FULL
-domain), 1 PANIC_RISK, 0 LIFT_FAILED, 0 error
+A4 lift proofs: 14 PROVEN (lift equivalence + panic-freedom over the FULL
+domain), 0 PANIC_RISK, 0 LIFT_FAILED, 0 error
 ```
+
+(First run was 13 PROVEN / 1 PANIC_RISK; the wrapping-arithmetic fix below
+closed the last one.)
 
 Proven functions span block/, clk/, i2c/, input/, net/, soc/fsl — e.g.
 `qup_i2c_clear_blk_v2` with **10 symbolic fields**, `qbman_eq_desc_set_qd`
@@ -45,12 +48,28 @@ paths pulled in `core::panicking`. The sampled differential never picks values
 that overflow, so it structurally cannot find this class.
 
 **Honest severity**: the woven objects are built `-O` with overflow-checks OFF
-(rustc's default outside debug), so today they WRAP, matching the C (the kernel
-builds `-fno-strict-overflow`). The risk is **latent, not shipped**: it becomes
-a hang for anyone building these objects with overflow checks or debug
-assertions. The correct fix is to make the transpiler emit explicitly wrapping
-arithmetic so the semantics are pinned regardless of build flags — queued, not
-silently ignored.
+(rustc's default outside debug), so they WRAPPED, matching the C (the kernel
+builds `-fno-strict-overflow`). The risk was **latent, not shipped** — it would
+become a hang for anyone building with overflow checks or debug assertions.
+
+### FIXED — wrapping arithmetic pinned in the source
+
+`realize.wrapify` now rewrites the verified bodies' bare `+ - *` into
+`wrapping_add/sub/mul` **before** the helper rewrite, so tier-(a) and tier-(b)
+receive the identical transform and stay provably equivalent. Semantics are now
+pinned in the SOURCE regardless of build flags. The rewriter is precedence- and
+paren-aware and **conservative**: anything it cannot split confidently is
+returned unchanged (the candidate stays flagged, never silently altered);
+comparisons, shifts, casts and unary signs are untouched.
+
+Verified from four sides:
+- `seqbuf_seek`: PANIC_RISK → **PROVEN**;
+- full Kani batch: **14/14 PROVEN, 0 PANIC_RISK**;
+- full re-census of all 635 candidates: **480 MATCH — identical to before**
+  (zero regressions from the rewrite);
+- woven objects still compile freestanding aarch64 (5/5 sampled).
+- `test_wrapify.py` (6 tests) pins precedence, associativity, the untouched
+  operator classes, and the conservative no-op behaviour.
 
 ## Scope (honest)
 
