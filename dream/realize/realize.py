@@ -79,6 +79,29 @@ def load_body(file, fn):
 # type mapping (host LP64, same table the harness normalizes with)
 # ---------------------------------------------------------------------------
 
+_RS_KEYWORDS = {
+    "as", "async", "await", "box", "break", "const", "continue", "crate", "dyn",
+    "else", "enum", "extern", "false", "fn", "for", "if", "impl", "in", "let",
+    "loop", "match", "mod", "move", "mut", "priv", "pub", "ref", "return",
+    "static", "struct", "super", "trait", "true", "try", "type", "unsafe",
+    "use", "where", "while"}
+
+
+def rid(f):
+    """Rust field identifier for a C field name (r#-escape keywords)."""
+    return f"r#{f}" if f in _RS_KEYWORDS else f
+
+
+def wty(w):
+    """Rust type for a (bits, signed) param width; C bool arrives as u8 0/1."""
+    if w is None:
+        return "i64"
+    bits, signed = w
+    if bits == 1:
+        return "u8"
+    return f"{'i' if signed else 'u'}{bits}"
+
+
 def rust_ty(ctype):
     bits, signed = harness._cell_width(ctype)
     if bits == 1:
@@ -176,10 +199,10 @@ def transpile(rec, body):
                 pname = node_ps[pi]["name"]
                 t = node_ps[pi]["scalar_fields"][fname]
                 if h == "field":
-                    out_s += f"((*{pname}).{fname} as i64)"
+                    out_s += f"((*{pname}).{rid(fname)} as i64)"
                 else:
                     cast = store_cast(t).replace("{v}", args[2].strip())
-                    out_s += f"{{ (*{pname}).{fname} = {cast}; }}"
+                    out_s += f"{{ (*{pname}).{rid(fname)} = {cast}; }}"
             elif h in ("g", "set_g"):
                 cm = re.match(r"\s*G_([A-Za-z0-9_]+?)\s*$", args[0])
                 gname = None
@@ -241,7 +264,7 @@ def transpile(rec, body):
             sig.append(f"{p['name']}: *mut {rust_ty(p['ctype'])}")
         else:
             w = pw[i]
-            nt = f"{'i' if w[1] else 'u'}{w[0]}" if w else "i64"
+            nt = wty(w)
             sig.append(f"{p['name']}_arg: {nt}")
             binds.append(f"    let a{i}: i64 = {p['name']}_arg as i64;")
 
@@ -273,7 +296,7 @@ def _mirror_struct(p):
     EXACTLY (same sorted field order, same C layout rules)."""
     lines = [f"#[repr(C)]\n#[derive(Copy, Clone)]\npub struct {p['struct'].capitalize()}Mirror {{"]
     for f, t in sorted(p["scalar_fields"].items()):
-        lines.append(f"    pub {f}: {rust_ty(t)},")
+        lines.append(f"    pub {rid(f)}: {rust_ty(t)},")
     lines.append("}")
     return "\n".join(lines)
 
@@ -295,7 +318,7 @@ def rust_host_tu(rec, prep, tr):
     for pi, p in enumerate(node_ps):
         mn = p["struct"].capitalize() + "Mirror"
         parts.append(f"static mut RP{pi}: [{mn}; {NN}] = [{mn} {{ "
-                     + ", ".join(f"{f}: 0" for f in sorted(p["scalar_fields"]))
+                     + ", ".join(f"{rid(f)}: 0" for f in sorted(p["scalar_fields"]))
                      + f" }}; {NN}];")
     for n, g in rec["globals"].items():
         parts.append(f"static mut GV_{n}: {rust_ty(g['ctype'])} = 0;")
@@ -317,8 +340,8 @@ def rust_host_tu(rec, prep, tr):
         else:
             _, pi, f, slot = cell
             t = node_ps[pi]["scalar_fields"][f]
-            set_arms.append(f"        {i} => RP{pi}[{slot}].{f} = {store_cast(t).replace('{v}', 'v')},")
-            get_arms.append(f"        {i} => RP{pi}[{slot}].{f} as i64,")
+            set_arms.append(f"        {i} => RP{pi}[{slot}].{rid(f)} = {store_cast(t).replace('{v}', 'v')},")
+            get_arms.append(f"        {i} => RP{pi}[{slot}].{rid(f)} as i64,")
     ginit = []
     for n, g in rec["globals"].items():
         if g["init"]:
@@ -326,7 +349,7 @@ def rust_host_tu(rec, prep, tr):
     parts.append(f"""
 #[no_mangle] pub extern "C" fn rs_reset() {{ unsafe {{
 {chr(10).join("    RP%d = [%sMirror { %s }; %d];" % (pi, p["struct"].capitalize(),
-              ", ".join(f"{f}: 0" for f in sorted(p["scalar_fields"])), NN)
+              ", ".join(f"{rid(f)}: 0" for f in sorted(p["scalar_fields"])), NN)
               for pi, p in enumerate(node_ps))}
 {chr(10).join(f"    GV_{n} = 0;" for n in rec["globals"])}
 {chr(10).join(f"    OV_{p['name']} = 0;" for p in outs)}
@@ -359,7 +382,7 @@ def rust_host_tu(rec, prep, tr):
             call_args.append(f"&mut OV_{p['name']} as *mut _")
         else:
             w = tr["pw"][i]
-            nt = f"{'i' if w[1] else 'u'}{w[0]}" if w else "i64"
+            nt = wty(w)
             call_args.append(f"a{i} as {nt}")
     callexpr = f'{rec["fn"]}_rs({", ".join(call_args)})'
     if rec["ret"] == "void":
