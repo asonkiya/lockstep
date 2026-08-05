@@ -177,6 +177,29 @@ wide, so the tier claim is backed by numbers. Over the 54 woven realized fns:
 present-in-vmlinux set; `metrics.fn_metrics`/`aggregate`/`format_dashboard` are
 the API; `test_metrics.py` pins the properties (4 tests).
 
-Readers lift (A3) is next: their bodies are model-written, so the lift needs
-the differential-gated refactor path (SACTOR stage-2 + PR2 prompts) not
-deterministic emission.
+### A3 (2026-08-05): the reader class lifts too — DETERMINISTICALLY ($0)
+
+Readers are model-WRITTEN (not transpiles), so the plan expected a model-driven
+SACTOR-stage-2 refactor. But every verified reader uses exactly one pointer
+idiom — `(*p).field` for struct params, `*outp` for scalar out-params — so
+`lift_readers.py` lifts them DETERMINISTICALLY (no model, $0), re-gated by the
+readers' OWN oracle (`structdiff.harness.close`). Same tier-(b) shape as A1:
+logic in a `#![forbid(unsafe_code)]` core over one reference per accessed field
+(`&mut`/`&` by write-status; `&` for every field of a `*const` param — sound
+even if two `*const` params alias, since shared refs may alias), boundary =
+per-field `&mut/& (*p).field`, no whole-struct borrow. Fail-closed refusals:
+2+ `*mut` struct pointers (cross-struct &mut aliasing), any non-`(*p).field`
+pointer use, a write through `*const`. Same per-field concurrency audit.
+
+Batch over the 10 woven readers (`lift_readers.py batch`): **7 tier-b
+(machine-checked safe core, structdiff-MATCH), 3 audit-demoted** (resource_clip
+`start`, bitmap_check_region `start`, linear_range_get_value `min` — generic
+names flagged lockless somewhere), 0 failures. test_lift_readers.py 3 tests
+(clean reader → safe core + MATCH; audit demotes a lockless-field reader;
+non-field pointer use refused).
+
+**Combined safety-tier reach if the lifted readers are woven: 31 realized +
+7 reader = 38 tier-b of 64.** Weaving them is the mechanical follow-on
+(weave_readers already boots reader objects; the lifted candidate keeps the
+same `<fn>_rs` ABI + mirror struct + guards, so it is a drop-in source swap —
+not done here to avoid perturbing the booting kernel late in the session).
