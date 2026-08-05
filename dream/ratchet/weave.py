@@ -71,9 +71,28 @@ def weave_source(src: str, entry: dict) -> str:
             continue
         original = _function_source(out, fn)
         out = out.replace(original, meta["shell"], 1)
+    # Insert the extern block after the LEADING include region, not the globally
+    # last include: kernel files (lockdep.c, etc.) carry mid-file macro-table
+    # includes, and inserting there lands mid-construct ("expected expression
+    # before ...", verified). The leading run of includes/comments/blank/
+    # preprocessor lines is always file scope; the extern block's _Static_asserts
+    # need the struct defs, which the leading headers provide.
     incs = list(re.finditer(r"#include [<\"][^>\"]+[>\"]\n", out))
-    if incs:
-        pos = incs[len(incs) - 1].end()
+    pos = None
+    for m in incs:
+        head = out[:m.start()]
+        # still in the leading region if everything before is include/comment/
+        # blank/preprocessor (no substantive top-level code yet)
+        stripped = re.sub(r"/\*.*?\*/", "", head, flags=re.DOTALL)
+        stripped = re.sub(r"//[^\n]*", "", stripped)
+        lines = [ln.strip() for ln in stripped.splitlines() if ln.strip()]
+        if all(ln.startswith("#") for ln in lines):
+            pos = m.end()
+        else:
+            break
+    if pos is None and incs:
+        pos = incs[0].end()
+    if pos is not None:
         out = out[:pos] + entry["extern_block"] + out[pos:]
     return out
 

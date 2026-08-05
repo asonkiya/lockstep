@@ -52,6 +52,7 @@ _RS2C = {"i8": "signed char", "u8": "unsigned char", "bool": "unsigned char",
 # freestanding preamble: no_std + a local panic handler (weave.py localizes all
 # but the first object's handler at link, per the panic-collision finding).
 _FREESTANDING = """#![no_std]
+#![no_main]
 #![allow(non_camel_case_types, non_snake_case, dead_code, unused_unsafe)]
 #[panic_handler]
 fn ph(_: &core::panic::PanicInfo) -> ! { loop {} }
@@ -127,11 +128,24 @@ def build_artifacts(rel, fn):
         + [f'_Static_assert(offsetof(struct {struct_c}, {_cname(f)}) == {off}, '
            f'"{struct_c}.{_cname(f)} offset drift");' for f, off in fields])
 
-    extern = f"{ret_c} {rs_fn}({', '.join(params_c)});\n"
+    # forward-declare the struct FIRST so the extern's `struct X *` param binds
+    # to the file-scope tag, not a fresh prototype-scoped incomplete type (which
+    # a struct defined locally, after the leading includes, would otherwise
+    # create -> "incompatible pointer type" at the seam call, verified on
+    # bitmap-str.c's local `struct region`).
+    extern = f"struct {struct_c};\n{ret_c} {rs_fn}({', '.join(params_c)});\n"
     argnames = [re.match(r".*?([A-Za-z_]\w*)\s*(?:\[.*\])?$", p).group(1) for p in params_c]
     call = f"{rs_fn}({', '.join(argnames)})"
-    body = f"{{\n\t{call};\n}}" if ret_c == "void" else f"{{\n\treturn {call};\n}}"
-    return {"key": key, "rust_obj": rust_obj, "struct": struct_c,
+    # the layout _Static_asserts go at BLOCK SCOPE inside the woven body: only
+    # the extern decl (pointer param) is fine with an incomplete struct in the
+    # leading include region; sizeof/offsetof need the COMPLETE struct, which is
+    # guaranteed at the function's own site (the original body dereferenced it).
+    guard_block = "\n".join("\t" + g for g in guard.splitlines())
+    inner = f"{call};" if ret_c == "void" else f"return {call};"
+    body = f"{{\n{guard_block}\n\t{inner}\n}}"
+    # object/crate name must be a valid rust crate identifier (no '.', '/')
+    objkey = re.sub(r"[^0-9A-Za-z_]", "_", key)
+    return {"key": objkey, "rust_obj": rust_obj, "struct": struct_c,
             "guard": guard, "extern": extern, "seam": rs_fn,
             "ret_c": ret_c, "params_c": params_c, "argnames": argnames,
             "seam_body": body, "rows": rows, "fields": fields, "size": size}
@@ -194,7 +208,6 @@ def prove(rel, fn):
         "typedef unsigned u32; typedef int s32; typedef unsigned short u16;\n"
         + "\n".join(sdef) + "\n"
         + a["extern"]
-        + a["guard"] + "\n"
         + f"{a['ret_c']} {fn}({', '.join(a['params_c'])}) {a['seam_body']}\n")
     open(os.path.join(d, "seam.c"), "w").write(cprog)
     cc = subprocess.run(["cc", "-std=c11", "-c", os.path.join(d, "seam.c"),
@@ -213,7 +226,69 @@ def prove(rel, fn):
     return 0 if ok else 1
 
 
+# ---------------------------------------------------------------------------
+# batch: assemble a manifest for N verified readers and drive weave.py's gate
+# (excise + freestanding-obj compile + link + build + boot). The in-kernel
+# boot capstone for the readers class.
+# ---------------------------------------------------------------------------
+
+# verified readers whose source .o is built in the pinned minimal config
+_BATCH = [
+    ("kernel/resource.c", "resource_clip"),
+    ("lib/bitmap-str.c", "bitmap_check_region"),
+    ("lib/linear_ranges.c", "linear_range_get_value"),
+    ("kernel/dma/swiotlb.c", "wrap_area_index"),
+    ("kernel/bpf/log.c", "bpf_vlog_update_len_max"),
+    ("kernel/locking/lockdep.c", "lock_time_inc"),
+    ("kernel/locking/lockdep.c", "lock_time_add"),
+]
+
+
+def _orig_signature(rel, fn):
+    """The stock function's signature text (up to its opening brace)."""
+    import weave as _w
+    src = open(os.path.join(KSRC, rel), errors="ignore").read()
+    orig = _w._function_source(src, fn)
+    return orig[:orig.index("{")].rstrip()
+
+
+def batch(pairs=None):
+    pairs = pairs or _BATCH
+    sys.path.insert(0, HERE)
+    import weave as W
+    import json as _json
+    outd = os.path.join(HERE, "readers")
+    os.makedirs(outd, exist_ok=True)
+    sources, rust_objects = {}, {}
+    for rel, fn in pairs:
+        a = build_artifacts(rel, fn)
+        open(os.path.join(outd, f"{a['key']}.rs"), "w").write(a["rust_obj"])
+        sig = _orig_signature(rel, fn)
+        shell = f"{sig}\n{a['seam_body']}"
+        src_entry = sources.setdefault(rel, {"extern_block": "\n", "functions": {}})
+        src_entry["extern_block"] += a["extern"]   # decl only; guard is in the body
+        src_entry["functions"][fn] = {
+            "status": "rust", "tier": "tier-b", "gate": "differential",
+            "verdict": "PASS", "seam": a["seam"], "shell": shell}
+        rust_objects[a["key"]] = {"src": f"readers/{a['key']}.rs",
+                                  "kbuild_dir": os.path.dirname(rel), "obj": a["key"]}
+    manifest = {"config": "pinned minimal arm64", "generated_by": "weave_readers.batch",
+                "config_enable": [], "sources": sources,
+                "rust_objects": rust_objects, "verified_not_woven": []}
+    mpath = os.path.join(outd, "batch_manifest.json")
+    _json.dump(manifest, open(mpath, "w"), indent=1)
+    W.MANIFEST = mpath                      # point the proven weaver at our batch
+    n_fn = sum(len(s["functions"]) for s in sources.values())
+    print(f"=== readers boot capstone: {n_fn} verified readers, "
+          f"{len(sources)} source files, {len(rust_objects)} Rust objects ===")
+    for rel, s in sources.items():
+        print(f"  {rel}: {', '.join(s['functions'])}")
+    return W.cmd_gate()
+
+
 def main():
+    if len(sys.argv) >= 2 and sys.argv[1] == "batch":
+        return batch()
     if len(sys.argv) < 4:
         print(__doc__)
         return 2

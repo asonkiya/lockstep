@@ -48,20 +48,43 @@ weaver (`weave.py`) consumes:
 A wrong layout fails the kernel build; a wrong behavior was caught on the host.
 Zero new false-pass surface.
 
-## Status
+## Status: BOOT CAPSTONE PASSED
 
-- Host proof PASS on 6/6 verified lib/kernel readers (resource_clip,
-  wrap_area_index, bpf_vlog_update_len_max, bitmap_check_region,
-  linear_range_get_value, lock_time_inc): freestanding Rust object compiles,
-  woven C + layout re-cert compiles, load-bearing guard catches a drift.
+`weave_readers.py batch` — **7 verified readers woven into 6 real kernel source
+files across 4 subsystems, freestanding aarch64 Rust objects linked into
+vmlinux, kernel BUILT and BOOTED clean** (smp_up + boot_complete + no early
+panic; the expected no-rootfs VFS panic ends a full boot). All 7 seam symbols
+are `T` (defined) in `nm vmlinux`; each layout re-certified in-kernel by the
+`_Static_assert` against real headers at build.
+
+  kernel/resource.c:      resource_clip
+  lib/bitmap-str.c:       bitmap_check_region
+  lib/linear_ranges.c:    linear_range_get_value
+  kernel/dma/swiotlb.c:   wrap_area_index
+  kernel/bpf/log.c:       bpf_vlog_update_len_max
+  kernel/locking/lockdep.c: lock_time_inc, lock_time_add
+
+resource_clip / wrap_area_index / lock_time_* are on the boot path, so they
+RAN during the boot — not just linked.
+
+Four in-tree integration details the host proof structurally could not surface,
+each found and fixed against the real build:
+  1. crate name can't contain '.' (from the `.c` in the key) — sanitized.
+  2. freestanding `--emit=obj` needs `#![no_main]`.
+  3. `_Static_assert` needs the COMPLETE struct — moved to block scope inside
+     the woven body (the struct is complete at the function's own site).
+  4. a locally-defined struct (`struct region` in bitmap-str.c) made the
+     extern's `struct X *` a prototype-scoped incomplete tag — fixed with a
+     file-scope forward declaration before the extern.
+Plus a weave.py fix: insert the extern block after the LEADING include region,
+not the globally-last include (kernel files carry mid-file macro-table includes;
+lockdep.c broke on that).
+
 - `weave_readers.py prove <file> <fn>` — host-compile both artifacts (no boot).
-- `weave_readers.py emit <file> <fn>` — write the object + manifest fragment
-  for `weave.py apply/gate` (the real docker build + HVF boot).
+- `weave_readers.py batch` — weave the batch + docker build + boot gate.
 
 ## What's next
 
-- Run `weave.py gate` on a readers batch = the in-kernel boot capstone (the
-  ratchet machinery is proven; this feeds it the readers fragments).
+- Scale the batch (~104 verified readers weave-ready — the readers slice of the
+  1,123 banked); batch-boot economics are the Ring-7 worker/HVF story.
 - The efftrace/alloc model→real translation is the following non-leaf class.
-- ~104 verified readers are weave-ready today (the readers slice of the 1,123
-  banked); the boot-batch economics are the Ring-7 worker/HVF story.
