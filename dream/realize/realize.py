@@ -1,0 +1,558 @@
+#!/usr/bin/env python3
+"""realize.py — model->real translation for verified efftrace candidates.
+
+A sweep-verified efftrace candidate holds its logic in a CLOSED helper
+vocabulary over a flat cell model:
+
+    field(F0_BD_WRITERS, a0) / set_field(F0_BD_WRITERS, a0, v)   # node fields
+    g(G_NAME) / set_g(G_NAME, v)                                 # globals
+    out(OUT_NAME) / set_out(OUT_NAME, v)                         # out-params
+
+and the cell-index constants were DERIVED from the real struct fields by the
+efftrace reach gate. So realization is a deterministic transpile: rewrite each
+helper call into a real-struct access (`field(F0_BD_WRITERS, a0)` ->
+`((*bdev).bd_writers as i64)`), keep every other token of the verified body
+VERBATIM, and emit a real-signature `#[no_mangle] extern "C" fn <fn>_rs(...)`.
+
+THE TRANSPILER IS NOT TRUSTED. Each realized function is re-gated by the SAME
+differential the model passed: harness.prepare()'s C reference arena + workload
++ probe are reused unchanged; only the Rust side swaps the cell model for an
+arena of real-layout #[repr(C)] structs and routes rs_call through the realized
+function. A transpile bug is a state divergence — the 0-false-pass invariant is
+inherited, not re-argued.
+
+Anything outside the closed vocabulary is REFUSED and tallied (fail-closed):
+direct S[]/norm/CW access, early `return`, a node arg used anywhere but its own
+slot position, `a{i}` arithmetic on node/out handles. Refusals are the v2
+worklist, not silent drops.
+
+Usage:
+  realize.py prove <file> <fn>    # transpile + host differential re-verify
+  realize.py show <file> <fn>     # print the realized function source
+  realize.py selfcheck            # mechanism proof: correct->MATCH, sabotage->DIVERGE
+"""
+from __future__ import annotations
+
+import importlib.util
+import os
+import re
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+EFF = os.path.join(HERE, "..", "efftrace")
+VERIFIED = os.path.join(HERE, "..", "firstrun", "verified")
+
+
+def _load(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+reach = _load("eff_reach_rz", os.path.join(EFF, "reach.py"))
+harness = _load("eff_harness_rz", os.path.join(EFF, "harness.py"))
+
+
+class Refused(Exception):
+    pass
+
+
+# ---------------------------------------------------------------------------
+# candidate loading
+# ---------------------------------------------------------------------------
+
+def load_body(file, fn):
+    """The verified rs_call body, verbatim, from the sweep bank."""
+    key = f"efftrace_{file.replace('/', '__')}_{fn}.rs"
+    path = os.path.join(VERIFIED, key)
+    src = open(path).read()
+    m = re.search(r'extern "C" fn rs_call\([^)]*\) -> i64 \{\n(.*)\n\}\s*$',
+                  src, re.DOTALL)
+    if not m:
+        raise Refused("no_rs_call_body")
+    return m.group(1)
+
+
+# ---------------------------------------------------------------------------
+# type mapping (host LP64, same table the harness normalizes with)
+# ---------------------------------------------------------------------------
+
+def rust_ty(ctype):
+    bits, signed = harness._cell_width(ctype)
+    if bits == 1:
+        return "u8"          # C bool: 1 byte, stored 0/1
+    return f"{'i' if signed else 'u'}{bits}"
+
+
+def store_cast(ctype):
+    """Rust cast that reproduces the C typed store `field = (T)v` from i64."""
+    bits, signed = harness._cell_width(ctype)
+    if bits == 1:
+        return "(({v}) != 0) as u8"
+    return f"({{v}}) as {'i' if signed else 'u'}{bits}"
+
+
+# ---------------------------------------------------------------------------
+# the transpile
+# ---------------------------------------------------------------------------
+
+_HELPER_RE = re.compile(r"(?<![\w])(set_field|field|set_g|g|set_out|out)\s*\(")
+_FORBIDDEN = re.compile(r"(?<![\w])(S\s*\[|norm\s*\(|CW\s*\[|NSTATE|rs_set|rs_reset|rs_state|return)\b")
+
+
+def _split_args(text, start):
+    """text[start] == '(' -> (args list split at top-level commas, index past ')')."""
+    depth, i, args, cur = 0, start, [], ""
+    while i < len(text):
+        ch = text[i]
+        if ch in "([{":
+            depth += 1
+            if depth > 1:
+                cur += ch
+        elif ch in ")]}":
+            depth -= 1
+            if depth == 0:
+                args.append(cur)
+                return args, i + 1
+            cur += ch
+        elif ch == "," and depth == 1:
+            args.append(cur)
+            cur = ""
+        else:
+            cur += ch
+        i += 1
+    raise Refused("unbalanced_parens")
+
+
+def transpile(rec, body):
+    """Rewrite the verified body's helper calls into real-struct accesses.
+
+    Returns {body, sig_params, ret, node_params, uses_globals, uses_outp}.
+    """
+    if _FORBIDDEN.search(body):
+        raise Refused("forbidden_token:" + _FORBIDDEN.search(body).group(1))
+
+    node_ps = [p for p in rec["params"] if p["kind"] == "node"]
+    outs = [p for p in rec["params"] if p["kind"] == "outp"]
+    # node param pi -> (its a{k} token, its real name); field-name map per pi
+    node_slot = {}
+    fmap = {}
+    for pi, p in enumerate(node_ps):
+        k = rec["params"].index(p)
+        node_slot[pi] = f"a{k}"
+        up = {}
+        for f in p["scalar_fields"]:
+            if f.upper() in up:
+                raise Refused("field_case_collision")
+            up[f.upper()] = f
+        fmap[pi] = up
+    gtypes = {n: g["ctype"] for n, g in rec["globals"].items()}
+    otypes = {p["name"]: p["ctype"] for p in outs}
+    used = {"globals": False, "outp": False}
+
+    def rw(text):
+        out_s = ""
+        i = 0
+        while True:
+            m = _HELPER_RE.search(text, i)
+            if not m:
+                return out_s + text[i:]
+            out_s += text[i:m.start()]
+            args, nxt = _split_args(text, m.end() - 1)
+            args = [rw(a) for a in args]          # nested helper calls
+            h = m.group(1)
+            if h in ("field", "set_field"):
+                cm = re.match(r"\s*F(\d+)_([A-Za-z0-9_]+?)\s*$", args[0])
+                if not cm:
+                    raise Refused("non_const_field_base")
+                pi = int(cm.group(1))
+                fname = fmap.get(pi, {}).get(cm.group(2))
+                if fname is None:
+                    raise Refused("unknown_field_const")
+                if args[1].strip() != node_slot[pi]:
+                    raise Refused("slot_not_own_param")
+                pname = node_ps[pi]["name"]
+                t = node_ps[pi]["scalar_fields"][fname]
+                if h == "field":
+                    out_s += f"((*{pname}).{fname} as i64)"
+                else:
+                    cast = store_cast(t).replace("{v}", args[2].strip())
+                    out_s += f"{{ (*{pname}).{fname} = {cast}; }}"
+            elif h in ("g", "set_g"):
+                cm = re.match(r"\s*G_([A-Za-z0-9_]+?)\s*$", args[0])
+                gname = None
+                if cm:
+                    low = {n.upper(): n for n in gtypes}
+                    gname = low.get(cm.group(1))
+                if gname is None:
+                    raise Refused("unknown_global_const")
+                used["globals"] = True
+                t = gtypes[gname]
+                if h == "g":
+                    out_s += f"(GV_{gname} as i64)"
+                else:
+                    cast = store_cast(t).replace("{v}", args[1].strip())
+                    out_s += f"{{ GV_{gname} = {cast}; }}"
+            else:                                  # out / set_out
+                cm = re.match(r"\s*OUT_([A-Za-z0-9_]+?)\s*$", args[0])
+                oname = None
+                if cm:
+                    low = {n.upper(): n for n in otypes}
+                    oname = low.get(cm.group(1))
+                if oname is None:
+                    raise Refused("unknown_out_const")
+                used["outp"] = True
+                t = otypes[oname]
+                if h == "out":
+                    out_s += f"((*{oname}) as i64)"
+                else:
+                    cast = store_cast(t).replace("{v}", args[1].strip())
+                    out_s += f"{{ *{oname} = {cast}; }}"
+            i = 0
+            text = text[nxt:]
+
+    realized = rw(body)
+
+    # every remaining ALL-CAPS identifier must be a known define: an unresolved
+    # path in a Rust MATCH PATTERN silently becomes a catch-all binding (hit
+    # live on __cxl_access_coordinate_set — compiled clean, first arm matched
+    # everything, differential caught it). Fail closed instead.
+    known_consts = set(rec["defines"])
+    for tok in set(re.findall(r"(?<![\w])([A-Z][A-Z0-9_]{2,})(?![\w])", realized)):
+        if tok not in known_consts:
+            raise Refused(f"unknown_const_token:{tok}")
+
+    # a node/out arg must not survive into the realized body as a bare value
+    # (its only legitimate model use was the slot/handle position, now consumed)
+    for i, p in enumerate(rec["params"]):
+        if p["kind"] in ("node", "outp") and re.search(rf"(?<![\w])a{i}(?![\w])", realized):
+            raise Refused("handle_arg_used_as_value")
+
+    # scalar params: the realized fn binds a{i}: i64 from the native param, so
+    # the verified i64 value-logic is untouched.
+    pw = harness._param_widths(harness._fn_text(rec), rec["params"])
+    sig, binds = [], []
+    for i, p in enumerate(rec["params"]):
+        if p["kind"] == "node":
+            sig.append(f"{p['name']}: *mut {p['struct'].capitalize()}Mirror")
+        elif p["kind"] == "outp":
+            sig.append(f"{p['name']}: *mut {rust_ty(p['ctype'])}")
+        else:
+            w = pw[i]
+            nt = f"{'i' if w[1] else 'u'}{w[0]}" if w else "i64"
+            sig.append(f"{p['name']}_arg: {nt}")
+            binds.append(f"    let a{i}: i64 = {p['name']}_arg as i64;")
+
+    ret_c = rec["ret"]
+    if ret_c == "void":
+        ret_sig, ret_expr = "", "let _ = __r;"
+    else:
+        rt = rust_ty(ret_c)
+        ret_sig, ret_expr = f" -> {rt}", f"__r as {rt}"
+
+    # the fn is self-contained: resolved defines become fn-local consts (an
+    # unemitted define would compile as a match-pattern binding — see above)
+    defc = [f"    const {n}: i64 = {v};" for n, v in rec["defines"].items()]
+    fn_src = (
+        f'#[no_mangle]\npub unsafe extern "C" fn {rec["fn"]}_rs({", ".join(sig)}){ret_sig} {{\n'
+        + "\n".join(defc) + ("\n" if defc else "")
+        + "\n".join(binds) + ("\n" if binds else "")
+        + f"    let __r: i64 = {{\n{realized}\n    }};\n    {ret_expr}\n}}\n")
+    return {"fn_src": fn_src, "uses_globals": used["globals"],
+            "uses_outp": used["outp"], "node_params": node_ps, "pw": pw}
+
+
+# ---------------------------------------------------------------------------
+# host re-verification: same C reference + workload; Rust side = real structs
+# ---------------------------------------------------------------------------
+
+def _mirror_struct(p):
+    """Reduced #[repr(C)] mirror matching the C reference arena's struct def
+    EXACTLY (same sorted field order, same C layout rules)."""
+    lines = [f"#[repr(C)]\n#[derive(Copy, Clone)]\npub struct {p['struct'].capitalize()}Mirror {{"]
+    for f, t in sorted(p["scalar_fields"].items()):
+        lines.append(f"    pub {f}: {rust_ty(t)},")
+    lines.append("}")
+    return "\n".join(lines)
+
+
+def rust_host_tu(rec, prep, tr):
+    """The differential's Rust TU: real-layout arenas + the realized fn +
+    rs_reset/rs_set/rs_state/rs_call speaking the SAME cell protocol as the C."""
+    node_ps = tr["node_params"]
+    outs = [p for p in rec["params"] if p["kind"] == "outp"]
+    NN = harness.NN
+    parts = ['#![allow(non_snake_case, dead_code, static_mut_refs, unused_unsafe, '
+             'unused_imports, unused_variables, non_upper_case_globals, unused_braces)]',
+             "// realized model->real candidate over real-layout structs"]
+    emitted = set()
+    for p in node_ps:
+        if p["struct"] not in emitted:
+            emitted.add(p["struct"])
+            parts.append(_mirror_struct(p))
+    for pi, p in enumerate(node_ps):
+        mn = p["struct"].capitalize() + "Mirror"
+        parts.append(f"static mut RP{pi}: [{mn}; {NN}] = [{mn} {{ "
+                     + ", ".join(f"{f}: 0" for f in sorted(p["scalar_fields"]))
+                     + f" }}; {NN}];")
+    for n, g in rec["globals"].items():
+        parts.append(f"static mut GV_{n}: {rust_ty(g['ctype'])} = 0;")
+    for p in outs:
+        parts.append(f"static mut OV_{p['name']}: {rust_ty(p['ctype'])} = 0;")
+
+    # cell protocol, same index map as the C side (prep['cells'])
+    set_arms, get_arms = [], []
+    outnames = [p["name"] for p in outs]
+    for i, cell in enumerate(prep["cells"]):
+        if cell[0] == "g":
+            t = rec["globals"][cell[1]]["ctype"]
+            set_arms.append(f"        {i} => GV_{cell[1]} = {store_cast(t).replace('{v}', 'v')},")
+            get_arms.append(f"        {i} => GV_{cell[1]} as i64,")
+        elif cell[0] == "out":
+            t = otype = [p for p in outs if p["name"] == cell[1]][0]["ctype"]
+            set_arms.append(f"        {i} => OV_{cell[1]} = {store_cast(t).replace('{v}', 'v')},")
+            get_arms.append(f"        {i} => OV_{cell[1]} as i64,")
+        else:
+            _, pi, f, slot = cell
+            t = node_ps[pi]["scalar_fields"][f]
+            set_arms.append(f"        {i} => RP{pi}[{slot}].{f} = {store_cast(t).replace('{v}', 'v')},")
+            get_arms.append(f"        {i} => RP{pi}[{slot}].{f} as i64,")
+    ginit = []
+    for n, g in rec["globals"].items():
+        if g["init"]:
+            ginit.append(f"    GV_{n} = {store_cast(g['ctype']).replace('{v}', str(g['init']))};")
+    parts.append(f"""
+#[no_mangle] pub extern "C" fn rs_reset() {{ unsafe {{
+{chr(10).join("    RP%d = [%sMirror { %s }; %d];" % (pi, p["struct"].capitalize(),
+              ", ".join(f"{f}: 0" for f in sorted(p["scalar_fields"])), NN)
+              for pi, p in enumerate(node_ps))}
+{chr(10).join(f"    GV_{n} = 0;" for n in rec["globals"])}
+{chr(10).join(f"    OV_{p['name']} = 0;" for p in outs)}
+{chr(10).join(ginit)}
+}}}}
+#[no_mangle] pub extern "C" fn rs_set(ix: i32, v: i64) {{ unsafe {{
+    match ix as usize {{
+{chr(10).join(set_arms)}
+        _ => {{}}
+    }}
+}}}}
+#[no_mangle] pub extern "C" fn rs_state(buf: *mut i64) {{ unsafe {{
+    for i in 0..{prep["nstate"]}usize {{
+        *buf.add(i) = match i {{
+{chr(10).join(get_arms)}
+            _ => 0,
+        }};
+    }}
+}}}}""")
+    parts.append(tr["fn_src"])
+
+    # rs_call trampoline: slot indices / handles -> real pointers, native args
+    call_args, tramp = [], []
+    for i, p in enumerate(rec["params"]):
+        tramp.append(f"a{i}: i64")
+        if p["kind"] == "node":
+            pi = node_ps.index(p)
+            call_args.append(f"RP{pi}.as_mut_ptr().add(a{i} as usize)")
+        elif p["kind"] == "outp":
+            call_args.append(f"&mut OV_{p['name']} as *mut _")
+        else:
+            w = tr["pw"][i]
+            nt = f"{'i' if w[1] else 'u'}{w[0]}" if w else "i64"
+            call_args.append(f"a{i} as {nt}")
+    callexpr = f'{rec["fn"]}_rs({", ".join(call_args)})'
+    if rec["ret"] == "void":
+        body = f"    unsafe {{ {callexpr} }}; 0"
+    else:
+        body = f"    (unsafe {{ {callexpr} }}) as i64"
+    parts.append(f'#[no_mangle] pub extern "C" fn rs_call({", ".join(tramp) or ""}) -> i64 {{\n{body}\n}}')
+    return "\n".join(parts) + "\n"
+
+
+def close_realized(prep, rust_tu, workdir=None):
+    """harness.close(), but with our full Rust TU instead of surface+body."""
+    d = workdir or tempfile.mkdtemp(prefix="realize_")
+    open(os.path.join(d, "ref.c"), "w").write(prep["csrc"])
+    open(os.path.join(d, "cand.rs"), "w").write(rust_tu)
+    open(os.path.join(d, "probe.c"), "w").write(harness._probe_c(prep))
+    r = harness._run(["rustc", "--edition", "2021", "-O", "--crate-type=staticlib",
+                      os.path.join(d, "cand.rs"), "-o", os.path.join(d, "libcand.a")], 90)
+    if r is None or r.returncode:
+        return {"verdict": "BUILD_FAIL_RS", "out": (r.stderr[-2000:] if r else ""), "dir": d}
+    r = harness._run(["cc", "-O2", "-w", os.path.join(d, "probe.c"), os.path.join(d, "ref.c"),
+                      os.path.join(d, "libcand.a"), "-o", os.path.join(d, "run")], 90)
+    if r is None or r.returncode:
+        return {"verdict": "BUILD_FAIL_C", "out": (r.stderr[-2000:] if r else ""), "dir": d}
+    r = harness._run([os.path.join(d, "run")], 30)
+    if r is None:
+        return {"verdict": "TIMEOUT:run", "out": "", "dir": d}
+    out = (r.stdout + r.stderr).strip()
+    m = re.search(r"verdict=([A-Z_]+(?::[a-z]+)?)", out)
+    return {"verdict": m.group(1) if m else f"UNKNOWN(rc={r.returncode})", "out": out, "dir": d}
+
+
+def realize(file, fn):
+    rec = reach.gate(file, fn)
+    prep = harness.prepare(rec)
+    prep = harness.with_directed(prep)
+    body = load_body(file, fn)
+    tr = transpile(rec, body)
+    return rec, prep, tr
+
+
+def prove(file, fn):
+    rec, prep, tr = realize(file, fn)
+    tu = rust_host_tu(rec, prep, tr)
+    r = close_realized(prep, tu)
+    print(f"REALIZE {file}:{fn} verdict={r['verdict']}  [{r['out'][:80]}]")
+    if r["verdict"] != "MATCH":
+        print(f"  dir={r['dir']}")
+    return 0 if r["verdict"] == "MATCH" else 1
+
+
+def show(file, fn):
+    _, _, tr = realize(file, fn)
+    print(tr["fn_src"])
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# selfcheck: the mechanism proof — correct realizes to MATCH; a sabotaged
+# transpile (one store off by one) must DIVERGE (the differential is
+# load-bearing over the realized output, not just the model).
+# ---------------------------------------------------------------------------
+
+def selfcheck():
+    file, fn = "block/bdev.c", "bdev_block_writes"
+    rec, prep, tr = realize(file, fn)
+    print(f"=== realize selfcheck: {fn} ({file}) ===")
+    r = close_realized(prep, rust_host_tu(rec, prep, tr))
+    ok = r["verdict"] == "MATCH"
+    print(f"  {'✓' if ok else '✗ UNEXPECTED'}  realized(correct)  -> {r['verdict']}")
+
+    # sabotage: corrupt the realized store by +1 (a transpiler bug surrogate)
+    sab = dict(tr)
+    m = re.search(r"= (\(.*\)) as (\w+);", tr["fn_src"])
+    assert m, "expected a store to sabotage"
+    sab["fn_src"] = tr["fn_src"].replace(m.group(0),
+        f"= ({m.group(1)} + 1) as {m.group(2)};", 1)
+    r2 = close_realized(prep, rust_host_tu(rec, prep, sab))
+    ok2 = r2["verdict"].startswith("DIVERGE")
+    print(f"  {'✓' if ok2 else '✗ UNEXPECTED'}  realized(sabotaged store) -> {r2['verdict']}")
+    print("REALIZE MECHANISM:", "PASS — verified body transpiled to a real-struct fn, "
+          "re-certified by the same differential; sabotage caught" if ok and ok2 else "FAIL")
+    return 0 if ok and ok2 else 1
+
+
+# ---------------------------------------------------------------------------
+# census: transpile + re-verify EVERY banked efftrace candidate; tally honestly.
+# Checkpointed (jsonl) and resumable; refusals are a named worklist, never
+# silent drops.
+# ---------------------------------------------------------------------------
+
+CENSUS = os.path.join(HERE, "census.jsonl")
+
+
+def _census_one(pair):
+    file, fn = pair
+    import json
+    key = f"{file}:{fn}"
+    try:
+        body = load_body(file, fn)
+    except Exception as e:
+        return {"key": key, "stage": "load", "result": f"REFUSED:{e}"}
+    try:
+        rec = reach.gate(file, fn)
+    except Exception as e:
+        return {"key": key, "stage": "gate", "result": f"GATE_FAIL:{str(e)[:80]}"}
+    try:
+        prep = harness.prepare(rec)
+        prep = harness.with_directed(prep)
+    except Exception as e:
+        return {"key": key, "stage": "prepare", "result": f"PREP_FAIL:{str(e)[:80]}"}
+    try:
+        tr = transpile(rec, body)
+    except Refused as e:
+        return {"key": key, "stage": "transpile", "result": f"REFUSED:{e}"}
+    except Exception as e:
+        return {"key": key, "stage": "transpile", "result": f"ERROR:{str(e)[:80]}"}
+    try:
+        r = close_realized(prep, rust_host_tu(rec, prep, tr))
+    except Exception as e:
+        return {"key": key, "stage": "verify", "result": f"ERROR:{str(e)[:80]}"}
+    return {"key": key, "stage": "verify", "result": r["verdict"],
+            "uses_globals": tr["uses_globals"], "uses_outp": tr["uses_outp"],
+            "n_node": len(tr["node_params"])}
+
+
+def census():
+    import json
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    solved = json.load(open(os.path.join(HERE, "..", "firstrun", "sweep", "solved.json")))
+    pairs = []
+    for r in solved["recs"]:
+        if r["kind"] != "efftrace":
+            continue
+        p = os.path.join(VERIFIED, f"efftrace_{r['file'].replace('/', '__')}_{r['sym']}.rs")
+        if os.path.exists(p):
+            pairs.append((r["file"], r["sym"]))
+    done = {}
+    if os.path.exists(CENSUS):
+        for ln in open(CENSUS):
+            try:
+                row = json.loads(ln)
+                done[row["key"]] = row
+            except Exception:
+                pass
+    todo = [p for p in pairs if f"{p[0]}:{p[1]}" not in done]
+    print(f"census: {len(pairs)} banked efftrace candidates, {len(done)} done, {len(todo)} to run")
+    out = open(CENSUS, "a")
+    with ProcessPoolExecutor(max_workers=8) as ex:
+        futs = {ex.submit(_census_one, p): p for p in todo}
+        for i, fu in enumerate(as_completed(futs)):
+            row = fu.result()
+            out.write(json.dumps(row) + "\n")
+            out.flush()
+            done[row["key"]] = row
+            if (i + 1) % 25 == 0:
+                print(f"  {i+1}/{len(todo)}...")
+    out.close()
+    from collections import Counter
+    tally = Counter(r["result"].split(":")[0] if not r["result"].startswith("DIVERGE")
+                    else r["result"] for r in done.values())
+    verified_real = [k for k, r in done.items() if r["result"] == "MATCH"]
+    print("\n=== realize census ===")
+    for k, v in tally.most_common():
+        print(f"  {k:24s} {v}")
+    print(f"  REALIZED+RE-VERIFIED: {len(verified_real)}/{len(pairs)}")
+    ref = Counter(r["result"] for r in done.values() if r["result"].startswith("REFUSED"))
+    if ref:
+        print("  refusal reasons:")
+        for k, v in ref.most_common(10):
+            print(f"    {v:4d}  {k}")
+    div = [k for k, r in done.items() if r["result"].startswith("DIVERGE")]
+    if div:
+        print(f"  DIVERGES (transpile bugs or model/real semantic gaps — investigate): {div[:10]}")
+    return 0
+
+
+def main():
+    if len(sys.argv) >= 2 and sys.argv[1] == "selfcheck":
+        return selfcheck()
+    if len(sys.argv) >= 2 and sys.argv[1] == "census":
+        return census()
+    if len(sys.argv) < 4:
+        print(__doc__)
+        return 2
+    cmd, file, fn = sys.argv[1], sys.argv[2], sys.argv[3]
+    if cmd == "prove":
+        return prove(file, fn)
+    if cmd == "show":
+        return show(file, fn)
+    print(__doc__)
+    return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

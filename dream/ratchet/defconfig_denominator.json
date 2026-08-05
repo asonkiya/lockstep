@@ -1,0 +1,180 @@
+{
+ "pairs": 104,
+ "files": 92,
+ "file_status": {
+  "drivers/accel/amdxdna/aie2_solver.c": "NOTBUILT",
+  "drivers/acpi/arm64/iort.c": "LINKED",
+  "drivers/bluetooth/btrtl.c": "NOTBUILT",
+  "drivers/clk/at91/clk-h32mx.c": "NOTBUILT",
+  "drivers/clk/at91/clk-plldiv.c": "NOTBUILT",
+  "drivers/clk/clk-gemini.c": "NOTBUILT",
+  "drivers/clk/clk-versaclock5.c": "NOGLOBALS",
+  "drivers/clk/clk_test.c": "NOTBUILT",
+  "drivers/clk/imx/clk-scu.c": "LINKED",
+  "drivers/clk/ingenic/jz4780-cgu.c": "NOTBUILT",
+  "drivers/clk/ingenic/x1000-cgu.c": "NOTBUILT",
+  "drivers/clk/qcom/clk-regmap-phy-mux.c": "LINKED",
+  "drivers/clk/st/clkgen-pll.c": "NOTBUILT",
+  "drivers/clk/tegra/cvb.c": "LINKED",
+  "drivers/crypto/caam/ctrl.c": "NOTBUILT",
+  "drivers/crypto/intel/qat/qat_common/qat_uclo.c": "NOTBUILT",
+  "drivers/crypto/nx/nx-842.c": "NOTBUILT",
+  "drivers/cxl/core/cdat.c": "NOTBUILT",
+  "drivers/dma/acpi-dma.c": "LINKED",
+  "drivers/fpga/dfl-afu-dma-region.c": "NOTBUILT",
+  "drivers/gpu/drm/amd/display/dc/sspl/dc_spl.c": "NOTBUILT",
+  "drivers/gpu/drm/i915/display/intel_dmc.c": "NOTBUILT",
+  "drivers/gpu/drm/i915/display/skl_watermark.c": "NOTBUILT",
+  "drivers/gpu/drm/i915/gt/uc/intel_guc_capture.c": "NOTBUILT",
+  "drivers/gpu/drm/i915/intel_uncore.c": "NOTBUILT",
+  "drivers/gpu/drm/vc4/vc4_drv.c": "NOTBUILT",
+  "drivers/gpu/drm/xe/xe_guc_capture.c": "NOTBUILT",
+  "drivers/gpu/host1x/cdma.c": "NOTBUILT",
+  "drivers/hid/bpf/progs/HP__Elite-Presenter.bpf.c": "NOTBUILT",
+  "drivers/hid/bpf/progs/IOGEAR__Kaliber-MMOmentum.bpf.c": "NOTBUILT",
+  "drivers/hid/bpf/progs/Trust__Philips-SPK6327.bpf.c": "NOTBUILT",
+  "drivers/iio/adc/ad4170-4.c": "NOTBUILT",
+  "drivers/iio/industrialio-gts-helper.c": "NOTBUILT",
+  "drivers/infiniband/hw/irdma/uda.c": "NOTBUILT",
+  "drivers/input/input-poller.c": "LINKED",
+  "drivers/input/touch-overlay.c": "LINKED",
+  "drivers/input/touchscreen/sun4i-ts.c": "NOTBUILT",
+  "drivers/md/dm-cache-policy-smq.c": "NOTBUILT",
+  "drivers/media/rc/img-ir/img-ir-hw.c": "NOTBUILT",
+  "drivers/media/v4l2-core/v4l2-jpeg.c": "NOTBUILT",
+  "drivers/misc/tifm_core.c": "NOTBUILT",
+  "drivers/net/can/dev/bittiming.c": "NOTBUILT",
+  "drivers/net/ethernet/amd/a2065.c": "NOTBUILT",
+  "drivers/net/ethernet/atheros/alx/main.c": "NOTBUILT",
+  "drivers/net/ethernet/chelsio/cxgb4vf/sge.c": "NOTBUILT",
+  "drivers/net/ethernet/hisilicon/hns3/hns3pf/hclge_main.c": "NOTBUILT",
+  "drivers/net/ethernet/intel/ice/virt/virtchnl.c": "NOTBUILT",
+  "drivers/net/ethernet/marvell/mvpp2/mvpp2_main.c": "NOTBUILT",
+  "drivers/net/ethernet/qlogic/qed/qed_cxt.c": "NOTBUILT",
+  "drivers/net/wireless/ath/ath12k/reg.c": "NOTBUILT",
+  "drivers/net/wireless/broadcom/brcm80211/brcmfmac/commonring.c": "NOTBUILT",
+  "drivers/pinctrl/renesas/core.c": "LINKED",
+  "drivers/powercap/dtpm_devfreq.c": "NOTBUILT",
+  "drivers/pwm/core.c": "LINKED",
+  "drivers/rapidio/devices/rio_mport_cdev.c": "NOTBUILT",
+  "drivers/s390/block/dasd_eer.c": "NOTBUILT",
+  "drivers/scsi/mvumi.c": "NOTBUILT",
+  "drivers/spi/spi-bcm-qspi.c": "LINKED",
+  "drivers/staging/greybus/loopback.c": "NOTBUILT",
+  "drivers/thermal/devfreq_cooling.c": "LINKED",
+  "drivers/tty/serial/max310x.c": "NOTBUILT",
+  "drivers/usb/storage/sierra_ms.c": "LINKED",
+  "drivers/video/fbdev/omap2/omapfb/dss/dispc.c": "NOTBUILT",
+  "fs/btrfs/bio.c": "NOTBUILT",
+  "fs/btrfs/defrag.c": "NOTBUILT",
+  "fs/btrfs/ref-verify.c": "NOTBUILT",
+  "fs/fuse/file.c": "NOTBUILT",
+  "fs/gfs2/rgrp.c": "NOTBUILT",
+  "fs/ntfs/runlist.c": "NOTBUILT",
+  "fs/ocfs2/dlm/dlmdomain.c": "NOTBUILT",
+  "fs/ocfs2/extent_map.c": "NOTBUILT",
+  "fs/ocfs2/reservations.c": "NOTBUILT",
+  "fs/ocfs2/stack_user.c": "NOTBUILT",
+  "kernel/bpf/log.c": "LINKED",
+  "kernel/dma/swiotlb.c": "LINKED",
+  "kernel/locking/lockdep.c": "NOTBUILT",
+  "kernel/resource.c": "LINKED",
+  "lib/bitmap-str.c": "LINKED",
+  "lib/linear_ranges.c": "LINKED",
+  "mm/hugetlb.c": "LINKED",
+  "mm/page_vma_mapped.c": "LINKED",
+  "net/ipv4/tcp_westwood.c": "NOTBUILT",
+  "net/ipv6/seg6_local.c": "NOTBUILT",
+  "net/netfilter/nf_conntrack_h323_asn1.c": "NOTBUILT",
+  "net/qrtr/ns.c": "NOTBUILT",
+  "net/sched/act_ife.c": "NOTBUILT",
+  "net/sched/em_meta.c": "NOTBUILT",
+  "net/tipc/subscr.c": "NOTBUILT",
+  "net/wireless/util.c": "NOTBUILT",
+  "sound/core/seq/seq_clientmgr.c": "NOTBUILT",
+  "sound/hda/common/auto_parser.c": "NOTBUILT"
+ },
+ "D": 20,
+ "D_pairs": [
+  [
+   "drivers/acpi/arm64/iort.c",
+   "arm_smmu_v3_resource_size"
+  ],
+  [
+   "drivers/clk/imx/clk-scu.c",
+   "clk_gpr_div_scu_determine_rate"
+  ],
+  [
+   "drivers/clk/qcom/clk-regmap-phy-mux.c",
+   "phy_mux_determine_rate"
+  ],
+  [
+   "drivers/clk/tegra/cvb.c",
+   "round_voltage"
+  ],
+  [
+   "drivers/dma/acpi-dma.c",
+   "acpi_dma_update_dma_spec"
+  ],
+  [
+   "drivers/input/input-poller.c",
+   "input_dev_poller_finalize"
+  ],
+  [
+   "drivers/input/touch-overlay.c",
+   "touch_overlay_segment_event"
+  ],
+  [
+   "drivers/pinctrl/renesas/core.c",
+   "sh_pfc_enum_in_range"
+  ],
+  [
+   "drivers/pwm/core.c",
+   "pwm_check_rounding"
+  ],
+  [
+   "drivers/pwm/core.c",
+   "pwmwfcmp"
+  ],
+  [
+   "drivers/spi/spi-bcm-qspi.c",
+   "bcm_qspi_calc_spbr"
+  ],
+  [
+   "drivers/thermal/devfreq_cooling.c",
+   "_normalize_load"
+  ],
+  [
+   "drivers/usb/storage/sierra_ms.c",
+   "containsFullLinuxPackage"
+  ],
+  [
+   "kernel/dma/swiotlb.c",
+   "wrap_area_index"
+  ],
+  [
+   "kernel/bpf/log.c",
+   "bpf_vlog_update_len_max"
+  ],
+  [
+   "kernel/resource.c",
+   "resource_clip"
+  ],
+  [
+   "lib/bitmap-str.c",
+   "bitmap_check_region"
+  ],
+  [
+   "lib/linear_ranges.c",
+   "linear_range_get_value"
+  ],
+  [
+   "mm/hugetlb.c",
+   "subpool_is_free"
+  ],
+  [
+   "mm/page_vma_mapped.c",
+   "step_forward"
+  ]
+ ]
+}

@@ -253,7 +253,7 @@ def _orig_signature(rel, fn):
     return orig[:orig.index("{")].rstrip()
 
 
-VOL = "cgir-kbuild"
+VOL = os.environ.get("WEAVE_VOL", "cgir-kbuild")
 IMG = "cgir-kernel-gate"
 
 
@@ -387,16 +387,26 @@ def batch(pairs=None):
     # undefined-reference to a reader object, drop it and rebuild (bounded).
     keymap = {_objkey(rel, fn): (rel, fn) for rel, fn in pairs}
     for _ in range(4):
+        # rm the Image first + pipefail: a failed relink must NOT false-pass on a
+        # stale Image (hit live on the defconfig run — make failed at link, the
+        # old Image satisfied test -f, and the boot gate booted a kernel that
+        # never contained the weave; only the nm presence check caught it).
         r = subprocess.run(
-            ["docker", "run", "--rm", "-v", f"{VOL}:/build", IMG, "bash", "-c",
-             "cd /build/linux && make -s -j$(nproc) Image 2>&1 | tail -60 && "
+            ["docker", "run", "--rm", "-v", f"{VOL}:/build", IMG, "bash", "-eo", "pipefail", "-c",
+             "cd /build/linux && rm -f arch/arm64/boot/Image && "
+             "make -s -j$(nproc) Image 2>&1 | tail -60; "
              "test -f arch/arm64/boot/Image && echo __BUILT__"],
             capture_output=True, text=True)
         if "__BUILT__" in r.stdout:
             break
         # match FULL keys against the link output (the '__' path separators broke
-        # a regex; substring test on each known key is robust)
-        bad = {keymap[k] for k in keymap if k in r.stdout}
+        # a regex; substring test on each known key is robust) — but only in
+        # ERROR lines: defconfig's linker emits an `.eh_frame` orphan-section
+        # WARNING naming every reader object, and matching those dropped all 12
+        # readers when only 2 had genuine undefined-core refs (hit live).
+        err_text = "\n".join(ln for ln in r.stdout.splitlines()
+                             if "warning:" not in ln)
+        bad = {keymap[k] for k in keymap if k in err_text}
         if not bad:
             print("  ✗ build failed (not an isolable reader link error):")
             print("   " + "\n   ".join(r.stdout.strip().splitlines()[-6:]))

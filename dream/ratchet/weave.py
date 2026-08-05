@@ -27,7 +27,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 MANIFEST = os.path.join(HERE, "manifest.json")
-VOL = "cgir-kbuild"
+VOL = os.environ.get("WEAVE_VOL", "cgir-kbuild")
 IMG = "cgir-kernel-gate"
 OUT = os.path.join(HERE, "out")
 
@@ -213,7 +213,7 @@ def cmd_gate() -> int:
 
 def cmd_status() -> int:
     m = load()
-    total = sum(s.get("total_functions", len(s["functions"])) for s in m["sources"].values())
+    total = sum(s.get("total_functions", len(s["functions"])) for s in m["sources"].values()) or 1
     rust = sum(1 for s in m["sources"].values() for f in s["functions"].values() if f["status"] == "rust")
     proven = sum(1 for s in m["sources"].values() for f in s["functions"].values()
                  if f["status"] == "rust" and f["gate"] in ("differential", "kunit"))
