@@ -424,6 +424,14 @@ def realize(file, fn):
     return rec, prep, tr
 
 
+def realize_light(file, fn):
+    """rec + transpile only — for weave-time artifact generation of candidates
+    the census ALREADY re-verified (no differential re-run needed)."""
+    rec = reach.gate(file, fn)
+    tr = transpile(rec, load_body(file, fn))
+    return rec, tr
+
+
 def prove(file, fn):
     rec, prep, tr = realize(file, fn)
     tu = rust_host_tu(rec, prep, tr)

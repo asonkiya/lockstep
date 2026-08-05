@@ -73,56 +73,101 @@ _READERS_BASE = [
 ]
 
 
-def probe_offsets(rel, struct, fields):
-    """Real (offset, field_size) per field + sizeof(struct), measured by the
-    KERNEL's own compiler under the volume's .config. Restores stock after."""
-    stock = open(os.path.join(KSRC, rel), errors="ignore").read()
-    probe = ["\n/* cgir layout probe (temporary) */"]
-    probe.append(f"char cgir_szs[sizeof(struct {struct})];")
-    for f in fields:
-        probe.append(f"char cgir_off_{f}[__builtin_offsetof(struct {struct}, {f}) + 1];")
-        probe.append(f"char cgir_fsz_{f}[sizeof(((struct {struct} *)0)->{f})];")
-    tmp = os.path.join(HERE, "out")
+def probe_many(items):
+    """items: {rel: {struct: set(fields)}} -> {(rel, struct): (layout, ssz)}.
+    ONE docker call: probe arrays appended to every file, all .o built -j, nm
+    read back per object. Restores stock after. Files whose probe .o fails are
+    simply absent from the result (their candidates skip, tallied upstream)."""
+    tmp = os.path.join(HERE, "out", "probe")
     os.makedirs(tmp, exist_ok=True)
-    pname = os.path.basename(rel)
-    open(os.path.join(tmp, pname), "w").write(stock + "\n".join(probe) + "\n")
-    obj = rel[:-2] + ".o"
+    names = {}
+    for rel, structs in items.items():
+        stock = open(os.path.join(KSRC, rel), errors="ignore").read()
+        probe = ["\n/* cgir layout probe (temporary) */"]
+        for struct, fields in structs.items():
+            probe.append(f"char cgir_z_{struct}[sizeof(struct {struct})];")
+            for f in sorted(fields):
+                probe.append(f"char cgir_o_{struct}__{f}"
+                             f"[__builtin_offsetof(struct {struct}, {f}) + 1];")
+                probe.append(f"char cgir_s_{struct}__{f}"
+                             f"[sizeof(((struct {struct} *)0)->{f})];")
+        pname = re.sub(r"[^0-9A-Za-z_.]", "_", rel)
+        names[rel] = pname
+        open(os.path.join(tmp, pname), "w").write(stock + "\n".join(probe) + "\n")
+    cps = " && ".join(f"cp /w/{names[rel]} /build/linux/{rel}" for rel in items)
+    objs = " ".join(rel[:-2] + ".o" for rel in items)
+    rms = " ".join(rel[:-2] + ".o" for rel in items)
+    nms = " ; ".join(
+        f"echo '==={rel}===' ; nm -S {rel[:-2]}.o 2>/dev/null | grep cgir_ || true"
+        for rel in items)
     r = subprocess.run(
         ["docker", "run", "--rm", "-v", f"{WR.VOL}:/build", "-v", f"{tmp}:/w:ro",
          WR.IMG, "bash", "-c",
-         f"cp /w/{pname} /build/linux/{rel} && cd /build/linux && rm -f {obj} && "
-         f"make -s {obj} 2>&1 | tail -3; nm -S {obj} 2>/dev/null | grep cgir_"],
+         f"{cps} && cd /build/linux && rm -f {rms} && "
+         f"make -s -j$(nproc) {objs} 2>&1 | tail -5 ; {nms}"],
         capture_output=True, text=True)
-    WR._reset_stock([rel])
+    WR._reset_stock(list(items))
     out = {}
-    for m in re.finditer(r"([0-9a-f]+)\s+([0-9a-f]+)\s+\w\s+(cgir_\w+)", r.stdout):
-        out[m.group(3)] = int(m.group(2), 16)
-    if "cgir_szs" not in out:
-        raise SystemExit(f"probe failed:\n{r.stdout[-600:]}")
-    layout = {f: (out[f"cgir_off_{f}"] - 1, out[f"cgir_fsz_{f}"]) for f in fields}
-    return layout, out["cgir_szs"]
+    cur = None
+    for ln in r.stdout.splitlines():
+        m = re.match(r"===(.+)===", ln)
+        if m:
+            cur = m.group(1)
+            continue
+        m = re.match(r"([0-9a-f]+)\s+([0-9a-f]+)\s+\w\s+(cgir_\w+)", ln)
+        if m and cur:
+            out[(cur, m.group(3))] = int(m.group(2), 16)
+    res = {}
+    for rel, structs in items.items():
+        for struct, fields in structs.items():
+            if (rel, f"cgir_z_{struct}") not in out:
+                continue
+            try:
+                layout = {f: (out[(rel, f"cgir_o_{struct}__{f}")] - 1,
+                              out[(rel, f"cgir_s_{struct}__{f}")]) for f in fields}
+            except KeyError:
+                continue
+            res[(rel, struct)] = (layout, out[(rel, f"cgir_z_{struct}")])
+    return res
 
 
-def build_realized_artifacts(file, fn):
-    rec, _prep, tr = realize.realize(file, fn)
+class Skip(Exception):
+    pass
+
+
+def accessed_fields(tr):
+    """{struct: set(fields)} actually touched by the realized body (r# stripped)."""
+    node_ps = tr["node_params"]
+    acc = {}
+    for pname, f in re.findall(r"\(\*(\w+)\)\.(?:r#)?(\w+)", tr["fn_src"]):
+        p = next(p for p in node_ps if p["name"] == pname)
+        acc.setdefault(p["struct"], set()).add(f)
+    return acc
+
+
+def build_realized_artifacts(file, fn, rec=None, tr=None, probes=None):
+    if tr is None:
+        rec, tr = realize.realize_light(file, fn)
     if tr["uses_globals"] or tr["uses_outp"]:
-        raise SystemExit("v1 weaves node-param-only realized fns (globals/outp: worklist)")
+        raise Skip("globals_or_outp")
     node_ps = tr["node_params"]
     if len({p["struct"] for p in node_ps}) != len(node_ps):
-        raise SystemExit("two node params of one struct: worklist")
+        raise Skip("two_node_params_one_struct")
 
-    accessed = {}
-    for pname, f in re.findall(r"\(\*(\w+)\)\.(\w+)", tr["fn_src"]):
-        p = next(p for p in node_ps if p["name"] == pname)
-        accessed.setdefault(p["struct"], set()).add(f)
+    accessed = accessed_fields(tr)
 
     mirrors, rust_guards, c_guards = [], [], []
     for p in node_ps:
         struct = p["struct"]
         fields = sorted(accessed.get(struct, ()))
         if not fields:
-            raise SystemExit(f"{struct}: no accessed fields — nothing to mirror")
-        layout, ssz = probe_offsets(file, struct, fields)
+            raise Skip(f"no_accessed_fields:{struct}")
+        if probes is not None:
+            if (file, struct) not in probes:
+                raise Skip(f"probe_failed:{struct}")
+            layout, ssz = probes[(file, struct)]
+        else:
+            layout, ssz = list(probe_many({file: {struct: set(fields)}}).values())[0]
         mn = struct.capitalize() + "Mirror"
         rows, pos, pad = [], 0, 0
         for f in sorted(fields, key=lambda x: layout[x][0]):
@@ -130,17 +175,17 @@ def build_realized_artifacts(file, fn):
             rty = realize.rust_ty(p["scalar_fields"][f])
             need = _ALIGN[rty]
             if off % need or off < pos:
-                raise SystemExit(f"{struct}.{f}: unalignable offset {off}")
+                raise Skip(f"unalignable:{struct}.{f}@{off}")
             if off > pos:
                 rows.append(f"    _p{pad}: [u8; {off - pos}],")
                 pad += 1
             exp = int(rty[1:]) // 8
             if fsz != exp:
-                raise SystemExit(f"{struct}.{f}: field size {fsz} != {rty}")
-            rows.append(f"    pub {f}: {rty},")
+                raise Skip(f"field_size_mismatch:{struct}.{f}:{fsz}")
+            rows.append(f"    pub {realize.rid(f)}: {rty},")
             pos = off + fsz
             rust_guards.append(
-                f"const _: () = assert!(core::mem::offset_of!({mn}, {f}) == {off});")
+                f"const _: () = assert!(core::mem::offset_of!({mn}, {realize.rid(f)}) == {off});")
             c_guards.append(
                 f'_Static_assert(__builtin_offsetof(struct {struct}, {f}) == {off}, '
                 f'"{struct}.{f} offset drift vs realized mirror");')
@@ -168,14 +213,13 @@ def build_realized_artifacts(file, fn):
 
 
 def cmd_probe(file, fn):
-    rec, _prep, tr = realize.realize(file, fn)
-    for p in tr["node_params"]:
-        fields = sorted({f for pn, f in re.findall(r"\(\*(\w+)\)\.(\w+)", tr["fn_src"])
-                         if pn == p["name"]})
-        layout, ssz = probe_offsets(file, p["struct"], fields)
-        print(f"struct {p['struct']}: sizeof={ssz}")
-        for f in fields:
-            print(f"  .{f}: offset={layout[f][0]} size={layout[f][1]}")
+    _rec, tr = realize.realize_light(file, fn)
+    acc = accessed_fields(tr)
+    res = probe_many({file: {s: set(fs) for s, fs in acc.items()}})
+    for (rel, struct), (layout, ssz) in res.items():
+        print(f"struct {struct}: sizeof={ssz}")
+        for f, (off, fsz) in sorted(layout.items(), key=lambda kv: kv[1][0]):
+            print(f"  .{f}: offset={off} size={fsz}")
     return 0
 
 
@@ -241,7 +285,155 @@ def cmd_gate(file, fn):
     return W._boot_digest()
 
 
+def _scrub_realized():
+    """Remove ALL stale realized_* wiring in the volume (batch is idempotent)."""
+    subprocess.run(
+        ["docker", "run", "--rm", "-v", f"{WR.VOL}:/build", WR.IMG, "bash", "-c",
+         'cd /build/linux && grep -rl "obj-y += realized_" --include=Makefile . '
+         '2>/dev/null | while read mk; do sed -i "/obj-y += realized_/d" "$mk"; done; '
+         'find . -name "realized_*.o_shipped" -delete; find . -name "realized_*.o" -delete'],
+        capture_output=True)
+
+
+def _add_entry(manifest, file, fn, a):
+    sig = WR._orig_signature(file, fn)
+    entry = manifest["sources"].setdefault(file, {"extern_block": "\n", "functions": {}})
+    entry["extern_block"] += a["extern"]
+    entry["functions"][fn] = {
+        "status": "rust", "tier": "tier-b", "gate": "differential",
+        "verdict": "PASS", "seam": a["seam"], "shell": f"{sig}\n{a['seam_body']}"}
+    manifest["rust_objects"][a["key"]] = {
+        "src": f"readers/{a['key']}.rs", "kbuild_dir": os.path.dirname(file),
+        "obj": a["key"]}
+
+
+def cmd_batch():
+    """Batch-weave every weave-eligible realized fn (census MATCH, node-only,
+    file built in this volume's config) CUMULATIVELY with the 10-reader base.
+    Full honest funnel: skips tallied by reason, per-file compile-check drops,
+    link-repair drops, nm presence headline, boot digest."""
+    elig = json.load(open(os.path.join(REPO, "dream", "realize", "weave_eligible.json")))
+    pairs = [tuple(k.rsplit(":", 1)) for k in elig]
+    # a fn already woven via the readers base would emit a SECOND object with
+    # the same <fn>_rs symbol -> link collision; the readers version stands
+    base_set = set(_READERS_BASE)
+    dup = [p for p in pairs if p in base_set]
+    if dup:
+        print(f"  skip {len(dup)} already in readers base: {[fn for _, fn in dup]}")
+        pairs = [p for p in pairs if p not in base_set]
+    print(f"=== realized batch: {len(pairs)} census-verified candidates in "
+          f"{len({f for f, _ in pairs})} built files ===")
+
+    # 1. transpile (light) + collect probe worklist
+    skips, light = [], {}
+    probe_items = {}
+    for file, fn in pairs:
+        try:
+            rec, tr = realize.realize_light(file, fn)
+            if tr["uses_globals"] or tr["uses_outp"]:
+                raise Skip("globals_or_outp")
+            acc = accessed_fields(tr)
+            if not acc:
+                raise Skip("no_accessed_fields")
+            light[(file, fn)] = (rec, tr)
+            for s, fs in acc.items():
+                probe_items.setdefault(file, {}).setdefault(s, set()).update(fs)
+        except (Skip, realize.Refused, Exception) as e:
+            skips.append((file, fn, str(e)[:60]))
+    print(f"probing {sum(len(v) for v in probe_items.values())} structs "
+          f"across {len(probe_items)} files (one kbuild pass)...")
+    probes = probe_many(probe_items)
+    print(f"  probed {len(probes)} (rel,struct) layouts")
+
+    # 2. artifacts
+    arts = {}
+    for (file, fn), (rec, tr) in light.items():
+        try:
+            arts[(file, fn)] = build_realized_artifacts(file, fn, rec, tr, probes)
+        except Skip as e:
+            skips.append((file, fn, str(e)))
+    for file, fn, why in skips:
+        print(f"  skip {fn} ({file}): {why}")
+    print(f"artifacts: {len(arts)} realized fns weave-ready, {len(skips)} skipped")
+
+    # 3. assemble: readers base + realized entries; clean tree
+    survivors = dict(arts)
+    readers = list(_READERS_BASE)
+    for round_ in range(5):
+        all_rels = sorted({r for r, _ in readers} | {f for f, _ in survivors})
+        WR._reset_stock(all_rels)
+        WR._unwire(readers)
+        _scrub_realized()
+        manifest, rskip = WR._assemble(readers, W)
+        if rskip:
+            print("readers skipped:", rskip)
+        outd = os.path.join(HERE, "readers")
+        for (file, fn), a in survivors.items():
+            open(os.path.join(outd, f"{a['key']}.rs"), "w").write(a["rust_obj"])
+            _add_entry(manifest, file, fn, a)
+        mpath = os.path.join(outd, "batch_manifest.json")
+        json.dump(manifest, open(mpath, "w"), indent=1)
+        W.MANIFEST = mpath
+        if W.cmd_apply() != 0:
+            return 1
+        if round_ == 0:
+            print("compile-checking woven files...")
+            failed = WR._compile_check(all_rels)
+            if failed:
+                dropped = [(f, fn) for (f, fn) in survivors if f in failed]
+                base_hit = [p for p in readers if p[0] in failed]
+                print(f"  dropping {len(dropped)} realized in {len(failed)} failing "
+                      f"file(s): {sorted(fn for _, fn in dropped)}")
+                if base_hit:
+                    print(f"  (readers-base files also failing: {base_hit})")
+                    readers = [p for p in readers if p[0] not in failed]
+                for k in dropped:
+                    survivors.pop(k)
+                continue
+        # 4. build with link-repair (drop div-panic objects by key, err lines only)
+        keymap = {a["key"]: (f, fn) for (f, fn), a in survivors.items()}
+        r = subprocess.run(
+            ["docker", "run", "--rm", "-v", f"{WR.VOL}:/build", WR.IMG,
+             "bash", "-eo", "pipefail", "-c",
+             "cd /build/linux && rm -f arch/arm64/boot/Image && "
+             "make -s -j$(nproc) Image 2>&1 | tail -60; "
+             "test -f arch/arm64/boot/Image && echo __BUILT__"],
+            capture_output=True, text=True)
+        if "__BUILT__" in r.stdout:
+            break
+        err_text = "\n".join(ln for ln in r.stdout.splitlines() if "warning:" not in ln)
+        bad = {keymap[k] for k in keymap if k in err_text}
+        if not bad:
+            print("  ✗ build failed (not an isolable realized link error):")
+            print("   " + "\n   ".join(r.stdout.strip().splitlines()[-8:]))
+            return 1
+        print(f"  link-drop {len(bad)} realized fn(s): {sorted(fn for _, fn in bad)}")
+        for k in bad:
+            survivors.pop(k)
+    else:
+        print("  ✗ did not converge")
+        return 1
+
+    # 5. honest metric + boot
+    nm = subprocess.run(
+        ["docker", "run", "--rm", "-v", f"{WR.VOL}:/build", WR.IMG, "bash", "-c",
+         "cd /build/linux && nm vmlinux 2>/dev/null"], capture_output=True, text=True)
+    r_seams = {f"{fn}_rs" for _, fn in readers}
+    z_seams = {a["seam"]: (f, fn) for (f, fn), a in survivors.items()}
+    r_present = [s for s in sorted(r_seams) if f" {s}" in nm.stdout]
+    z_present = [s for s in sorted(z_seams) if f" {s}" in nm.stdout]
+    print(f"BUILT: {len(survivors)} realized source-woven; "
+          f"PRESENT in vmlinux: {len(z_present)} realized + {len(r_present)} readers "
+          f"= {len(z_present) + len(r_present)} Rust fns")
+    gone = sorted(set(z_seams) - set(z_present))
+    if gone:
+        print(f"  realized not-linked ({len(gone)}): {', '.join(gone)}")
+    return W._boot_digest()
+
+
 def main():
+    if len(sys.argv) >= 2 and sys.argv[1] == "batch":
+        return cmd_batch()
     if len(sys.argv) < 4:
         print(__doc__)
         return 2

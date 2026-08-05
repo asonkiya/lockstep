@@ -68,3 +68,23 @@ no arm64 config builds). The efftrace bank skews to block/, kernel/, lib/,
 mm/, fs/ — files built in EVERY config. 480 realized fns are the new
 weave-ready pool; presence now scales with the batch weave, not with config
 archaeology.
+
+## Batch weave (2026-08-05, the presence-math payoff)
+
+`weave_realized.py batch` — all census-verified, node-only realized fns whose
+files build under the defconfig volume, woven cumulatively with the 10-reader
+base. Batched in-kernel probe (ONE kbuild pass measures every struct layout).
+
+**59 eligible → 54 realized woven AND present in vmlinux (+1 already Rust via
+the reader path, 4 dropped: erst_exec_add/subtract, netdev_hw_stats64_add,
+qfprom_fixup_dt_cell_info), + 10 readers = 64 Rust functions in one booting
+kernel** (boot-digest green) across 50 source files in 15 subsystems:
+block, mm (filemap/percpu/mremap/page-writeback), net (core/sched/devlink/
+ethtool/packet), kernel (sched/fair×3, time×2, cgroup, pid, locking/semaphore),
+fs (fat/seq_file/hugetlbfs), drivers (scsi/usb-xhci/mmc/mtd/tty-vt/watchdog/
+i2c/input/thermal/firmware/soc-fsl/base). Every fn: sweep-differential PASS +
+realized re-differential PASS + dual layout guards at kernel build + boot.
+
+Presence progression: 16 (minimal readers) → 10 (defconfig readers,
+LEVER-DEAD) → **64 (defconfig readers+realized)** — the realize class, living
+in core files, is the presence lever the config hunt wasn't.
