@@ -59,9 +59,11 @@ the 54 realized carry tier-(b) machine-checked safe cores** (field-granular:
 `#![forbid(unsafe_code)]` core taking `&mut TY` per field + a boundary of
 per-field `&mut (*p).field`); 23 are tier-(a) (20 concurrency-audit-demoted —
 fields touched locklessly somewhere in the tree — + 3 multi-node copiers).
-The 10 readers are tier-(a).
+7 of the 10 readers are ALSO tier-(b) (A3 lift, LIFT_READERS=1); 3 audit-demoted.
 
-**Safety-tier dashboard**: 31 tier-b + 33 tier-a = 64. **A2 metrics**: 32%
+**Safety-tier dashboard**: 38 tier-b + 26 tier-a = 64 (31 realized + 7 reader
+safe cores, all field-granular + structdiff/differential-MATCH + boot green;
+weave with LIFT_READERS=1). **A2 metrics**: 32%
 safe-logic (139/434 translated LOC in forbid cores), 214 raw-derefs all in
 field-scoped boundaries / 0 in cores.
 
