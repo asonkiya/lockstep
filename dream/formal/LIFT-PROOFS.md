@@ -85,3 +85,12 @@ limit) and is flagged `SKIP_LOOP`, never silently under-proven.
 lift_proof.py <file> <fn>     # prove one lifted candidate
 lift_proof.py batch [N]       # prove up to N woven tier-b candidates
 ```
+
+## Shipped state (re-woven after the fix, 2026-08-06)
+
+The booting kernel now contains the wrapping-fixed objects, not just the fixed
+source: re-weave + boot green, dashboard **38 tier-b (31 realized + 7 reader) +
+26 tier-a = 64**, safe-logic 32%. Verified in the woven objects themselves:
+**38 carry `#![forbid(unsafe_code)]` cores and 21 carry wrapping arithmetic**,
+including `seqbuf_seek`'s `(pos).wrapping_add(a1)` — the exact expression Kani
+required. Full test suite: **333 passed**.
