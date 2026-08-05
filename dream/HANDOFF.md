@@ -66,7 +66,24 @@ d4432ee). Full test suite 314 green (`pytest dream/tests/`, 16 KSRC-env-gated
 pass when `KSRC=...` is set).
 
 ────────────────────────────────────────────────────────────────────────────
-## 2. THE ONE THING THAT MUST HAPPEN FIRST — A1 (soundness)
+## 2. A1 — DONE (commit ef8578a). Kept here as the design record.
+
+**STATUS: A1 is implemented, tested, woven, and booted.** Field-granular
+boundary + per-field concurrency audit are live. Sound tier-b count = 31 (was
+an over-claimed 51). Skip to §3 for the remaining queue. The rest of this
+section is the design record / rationale (still accurate).
+
+The boundary is `core(&mut (*p).field1, ...)` — field-scoped, no offset math
+needed (the layout-guarded padded mirror places each field correctly, so
+`(*p).field` resolves to the right bytes with a field-scoped borrow). The
+audit is `realize.field_audit(fields)` (fixed-marker grep, self-proves
+non-vacuous). `realize.lift_gate(tr)` combines structural + audit. Offline
+census: `dream/realize/audit_scan.py`. DO NOT reintroduce the mega-regex with
+`\w` inside a `[...]` bracket class — it silently matches nothing (vacuous
+zero); this cost real debugging time.
+
+--- original A1 spec below (design record) ---
+## THE ONE THING THAT MUST HAPPEN FIRST — A1 (soundness)
 
 The research pass (RESEARCH-SAFE-RUST.md) found the shipped tier-(b) boundary
 OVER-CLAIMS. This is the top priority and blocks growing the lifted set.
