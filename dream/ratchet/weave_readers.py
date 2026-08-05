@@ -29,6 +29,7 @@ wrong layout fails the kernel build; a wrong behavior was caught on the host.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
@@ -252,24 +253,75 @@ def _orig_signature(rel, fn):
     return orig[:orig.index("{")].rstrip()
 
 
-def batch(pairs=None):
-    pairs = pairs or _BATCH
-    sys.path.insert(0, HERE)
-    import weave as W
+VOL = "cgir-kbuild"
+IMG = "cgir-kernel-gate"
+
+
+def _built_reader_pairs():
+    """All verified readers whose source .o is built in the pinned config
+    (weaving an uncompiled file is a no-op). One docker query for all .o."""
+    solved = json.load(open(os.path.join(REPO, "dream", "firstrun", "sweep", "solved.json")))
+    pairs = []
+    for r in solved["recs"]:
+        if r["kind"] != "reader":
+            continue
+        cand = os.path.join(VERIFIED,
+                            f"reader_{r['file'].replace('/', '__')}_{r['sym']}.rs")
+        if os.path.exists(cand):
+            pairs.append((r["file"], r["sym"]))
+    os_list = "\n".join(sorted({f[:-2] + ".o" for f, _ in pairs}))
+    # -i so the container receives the piped list on stdin (else `read` hits EOF)
+    chk = subprocess.run(
+        ["docker", "run", "--rm", "-i", "-v", f"{VOL}:/build", IMG, "bash", "-c",
+         "while read o; do [ -f /build/linux/$o ] && echo $o; done"],
+        input=os_list, capture_output=True, text=True)
+    built = {ln.strip()[:-2] + ".c" for ln in chk.stdout.splitlines() if ln.strip()}
+    return [(f, fn) for f, fn in pairs if f in built]
+
+
+def _reset_stock(rels):
+    for rel in rels:
+        subprocess.run(
+            ["docker", "run", "--rm", "-v", f"{VOL}:/build",
+             "-v", f"{KSRC}:/ksrc:ro", "alpine", "sh", "-c",
+             f"cp /ksrc/{rel} /build/linux/{rel}"], capture_output=True)
+
+
+def _objkey(rel, fn):
+    return re.sub(r"[^0-9A-Za-z_]", "_", f"reader_{rel.replace('/', '__')}_{fn}")
+
+
+def _unwire(pairs):
+    """Remove a dropped reader's Rust-object wiring: the `obj-y += key.o` line
+    in its kbuild Makefile plus the key.o/.o_shipped. Otherwise a dropped
+    file's orphan object still links (and its panic handler collides at the
+    vmlinux link — verified)."""
+    for rel, fn in pairs:
+        d, key = os.path.dirname(rel), _objkey(rel, fn)
+        subprocess.run(
+            ["docker", "run", "--rm", "-v", f"{VOL}:/build", IMG, "bash", "-c",
+             f"cd /build/linux/{d} && sed -i '/obj-y += {key}.o/d' Makefile 2>/dev/null; "
+             f"rm -f {key}.o {key}.o_shipped {key}.c"], capture_output=True)
+
+
+def _assemble(pairs, W):
     import json as _json
     outd = os.path.join(HERE, "readers")
     os.makedirs(outd, exist_ok=True)
-    sources, rust_objects = {}, {}
+    sources, rust_objects, skipped = {}, {}, []
     for rel, fn in pairs:
-        a = build_artifacts(rel, fn)
+        try:
+            a = build_artifacts(rel, fn)
+        except Exception as e:
+            skipped.append((rel, fn, f"gen: {str(e)[:50]}"))
+            continue
         open(os.path.join(outd, f"{a['key']}.rs"), "w").write(a["rust_obj"])
         sig = _orig_signature(rel, fn)
-        shell = f"{sig}\n{a['seam_body']}"
         src_entry = sources.setdefault(rel, {"extern_block": "\n", "functions": {}})
-        src_entry["extern_block"] += a["extern"]   # decl only; guard is in the body
+        src_entry["extern_block"] += a["extern"]
         src_entry["functions"][fn] = {
             "status": "rust", "tier": "tier-b", "gate": "differential",
-            "verdict": "PASS", "seam": a["seam"], "shell": shell}
+            "verdict": "PASS", "seam": a["seam"], "shell": f"{sig}\n{a['seam_body']}"}
         rust_objects[a["key"]] = {"src": f"readers/{a['key']}.rs",
                                   "kbuild_dir": os.path.dirname(rel), "obj": a["key"]}
     manifest = {"config": "pinned minimal arm64", "generated_by": "weave_readers.batch",
@@ -277,13 +329,90 @@ def batch(pairs=None):
                 "rust_objects": rust_objects, "verified_not_woven": []}
     mpath = os.path.join(outd, "batch_manifest.json")
     _json.dump(manifest, open(mpath, "w"), indent=1)
-    W.MANIFEST = mpath                      # point the proven weaver at our batch
-    n_fn = sum(len(s["functions"]) for s in sources.values())
-    print(f"=== readers boot capstone: {n_fn} verified readers, "
-          f"{len(sources)} source files, {len(rust_objects)} Rust objects ===")
-    for rel, s in sources.items():
-        print(f"  {rel}: {', '.join(s['functions'])}")
-    return W.cmd_gate()
+    W.MANIFEST = mpath
+    return manifest, skipped
+
+
+def _compile_check(rels):
+    """make each woven .o individually; return the set that FAIL (so the full
+    build isn't sunk by one bad reader — the _Static_assert / seam-type errors
+    surface per-file and fast)."""
+    targets = " ".join(f"{rel[:-2]}.o" for rel in rels)
+    failed = set()
+    for rel in rels:
+        r = subprocess.run(
+            ["docker", "run", "--rm", "-v", f"{VOL}:/build", IMG, "bash", "-c",
+             f"cd /build/linux && rm -f {rel[:-2]}.o && make -s {rel[:-2]}.o 2>&1 | tail -3"],
+            capture_output=True, text=True)
+        if "Error" in r.stdout or "error:" in r.stdout:
+            failed.add(rel)
+            print(f"  ✗ {rel}: {r.stdout.strip().splitlines()[0][:90] if r.stdout.strip() else 'compile failed'}")
+    return failed
+
+
+def batch(pairs=None):
+    sys.path.insert(0, HERE)
+    import weave as W
+    pairs = pairs or _built_reader_pairs()
+    all_rels = sorted({rel for rel, _ in pairs})
+    print(f"=== readers boot batch: {len(pairs)} verified readers in "
+          f"{len(all_rels)} built source files ===")
+    _reset_stock(all_rels)                          # clean base: stock .c ...
+    _unwire(pairs)                                   # ... and no stale obj wiring
+    _, skipped = _assemble(pairs, W)
+    for rel, fn, why in skipped:
+        print(f"  skip {fn} ({rel}): {why}")
+    if W.cmd_apply() != 0:
+        return 1
+    # robustness: per-file compile check, drop failures, re-assemble survivors
+    print("compile-checking each woven file...")
+    failed = _compile_check(all_rels)
+    if failed:
+        dropped = [(rel, fn) for rel, fn in pairs if rel in failed]
+        print(f"  dropping {len(failed)} file(s) that fail to compile; "
+              f"reverting to stock + unwiring their objects, re-weaving survivors")
+        _reset_stock(sorted(failed))
+        _unwire(dropped)                                      # remove orphan objs
+        survivors = [(rel, fn) for rel, fn in pairs if rel not in failed]
+        _reset_stock(sorted({rel for rel, _ in survivors}))   # clean re-weave
+        _assemble(survivors, W)
+        if W.cmd_apply() != 0:
+            return 1
+    else:
+        survivors = pairs
+    # link-repair loop: a reader doing integer division emits references to
+    # core::panicking::panic_const::* which only libcore resolves — undefined at
+    # the vmlinux link (freestanding objects have no libcore). This surfaces only
+    # at LINK, so the per-file compile-check can't catch it. Build; on an
+    # undefined-reference to a reader object, drop it and rebuild (bounded).
+    keymap = {_objkey(rel, fn): (rel, fn) for rel, fn in pairs}
+    for _ in range(4):
+        r = subprocess.run(
+            ["docker", "run", "--rm", "-v", f"{VOL}:/build", IMG, "bash", "-c",
+             "cd /build/linux && make -s -j$(nproc) Image 2>&1 | tail -60 && "
+             "test -f arch/arm64/boot/Image && echo __BUILT__"],
+            capture_output=True, text=True)
+        if "__BUILT__" in r.stdout:
+            break
+        # match FULL keys against the link output (the '__' path separators broke
+        # a regex; substring test on each known key is robust)
+        bad = {keymap[k] for k in keymap if k in r.stdout}
+        if not bad:
+            print("  ✗ build failed (not an isolable reader link error):")
+            print("   " + "\n   ".join(r.stdout.strip().splitlines()[-6:]))
+            return 1
+        print(f"  link-drop {len(bad)} reader(s) with undefined core refs "
+              f"(division/overflow panic paths): {', '.join(fn for _, fn in bad)}")
+        _reset_stock(sorted({rel for rel, _ in bad}))
+        _unwire(sorted(bad))
+        survivors = [(rel, fn) for rel, fn in survivors if (rel, fn) not in bad]
+        _reset_stock(sorted({rel for rel, _ in survivors}))
+        _assemble(survivors, W)
+        if W.cmd_apply() != 0:
+            return 1
+    n_fn = len({(r, f) for r, f in survivors})
+    print(f"BUILT: {n_fn} readers woven in {len({r for r,_ in survivors})} files -> boot")
+    return W._boot_digest()
 
 
 def main():
