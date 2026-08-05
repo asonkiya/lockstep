@@ -86,11 +86,28 @@ lift_proof.py <file> <fn>     # prove one lifted candidate
 lift_proof.py batch [N]       # prove up to N woven tier-b candidates
 ```
 
+## Full sweep + final shipped state (2026-08-06)
+
+Sweep over the whole woven tier-b set: **29 PROVEN, 0 LIFT_FAILED**, plus three
+follow-ups all resolved:
+
+- `pmc_next` was still PANIC_RISK — the first wrapping fix only covered `let`
+  RHS, but its arithmetic sat in a `set_field()` CALL ARGUMENT. Now wrapped at
+  the emission point (the transpiler already isolates the store value) →
+  **PROVEN**.
+- That fix regressed two candidates (480 → 478 MATCH), caught by diffing
+  against the saved pre-fix census: a literal receiver is an ambiguous
+  `{integer}` and cannot take a method (`(166666 * 2).wrapping_add(1)` = E0689).
+  Guarded by `_is_const_expr`; census back to **480 exactly**.
+- Two CBMC timeouts are now reported as `TIMEOUT` — the claim is
+  **undischarged**, never counted as a pass or a failure. Those candidates need
+  an unwind bound or a longer budget.
+
 ## Shipped state (re-woven after the fix, 2026-08-06)
 
 The booting kernel now contains the wrapping-fixed objects, not just the fixed
 source: re-weave + boot green, dashboard **38 tier-b (31 realized + 7 reader) +
 26 tier-a = 64**, safe-logic 32%. Verified in the woven objects themselves:
-**38 carry `#![forbid(unsafe_code)]` cores and 21 carry wrapping arithmetic**,
+**38 carry `#![forbid(unsafe_code)]` cores and 28 carry wrapping arithmetic**,
 including `seqbuf_seek`'s `(pos).wrapping_add(a1)` — the exact expression Kani
 required. Full test suite: **333 passed**.
