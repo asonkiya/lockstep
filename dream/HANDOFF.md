@@ -171,9 +171,15 @@ function.
   `weave_realized.py batch --lift`, boot. Deferred to avoid late-session boot
   risk. If a reader ever appears that lift_readers REFUSES (2+ *mut structs /
   non-field use), THAT is the case that needs the model (SACTOR-2 + PR2).
-- **A4 optional Kani rung**: for loop-free lifted safe cores, add a Kani proof
-  above the differential (machinery installed in `dream/formal/`). Formal tier
-  over the empirical oracle.
+- **A4 Kani rung**: DONE (4115380). `dream/formal/lift_proof.py` +
+  LIFT-PROOFS.md + test_lift_proof.py. 13/14 woven tier-b PROVEN (lift
+  equivalence + panic-freedom over the FULL domain), 0 LIFT_FAILED, 1
+  PANIC_RISK. **OPEN FINDING**: seqbuf_seek can overflow (pos + offset, full
+  i64) — lift is fine, but BOTH forms panic => in a freestanding object that
+  is loop{} = KERNEL HANG. Latent only (objects build -O, overflow-checks off,
+  so they wrap like the C). FIX QUEUED: make the transpiler emit explicitly
+  wrapping arithmetic (realize.transpile store/expr emission) so semantics are
+  pinned regardless of build flags, then re-run `lift_proof.py batch`.
 - **A5 preprint**: the defensible artifact is the running combination
   (manufactured differential oracle + batched boot + KCSAN conviction +
   machine-checked lift tier), which the survey confirms NOBODY has in-kernel.
