@@ -159,13 +159,16 @@ function.
 - **A2 metrics**: DONE (aa08c77). `dream/realize/metrics.py` +
   test_metrics.py; wired into `batch --lift` dashboard. Fleet: 32% safe-logic
   (139/434 LOC in forbid cores), 214 raw-derefs all in boundaries.
-- **A3 readers lift**: the 10 readers are model-WRITTEN bodies (not
-  deterministic transpiles), so they can't use realize's mechanical lift. Use
-  the SACTOR stage-2 protocol: pin the ABI, re-run the SAME structdiff harness
-  after an LLM refactor to the safe form. Borrow PR2's decision-tree pointer
-  prompts. Pre-classify with the OOPSLA'23 aliasing taxonomy (multi-borrow /
-  fn-ptr sigs → won't borrow-check → route to redesign not retry). This one
-  DOES need model calls (small, ~$0.001–0.01/fn).
+- **A3 readers lift**: DONE (944ffe8) — and it needed NO model. Every verified
+  reader uses one pointer idiom ((*p).field / *outp), so lift_readers.py lifts
+  them DETERMINISTICALLY, re-gated by structdiff.harness.close. Batch: 7/10
+  tier-b (safe core + structdiff MATCH), 3 audit-demoted. NEXT (mechanical,
+  optional): WEAVE the 7 lifted readers → 38 tier-b present-in-vmlinux. The
+  lifted candidate is a drop-in source swap (same _rs ABI + mirror + guards);
+  integrate into weave_readers._cand_path behind a LIFT env flag, then
+  `weave_realized.py batch --lift`, boot. Deferred to avoid late-session boot
+  risk. If a reader ever appears that lift_readers REFUSES (2+ *mut structs /
+  non-field use), THAT is the case that needs the model (SACTOR-2 + PR2).
 - **A4 optional Kani rung**: for loop-free lifted safe cores, add a Kani proof
   above the differential (machinery installed in `dream/formal/`). Formal tier
   over the empirical oracle.
