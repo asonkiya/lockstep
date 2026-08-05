@@ -410,8 +410,22 @@ def batch(pairs=None):
         _assemble(survivors, W)
         if W.cmd_apply() != 0:
             return 1
-    n_fn = len({(r, f) for r, f in survivors})
-    print(f"BUILT: {n_fn} readers woven in {len({r for r,_ in survivors})} files -> boot")
+    # HONEST metric: a woven+compiled reader is only really in the kernel if its
+    # seam symbol survives into vmlinux. A leaf driver enabled =y still may not
+    # land in built-in.a (parent-Kbuild descent / dead-driver elimination), so
+    # "source-woven" over-counts. Report vmlinux-present as the headline.
+    seams = {_objkey(rel, fn): fn for rel, fn in survivors}
+    nm = subprocess.run(
+        ["docker", "run", "--rm", "-v", f"{VOL}:/build", IMG, "bash", "-c",
+         "cd /build/linux && nm vmlinux 2>/dev/null"], capture_output=True, text=True)
+    present = {fn for rel, fn in survivors
+              if f" {fn}_rs\n" in nm.stdout or f" {fn}_rs" in nm.stdout}
+    n_src = len(survivors)
+    print(f"BUILT: {n_src} readers source-woven; {len(present)} present in vmlinux "
+          f"(the rest compiled but not linked into this config's vmlinux)")
+    if present != {fn for _, fn in survivors}:
+        gone = sorted({fn for _, fn in survivors} - present)
+        print(f"  not-linked ({len(gone)}): {', '.join(gone)}")
     return W._boot_digest()
 
 
