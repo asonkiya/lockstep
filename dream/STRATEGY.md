@@ -89,3 +89,12 @@ sketch, now with the realize/weave machinery to gate it) on a handful of
 already-woven fns — prove the (a)→(c) lift on real kernel code with the
 differential holding the behavior fixed. That demo, small as it is, is worth
 more strategically than another hundred mirror fns.
+
+**Amended 2026-08-05 after the research pass (see RESEARCH-SAFE-RUST.md):**
+the tier-(b) boundary must use FIELD-GRANULAR borrows with a per-field
+concurrency audit — whole-struct `&mut Mirror` over-claims exclusivity
+(padding bytes cover other real fields; kernel-benign races are Rust UB).
+The safety-tier metric should be reported alongside unsafe-LOC% for
+literature comparability; the forbid-module tier itself is unclaimed in any
+published work, as is re-running a manufactured differential after a lift.
+The in-kernel acceptance-loop whitespace remains empty as of 2026-08.
