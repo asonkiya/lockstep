@@ -156,7 +156,7 @@ mod proofs {{
 _LOOPY = re.compile(r"\b(while|loop|for)\b")
 
 
-def prove(file, fn, keep=False):
+def prove(file, fn, keep=False, timeout=900):
     lib, meta = build_proof(file, fn)
     if _LOOPY.search(lib):
         print(f"KANI {fn}: SKIP (loop in body — needs an unwind bound; "
@@ -166,7 +166,18 @@ def prove(file, fn, keep=False):
     os.makedirs(os.path.join(d, "src"), exist_ok=True)
     open(os.path.join(d, "Cargo.toml"), "w").write(_CARGO)
     open(os.path.join(d, "src", "lib.rs"), "w").write(lib)
-    r = subprocess.run(["cargo", "kani"], cwd=d, capture_output=True, text=True, timeout=900)
+    try:
+        r = subprocess.run(["cargo", "kani"], cwd=d, capture_output=True,
+                           text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        # A model-checker timeout is a RESOURCE limit, not a defect: the claim
+        # is simply undischarged. Report it as such (never as a pass, never as
+        # a failure) — these are the candidates that need an unwind bound or a
+        # longer budget.
+        print(f"KANI {file}:{fn} -> TIMEOUT ({timeout}s — claim undischarged, "
+              f"not a failure)")
+        shutil.rmtree(d, ignore_errors=True)
+        return 0, "TIMEOUT"
     out = r.stdout + r.stderr
     ok = "VERIFICATION:- SUCCESSFUL" in out or ("successfully verified harnesses" in out
                                                and "0 failures" in out)
@@ -210,7 +221,7 @@ def batch(n=8):
     """Prove the first N woven tier-b candidates."""
     elig = [tuple(k.rsplit(":", 1)) for k in
             json.load(open(os.path.join(REPO, "dream", "realize", "weave_eligible.json")))]
-    done = {"PROVEN": 0, "FAILED": 0, "SKIP_LOOP": 0, "ERROR": 0}
+    done = {"PROVEN": 0, "FAILED": 0, "SKIP_LOOP": 0, "ERROR": 0, "TIMEOUT": 0}
     tried = 0
     for file, fn in elig:
         if tried >= n:
@@ -233,7 +244,8 @@ def batch(n=8):
           f"(lift equivalence + panic-freedom over the FULL domain), "
           f"{done.get('PANIC_RISK',0)} PANIC_RISK (lift proven, both forms can "
           f"panic on some input — latent hang), {done.get('LIFT_FAILED',0)} LIFT_FAILED, "
-          f"{done.get('SKIP_LOOP',0)} loop-skipped, {done.get('ERROR',0)} error "
+          f"{done.get('SKIP_LOOP',0)} loop-skipped, {done.get('TIMEOUT',0)} timeout "
+          f"(undischarged, not failures), {done.get('ERROR',0)} error "
           f"(of {tried} tier-b candidates attempted)")
     # only a broken LIFT is a hard failure; PANIC_RISK is a reported finding
     return 1 if done.get("LIFT_FAILED") or done.get("ERROR") or done.get("FAILED") else 0

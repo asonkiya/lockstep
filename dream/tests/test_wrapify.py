@@ -55,6 +55,19 @@ def test_calls_and_nested_args_survive():
     assert _norm(R.wrapify("field(A, b) - 1")) == "(field(A,b)).wrapping_sub(1)"
 
 
+def test_constant_expression_receivers_are_left_alone():
+    # A bare literal / literal-only expression is an ambiguous `{integer}` in
+    # Rust and cannot take a method: `(166666 * 2).wrapping_add(1)` is E0689.
+    # These are const-folded (literal overflow is a COMPILE error), so there is
+    # no runtime hang to prevent — leave them unchanged. Regression: this broke
+    # cx22700/sp887x_get_tune_settings in a full census before the guard.
+    for e in ("166667 * 2", "(166666 * 2) + 1", "0x10 + 2", "1 + 2 * 3"):
+        assert R.wrapify(e) == e, e
+    # but a real receiver next to a literal still wraps
+    assert "wrapping_add" in R.wrapify("x + 1")
+    assert "wrapping_add" in R.wrapify("f(1) + 2")
+
+
 def test_stmt_rewriter_only_touches_let_rhs():
     body = "let x = a + b;\nif a > b { }\nlet y: i64 = c * d;\nother(a + b);"
     out = R.wrapify_stmts(body)

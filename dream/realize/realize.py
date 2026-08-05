@@ -137,6 +137,14 @@ def store_cast(ctype):
 # ---------------------------------------------------------------------------
 
 _WRAP_OP = {"+": "wrapping_add", "-": "wrapping_sub", "*": "wrapping_mul"}
+def _is_const_expr(s):
+    """True if `s` is built ONLY from numeric literals, operators and parens —
+    i.e. a constant expression of ambiguous `{integer}` type, which cannot take
+    a method (`(166666 * 2).wrapping_add(1)` is E0689). Such expressions are
+    const-folded and literal overflow is a COMPILE error, so there is no
+    runtime hang to prevent by rewriting them."""
+    t = re.sub(r"0[xX][0-9a-fA-F_]+|0[bB][01_]+|[0-9][0-9_]*", "", s)
+    return re.sub(r"[\s()+\-*/%]", "", t) == ""
 # operator chars that, immediately before a +/-/*, mean it is NOT a binary op
 _NOT_OPERAND_END = set("+-*/%<>=!&|^~,;([{:")
 
@@ -180,6 +188,14 @@ def wrapify(e, depth=0):
             continue
         lhs, rhs = s[:i], s[i + 1:]
         if not lhs.strip() or not rhs.strip():
+            return e
+        # A bare integer literal RECEIVER is an ambiguous numeric type in Rust —
+        # `(166667).wrapping_mul(2)` is E0689. Leave such expressions alone:
+        # literal-only arithmetic is const-folded (and literal overflow is a
+        # COMPILE error, not a runtime panic), so there is no hang to prevent.
+        # Conservative by design — if a real overflow risk remains, Kani reports
+        # PANIC_RISK rather than us shipping code that does not build.
+        if _is_const_expr(lhs):
             return e
         return f"({wrapify(lhs, depth + 1)}).{op}({wrapify(rhs, depth + 1)})"
     # no top-level op: peel ONE fully-enclosing paren pair and recurse
@@ -301,7 +317,7 @@ def transpile(rec, body):
                 if h == "field":
                     out_s += f"({lv} as i64)"
                 else:
-                    cast = store_cast(t).replace("{v}", args[2].strip())
+                    cast = store_cast(t).replace("{v}", wrapify(args[2].strip()))
                     out_s += f"{{ {lv} = {cast}; }}"
             elif h in ("g", "set_g"):
                 cm = re.match(r"\s*G_([A-Za-z0-9_]+?)\s*$", args[0])
@@ -316,7 +332,7 @@ def transpile(rec, body):
                 if h == "g":
                     out_s += f"(GV_{gname} as i64)"
                 else:
-                    cast = store_cast(t).replace("{v}", args[1].strip())
+                    cast = store_cast(t).replace("{v}", wrapify(args[1].strip()))
                     out_s += f"{{ GV_{gname} = {cast}; }}"
             else:                                  # out / set_out
                 cm = re.match(r"\s*OUT_([A-Za-z0-9_]+?)\s*$", args[0])
@@ -331,7 +347,7 @@ def transpile(rec, body):
                 if h == "out":
                     out_s += f"((*{oname}) as i64)"
                 else:
-                    cast = store_cast(t).replace("{v}", args[1].strip())
+                    cast = store_cast(t).replace("{v}", wrapify(args[1].strip()))
                     out_s += f"{{ *{oname} = {cast}; }}"
             i = 0
             text = text[nxt:]
