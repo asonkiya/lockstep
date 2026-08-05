@@ -50,6 +50,7 @@ def _load(name, path):
 
 
 realize = _load("realize_wr", os.path.join(REPO, "dream", "realize", "realize.py"))
+metrics = _load("metrics_wr", os.path.join(REPO, "dream", "realize", "metrics.py"))
 sys.path.insert(0, HERE)
 import weave_readers as WR   # noqa: E402  (VOL/IMG/_reset_stock/_unwire/_real_sig)
 import weave as W            # noqa: E402
@@ -211,9 +212,10 @@ def build_realized_artifacts(file, fn, rec=None, tr=None, probes=None, lift=Fals
     body = f"{{\n{guard_block}\n\t{inner}\n}}"
     key = re.sub(r"[^0-9A-Za-z_]", "_",
                  f"realized_{file.replace('/', '__')}_{fn}")
+    tier = "b-safe-core" if lifted else "a-mirror"
     return {"key": key, "rust_obj": rust_obj, "seam": seam, "seam_body": body,
             "extern": extern, "ret_c": ret_c, "params_c": params_c,
-            "tier": "b-safe-core" if lifted else "a-mirror"}
+            "tier": tier, "metrics": metrics.fn_metrics(fn_body_src, tier)}
 
 
 def cmd_probe(file, fn):
@@ -436,6 +438,11 @@ def cmd_batch(lift=False):
     gone = sorted(set(z_seams) - set(z_present))
     if gone:
         print(f"  realized not-linked ({len(gone)}): {', '.join(gone)}")
+    # A2: safety metrics over the PRESENT-in-vmlinux set, comparable to the
+    # lifting literature (unsafe-LOC% / raw-ptr derefs / safe-logic %).
+    present_rows = [a["metrics"] for (f, fn), a in survivors.items()
+                    if a["seam"] in set(z_present)]
+    print(metrics.format_dashboard(present_rows))
     return W._boot_digest()
 
 

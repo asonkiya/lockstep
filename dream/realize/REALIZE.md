@@ -149,6 +149,34 @@ update_load_add/sub (scheduler, lockless), seq_set_overflow, timer_set_idx —
 Safety-tier dashboard: **31 tier-b + 33 tier-a (23 realized + 10 readers)
 = 64 Rust fns.** The tier-b count DROPPED from the pre-A1 51 because A1 made
 the claim SOUND (whole-struct → field-scoped + concurrency audit) — the
-correct number, not the flattering one. Readers lift (A3) is next: their
-bodies are model-written, so the lift needs the differential-gated refactor
-path (SACTOR stage-2 + PR2 prompts) not deterministic emission.
+correct number, not the flattering one.
+
+### A2 (2026-08-05): literature-comparable safety metrics (`metrics.py`)
+
+The C→Rust lifting field reports unsafe-LOC% and raw-pointer decl/deref counts
+(Laertes, Crown, C2SaferRust, CRustS). We report the same, per fn and fleet-
+wide, so the tier claim is backed by numbers. Over the 54 woven realized fns:
+
+- **safe-logic % = 32%** — 139 of 434 translated logic LOC live in a
+  `#![forbid(unsafe_code)]` core (rustc-enforced). This is the mission metric
+  (%-Rust × safety tier collapsed to one number); it is 0% before any lift and
+  rises as tier-b grows AND as tier-a fns get lifted (proven monotone in
+  test_metrics.py).
+- **raw-ptr derefs: 214, ALL in boundaries, 0 in cores.** The lift both
+  REDUCES and CONFINES them: a tier-(a) fn re-derefs the raw pointer for every
+  field access (read + write), while a tier-(b) fn borrows each field ONCE in
+  the boundary and the core operates on safe references.
+- **tier-b unsafe surface** = one field-scoped `&mut (*p).field` per accessed
+  field, on the single boundary line; the core logic is 100% forbid-safe by
+  construction. (The strict literature unsafe-LOC% — all boundary lines,
+  including the trivial call/return glue — averages ~35% per tier-b fn only
+  because efftrace leaves are tiny and the fixed 2-line boundary is a large
+  fraction of a 4-line core; the raw-deref count is the meaningful surface.)
+
+`weave_realized.py batch --lift` now prints this dashboard over the
+present-in-vmlinux set; `metrics.fn_metrics`/`aggregate`/`format_dashboard` are
+the API; `test_metrics.py` pins the properties (4 tests).
+
+Readers lift (A3) is next: their bodies are model-written, so the lift needs
+the differential-gated refactor path (SACTOR stage-2 + PR2 prompts) not
+deterministic emission.
