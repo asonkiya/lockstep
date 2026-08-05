@@ -177,12 +177,19 @@ function.
   domain), 0 PANIC_RISK, 0 LIFT_FAILED. The overflow-panic finding
   (seqbuf_seek) is CLOSED: `realize.wrapify` now pins wrapping arithmetic in
   the source (conservative, precedence-aware); re-census 480 MATCH unchanged.
-- **A5 preprint**: the defensible artifact is the running combination
-  (manufactured differential oracle + batched boot + KCSAN conviction +
-  machine-checked lift tier), which the survey confirms NOBODY has in-kernel.
-  Cite arXiv 2602.15761 (~21% of behaviorally-broken LLM refactorings pass
-  existing test suites) as the case for differential-over-testsuite gating.
-  Move before a TRACTOR performer or the AUTODRIVER group extends into kernel.
+- **A5 preprint**: DONE (6ba313d) — `dream/PREPRINT.md`, complete draft, every
+  headline number grounded in a committed script. States plainly what is not
+  novel vs the four contributions (in-kernel acceptance / manufactured oracles /
+  differential-gated lifting / machine-checked safety tier), with an
+  honest-limits and a method-notes (negative results) section. NOT submitted.
+
+- **Containers realization**: feasibility MEASURED (ec610b4), not built —
+  `dream/realize/CONTAINERS-FEASIBILITY.md` + `container_feas.py`. The
+  effect-trace shortcut does NOT transfer (their model is an abstract ADT, not a
+  flat field table): T2 needs real list_del/list_add pointer surgery 184 (53%),
+  T3 needs allocator composition 131 (38%), only 5 (1%) realize with existing
+  machinery. Recommendation + cheapest-first sequencing in the doc. Treat as a
+  multi-session build with a research edge, NOT an extension of realize.py.
 
 ────────────────────────────────────────────────────────────────────────────
 ## 4. REACH — what % of the kernel into safe Rust, honestly
