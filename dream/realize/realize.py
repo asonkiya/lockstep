@@ -174,8 +174,9 @@ def transpile(rec, body):
     gtypes = {n: g["ctype"] for n, g in rec["globals"].items()}
     otypes = {p["name"]: p["ctype"] for p in outs}
     used = {"globals": False, "outp": False}
+    accessed = {}          # struct -> set(fields), recorded during rewrite
 
-    def rw(text):
+    def rw(text, safe=False):
         out_s = ""
         i = 0
         while True:
@@ -184,7 +185,7 @@ def transpile(rec, body):
                 return out_s + text[i:]
             out_s += text[i:m.start()]
             args, nxt = _split_args(text, m.end() - 1)
-            args = [rw(a) for a in args]          # nested helper calls
+            args = [rw(a, safe) for a in args]    # nested helper calls
             h = m.group(1)
             if h in ("field", "set_field"):
                 cm = re.match(r"\s*F(\d+)_([A-Za-z0-9_]+?)\s*$", args[0])
@@ -198,11 +199,13 @@ def transpile(rec, body):
                     raise Refused("slot_not_own_param")
                 pname = node_ps[pi]["name"]
                 t = node_ps[pi]["scalar_fields"][fname]
+                accessed.setdefault(node_ps[pi]["struct"], set()).add(fname)
+                lv = f"m{pi}.{rid(fname)}" if safe else f"(*{pname}).{rid(fname)}"
                 if h == "field":
-                    out_s += f"((*{pname}).{rid(fname)} as i64)"
+                    out_s += f"({lv} as i64)"
                 else:
                     cast = store_cast(t).replace("{v}", args[2].strip())
-                    out_s += f"{{ (*{pname}).{rid(fname)} = {cast}; }}"
+                    out_s += f"{{ {lv} = {cast}; }}"
             elif h in ("g", "set_g"):
                 cm = re.match(r"\s*G_([A-Za-z0-9_]+?)\s*$", args[0])
                 gname = None
@@ -283,7 +286,40 @@ def transpile(rec, body):
         + "\n".join(defc) + ("\n" if defc else "")
         + "\n".join(binds) + ("\n" if binds else "")
         + f"    let __r: i64 = {{\n{realized}\n    }};\n    {ret_expr}\n}}\n")
-    return {"fn_src": fn_src, "uses_globals": used["globals"],
+
+    # ---- tier-(b) SAFE form: machine-checked safe core + one-deref boundary --
+    # The core lives in a #![forbid(unsafe_code)] module and takes &mut Mirror:
+    # rustc PROVES it contains no raw-pointer access. The entire unsafe surface
+    # is the boundary's single `&mut *p` (invariant: the kernel passes a valid,
+    # unaliased struct pointer — the same invariant the C body relied on).
+    # Restricted to exactly one node param: two &mut refs from two pointers
+    # could alias in C and would be UB in Rust, so multi-node fns stay tier (a).
+    fn_src_safe, liftable = None, False
+    if (not used["globals"] and not used["outp"] and len(node_ps) == 1
+            and accessed):
+        liftable = True
+        realized_safe = rw(body, safe=True)
+        mn = node_ps[0]["struct"].capitalize() + "Mirror"
+        core_sig = [f"m0: &mut {mn}"]
+        call_args = ["unsafe { &mut *" + node_ps[0]["name"] + " }"]
+        for i, p in enumerate(rec["params"]):
+            if p["kind"] == "scalar":
+                core_sig.append(f"a{i}: i64")
+                call_args.append(f"{p['name']}_arg as i64")
+        mod = f"{rec['fn'].lstrip('_')}_safe_core"
+        fn_src_safe = (
+            f"mod {mod} {{\n"
+            f"    #![forbid(unsafe_code)]\n"
+            f"    use super::{mn};\n"
+            f"    pub fn core({', '.join(core_sig)}) -> i64 {{\n"
+            + "\n".join("    " + d for d in defc) + ("\n" if defc else "")
+            + f"        {{\n{realized_safe}\n        }}\n    }}\n}}\n"
+            f'#[no_mangle]\npub unsafe extern "C" fn {rec["fn"]}_rs({", ".join(sig)}){ret_sig} {{\n'
+            f"    let __r: i64 = {mod}::core({', '.join(call_args)});\n"
+            f"    {ret_expr}\n}}\n")
+
+    return {"fn_src": fn_src, "fn_src_safe": fn_src_safe, "liftable": liftable,
+            "accessed": accessed, "uses_globals": used["globals"],
             "uses_outp": used["outp"], "node_params": node_ps, "pw": pw}
 
 
@@ -301,7 +337,7 @@ def _mirror_struct(p):
     return "\n".join(lines)
 
 
-def rust_host_tu(rec, prep, tr):
+def rust_host_tu(rec, prep, tr, safe=False):
     """The differential's Rust TU: real-layout arenas + the realized fn +
     rs_reset/rs_set/rs_state/rs_call speaking the SAME cell protocol as the C."""
     node_ps = tr["node_params"]
@@ -369,7 +405,12 @@ def rust_host_tu(rec, prep, tr):
         }};
     }}
 }}}}""")
-    parts.append(tr["fn_src"])
+    if safe:
+        if not tr["liftable"]:
+            raise Refused("not_liftable")
+        parts.append(tr["fn_src_safe"])
+    else:
+        parts.append(tr["fn_src"])
 
     # rs_call trampoline: slot indices / handles -> real pointers, native args
     call_args, tramp = [], []

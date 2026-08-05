@@ -136,16 +136,12 @@ class Skip(Exception):
 
 
 def accessed_fields(tr):
-    """{struct: set(fields)} actually touched by the realized body (r# stripped)."""
-    node_ps = tr["node_params"]
-    acc = {}
-    for pname, f in re.findall(r"\(\*(\w+)\)\.(?:r#)?(\w+)", tr["fn_src"]):
-        p = next(p for p in node_ps if p["name"] == pname)
-        acc.setdefault(p["struct"], set()).add(f)
-    return acc
+    """{struct: set(fields)} actually touched by the realized body — recorded
+    by the transpiler itself during the rewrite (mode-independent)."""
+    return {s: set(fs) for s, fs in tr["accessed"].items()}
 
 
-def build_realized_artifacts(file, fn, rec=None, tr=None, probes=None):
+def build_realized_artifacts(file, fn, rec=None, tr=None, probes=None, lift=False):
     if tr is None:
         rec, tr = realize.realize_light(file, fn)
     if tr["uses_globals"] or tr["uses_outp"]:
@@ -155,6 +151,8 @@ def build_realized_artifacts(file, fn, rec=None, tr=None, probes=None):
         raise Skip("two_node_params_one_struct")
 
     accessed = accessed_fields(tr)
+    lifted = bool(lift and tr.get("liftable"))
+    fn_body_src = tr["fn_src_safe"] if lifted else tr["fn_src"]
 
     mirrors, rust_guards, c_guards = [], [], []
     for p in node_ps:
@@ -195,7 +193,7 @@ def build_realized_artifacts(file, fn, rec=None, tr=None, probes=None):
         mirrors.append("#[repr(C)]\npub struct " + mn + " {\n" + "\n".join(rows) + "\n}")
 
     rust_obj = (WR._FREESTANDING + "\n" + "\n".join(mirrors) + "\n"
-                + "\n".join(rust_guards) + "\n\n" + tr["fn_src"])
+                + "\n".join(rust_guards) + "\n\n" + fn_body_src)
 
     ret_c, params_c, src = WR._real_sig(file, fn)
     argnames = [re.match(r".*?([A-Za-z_]\w*)\s*(?:\[.*\])?$", p).group(1) for p in params_c]
@@ -209,7 +207,8 @@ def build_realized_artifacts(file, fn, rec=None, tr=None, probes=None):
     key = re.sub(r"[^0-9A-Za-z_]", "_",
                  f"realized_{file.replace('/', '__')}_{fn}")
     return {"key": key, "rust_obj": rust_obj, "seam": seam, "seam_body": body,
-            "extern": extern, "ret_c": ret_c, "params_c": params_c}
+            "extern": extern, "ret_c": ret_c, "params_c": params_c,
+            "tier": "b-safe-core" if lifted else "a-mirror"}
 
 
 def cmd_probe(file, fn):
@@ -307,7 +306,7 @@ def _add_entry(manifest, file, fn, a):
         "obj": a["key"]}
 
 
-def cmd_batch():
+def cmd_batch(lift=False):
     """Batch-weave every weave-eligible realized fn (census MATCH, node-only,
     file built in this volume's config) CUMULATIVELY with the 10-reader base.
     Full honest funnel: skips tallied by reason, per-file compile-check drops,
@@ -349,12 +348,14 @@ def cmd_batch():
     arts = {}
     for (file, fn), (rec, tr) in light.items():
         try:
-            arts[(file, fn)] = build_realized_artifacts(file, fn, rec, tr, probes)
+            arts[(file, fn)] = build_realized_artifacts(file, fn, rec, tr, probes, lift=lift)
         except Skip as e:
             skips.append((file, fn, str(e)))
     for file, fn, why in skips:
         print(f"  skip {fn} ({file}): {why}")
-    print(f"artifacts: {len(arts)} realized fns weave-ready, {len(skips)} skipped")
+    from collections import Counter as _C
+    tiers = _C(a["tier"] for a in arts.values())
+    print(f"artifacts: {len(arts)} realized fns weave-ready {dict(tiers)}, {len(skips)} skipped")
 
     # 3. assemble: readers base + realized entries; clean tree
     survivors = dict(arts)
@@ -422,9 +423,11 @@ def cmd_batch():
     z_seams = {a["seam"]: (f, fn) for (f, fn), a in survivors.items()}
     r_present = [s for s in sorted(r_seams) if f" {s}" in nm.stdout]
     z_present = [s for s in sorted(z_seams) if f" {s}" in nm.stdout]
+    tier_b = sum(1 for a in survivors.values() if a["tier"] == "b-safe-core")
     print(f"BUILT: {len(survivors)} realized source-woven; "
           f"PRESENT in vmlinux: {len(z_present)} realized + {len(r_present)} readers "
-          f"= {len(z_present) + len(r_present)} Rust fns")
+          f"= {len(z_present) + len(r_present)} Rust fns "
+          f"[tier b (machine-checked safe core): {tier_b}, tier a (mirror/unsafe): {len(survivors) - tier_b}]")
     gone = sorted(set(z_seams) - set(z_present))
     if gone:
         print(f"  realized not-linked ({len(gone)}): {', '.join(gone)}")
@@ -433,7 +436,7 @@ def cmd_batch():
 
 def main():
     if len(sys.argv) >= 2 and sys.argv[1] == "batch":
-        return cmd_batch()
+        return cmd_batch(lift="--lift" in sys.argv)
     if len(sys.argv) < 4:
         print(__doc__)
         return 2

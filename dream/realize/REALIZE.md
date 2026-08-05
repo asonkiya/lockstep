@@ -88,3 +88,31 @@ realized re-differential PASS + dual layout guards at kernel build + boot.
 Presence progression: 16 (minimal readers) → 10 (defconfig readers,
 LEVER-DEAD) → **64 (defconfig readers+realized)** — the realize class, living
 in core files, is the presence lever the config hunt wasn't.
+
+## The safety lift: tier (a) → tier (b) (2026-08-05, per STRATEGY.md)
+
+Mirror-% is pipeline progress; the mission metric is %-Rust × safety tier.
+First lift shipped: the transpiler emits a tier-(b) form — the verified logic
+in a `#![forbid(unsafe_code)]` module operating on `&mut Mirror` (rustc PROVES
+no raw pointers in the core), plus an extern "C" boundary whose entire unsafe
+surface is ONE `&mut *p` deref carrying the same validity invariant the C body
+relied on. Restricted to single-node fns (two &mut from two C pointers could
+alias = UB; multi-node stays tier (a) honestly).
+
+Gates (all load-bearing, pinned in test_lift.py):
+- the lifted form must MATCH the SAME differential (behavior pinned across
+  the lift, not assumed) — 52/59 eligible MATCH, 0 failures, 7 not-liftable;
+- sabotaged safe-core store → DIVERGE (differential holds over the lift);
+- a raw-pointer deref smuggled into the core → rustc BUILD_FAIL (the "safe"
+  claim is machine-checked, not naming).
+
+Reweave + boot: `weave_realized.py batch --lift` — **51 of the 54 woven
+realized fns now carry machine-checked safe cores in the booting defconfig
+kernel** (3 tier-(a) residue: cper_mem_err_pack, mm_state_to_cfg,
+copy_rtnl_link_stats — multi-node struct copiers, the aliasing-restricted
+class). Boot-digest green.
+
+Safety-tier dashboard for the woven kernel: **51 tier-b + 13 tier-a
+(3 multi-node realized + 10 readers) = 64 Rust fns.** Readers lift is the
+natural next step (their bodies are model-written, so the lift needs the
+differential-gated refactor path rather than deterministic emission).
