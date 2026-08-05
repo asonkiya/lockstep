@@ -200,7 +200,12 @@ def transpile(rec, body):
                 pname = node_ps[pi]["name"]
                 t = node_ps[pi]["scalar_fields"][fname]
                 accessed.setdefault(node_ps[pi]["struct"], set()).add(fname)
-                lv = f"m{pi}.{rid(fname)}" if safe else f"(*{pname}).{rid(fname)}"
+                # safe mode is FIELD-GRANULAR: the core takes one `&mut TY` per
+                # accessed field (`f_<field>`), so exclusivity is asserted over
+                # exactly that field's bytes, never the whole struct (A1: a
+                # whole-struct &mut noalias-covers padding = other real kernel
+                # fields; a field-scoped &mut does not). Deref the ref lvalue.
+                lv = f"(*f_{fname})" if safe else f"(*{pname}).{rid(fname)}"
                 if h == "field":
                     out_s += f"({lv} as i64)"
                 else:
@@ -287,21 +292,33 @@ def transpile(rec, body):
         + "\n".join(binds) + ("\n" if binds else "")
         + f"    let __r: i64 = {{\n{realized}\n    }};\n    {ret_expr}\n}}\n")
 
-    # ---- tier-(b) SAFE form: machine-checked safe core + one-deref boundary --
-    # The core lives in a #![forbid(unsafe_code)] module and takes &mut Mirror:
-    # rustc PROVES it contains no raw-pointer access. The entire unsafe surface
-    # is the boundary's single `&mut *p` (invariant: the kernel passes a valid,
-    # unaliased struct pointer — the same invariant the C body relied on).
-    # Restricted to exactly one node param: two &mut refs from two pointers
-    # could alias in C and would be UB in Rust, so multi-node fns stay tier (a).
+    # ---- tier-(b) SAFE form: machine-checked safe core + FIELD-GRANULAR
+    # boundary (A1). The core is a #![forbid(unsafe_code)] module whose params
+    # are one `&mut TY` per ACCESSED field — rustc PROVES no raw-pointer access.
+    # The whole unsafe surface is the boundary's per-field `&mut (*p).field`:
+    # each borrows exactly that field's bytes (Tree Borrows scopes the tag to
+    # the field; rustc emits `noalias dereferenceable(sizeof field)`), so NO
+    # whole-struct exclusivity is asserted and padding-covered real kernel
+    # fields are outside every borrow. Disjoint-field &mut in one call is the
+    # standard safe split-borrow-through-raw-pointer. Same boundary text works
+    # for the host arena Mirror and the woven padded Mirror (both name the
+    # fields). Restricted to ONE node param: two &mut from two pointers could
+    # alias in C → UB in Rust, so multi-node stays tier (a). NOTE: this is the
+    # STRUCTURAL gate only; the per-field CONCURRENCY audit (field_audit) is
+    # applied by the weave/lift-census and can further demote to tier (a).
     fn_src_safe, liftable = None, False
     if (not used["globals"] and not used["outp"] and len(node_ps) == 1
             and accessed):
         liftable = True
         realized_safe = rw(body, safe=True)
-        mn = node_ps[0]["struct"].capitalize() + "Mirror"
-        core_sig = [f"m0: &mut {mn}"]
-        call_args = ["unsafe { &mut *" + node_ps[0]["name"] + " }"]
+        struct = node_ps[0]["struct"]
+        pname = node_ps[0]["name"]
+        fld_order = sorted(accessed[struct])       # deterministic
+        core_sig, call_args = [], []
+        for fn in fld_order:
+            ty = rust_ty(node_ps[0]["scalar_fields"][fn])
+            core_sig.append(f"f_{fn}: &mut {ty}")
+            call_args.append(f"&mut (*{pname}).{rid(fn)}")
         for i, p in enumerate(rec["params"]):
             if p["kind"] == "scalar":
                 core_sig.append(f"a{i}: i64")
@@ -310,7 +327,6 @@ def transpile(rec, body):
         fn_src_safe = (
             f"mod {mod} {{\n"
             f"    #![forbid(unsafe_code)]\n"
-            f"    use super::{mn};\n"
             f"    pub fn core({', '.join(core_sig)}) -> i64 {{\n"
             + "\n".join("    " + d for d in defc) + ("\n" if defc else "")
             + f"        {{\n{realized_safe}\n        }}\n    }}\n}}\n"
@@ -319,6 +335,7 @@ def transpile(rec, body):
             f"    {ret_expr}\n}}\n")
 
     return {"fn_src": fn_src, "fn_src_safe": fn_src_safe, "liftable": liftable,
+            "lift_fields": sorted(accessed.get(node_ps[0]["struct"], ())) if (liftable) else [],
             "accessed": accessed, "uses_globals": used["globals"],
             "uses_outp": used["outp"], "node_params": node_ps, "pw": pw}
 
@@ -471,6 +488,72 @@ def realize_light(file, fn):
     rec = reach.gate(file, fn)
     tr = transpile(rec, load_body(file, fn))
     return rec, tr
+
+
+# ---------------------------------------------------------------------------
+# A1 per-field concurrency audit. A field-scoped `&mut (*p).field` is still UB
+# if ANOTHER cpu accesses that field's bytes during the borrow — and kernel-
+# "benign" races (READ_ONCE/WRITE_ONCE/data_race) are Rust UB (no benign-race
+# category). So a field named in any of those markers ANYWHERE in the tree is
+# conservatively treated as lockless-accessed → the fn holding it stays tier
+# (a). Name-level over-approximation (a same-named field on another struct
+# also demotes — the SAFE direction). Robust by construction: greps the three
+# markers as FIXED strings then extracts `->field` in Python (the mega-regex
+# alternation with `\w` inside a bracket class silently matched NOTHING — a
+# vacuous zero; do not reintroduce it). Self-proves non-vacuous: `flags` MUST
+# appear or the audit raises.
+# ---------------------------------------------------------------------------
+
+_RACY_CACHE = None
+_LOCKLESS_MARKERS = ("READ_ONCE", "WRITE_ONCE", "data_race")
+
+
+def _racy_field_names():
+    """All struct field names appearing in a lockless-access marker, tree-wide.
+    Cached per process. Raises if the scan comes back vacuous."""
+    global _RACY_CACHE
+    if _RACY_CACHE is not None:
+        return _RACY_CACHE
+    ksrc = harness.KSRC
+    dirs = [os.path.join(ksrc, d) for d in
+            ("kernel", "mm", "block", "fs", "net", "drivers", "lib", "sound",
+             "crypto", "security", "include", "ipc", "arch/arm64")]
+    dirs = [d for d in dirs if os.path.isdir(d)]
+    import subprocess as _sp
+    seen = set()
+    for marker in _LOCKLESS_MARKERS:
+        r = _sp.run(
+            ["grep", "-rhoE", "--include=*.c", "--include=*.h",
+             marker + r"\([^;]*->[A-Za-z_][A-Za-z0-9_]*", *dirs],
+            capture_output=True, text=True)
+        if r.returncode not in (0, 1):
+            raise RuntimeError(f"racy-field grep failed: {r.stderr[:200]}")
+        for ln in r.stdout.splitlines():
+            for m in re.finditer(r"->([A-Za-z_][A-Za-z0-9_]*)", ln):
+                seen.add(m.group(1))
+    if "flags" not in seen:          # non-vacuous guard (flags is always racy)
+        raise RuntimeError("racy-field audit came back VACUOUS (no 'flags') — "
+                           "grep pattern likely broken; refusing to trust it")
+    _RACY_CACHE = seen
+    return seen
+
+
+def field_audit(fields):
+    """Subset of `fields` that appear in a lockless-access marker tree-wide
+    (i.e. the fields that force a tier-(a) demotion)."""
+    return set(fields) & _racy_field_names()
+
+
+def lift_gate(tr, audit=True):
+    """(tier_b_ok, demoted_fields). Structural liftability AND (optionally) the
+    per-field concurrency audit. A fn is tier-(b) eligible iff it is
+    structurally liftable and none of its accessed fields is lockless."""
+    if not tr.get("liftable"):
+        return False, set()
+    if not audit:
+        return True, set()
+    racy = field_audit(tr.get("lift_fields", []))
+    return (len(racy) == 0), racy
 
 
 def prove(file, fn):

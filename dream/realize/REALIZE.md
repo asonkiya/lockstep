@@ -106,13 +106,49 @@ Gates (all load-bearing, pinned in test_lift.py):
 - a raw-pointer deref smuggled into the core → rustc BUILD_FAIL (the "safe"
   claim is machine-checked, not naming).
 
-Reweave + boot: `weave_realized.py batch --lift` — **51 of the 54 woven
-realized fns now carry machine-checked safe cores in the booting defconfig
-kernel** (3 tier-(a) residue: cper_mem_err_pack, mm_state_to_cfg,
-copy_rtnl_link_stats — multi-node struct copiers, the aliasing-restricted
-class). Boot-digest green.
+### A1 (2026-08-05): field-granular boundary + per-field concurrency audit
 
-Safety-tier dashboard for the woven kernel: **51 tier-b + 13 tier-a
-(3 multi-node realized + 10 readers) = 64 Rust fns.** Readers lift is the
-natural next step (their bodies are model-written, so the lift needs the
-differential-gated refactor path rather than deterministic emission).
+The research pass (RESEARCH-SAFE-RUST.md) found the first lift OVER-CLAIMED:
+whole-struct `&mut Mirror` asserts LLVM `noalias` over EVERY byte, and the
+padded mirror's `[u8; N]` padding covers OTHER REAL kernel fields — a
+concurrent access to any of them during the call is UB even though our code
+never touches it; kernel-"benign" (`data_race`/KCSAN-tolerated) races are Rust
+UB too. A1 closes it two ways:
+
+- **Field-granular boundary**: the core takes one `&mut TY` per ACCESSED field;
+  the boundary is `core(&mut (*p).field1, &mut (*p).field2, ...)`. Each borrow
+  is field-scoped (Tree Borrows scopes the tag to the field; rustc emits
+  `noalias dereferenceable(sizeof field)`), so no whole-struct exclusivity is
+  asserted and padding is outside every borrow. Same text works for the host
+  arena and woven padded mirror. NO `&mut *p` is ever formed.
+- **Per-field concurrency audit** (`realize.field_audit`): a field named in any
+  `READ_ONCE`/`WRITE_ONCE`/`data_race` marker anywhere in the tree is
+  conservatively lockless → the fn holding it stays tier (a). Name-level
+  over-approximation (safe direction). Robust-by-construction (fixed-string
+  marker grep + Python `->field` extraction; the mega-regex alternation with
+  `\w`-in-bracket silently matched NOTHING — a vacuous zero, do not
+  reintroduce) and self-proves non-vacuous (`flags` must appear, 142× tree-wide).
+
+Audit over the 317 single-node liftable efftrace candidates: **199 (63%)
+audit-pass = tier-(b) eligible, 118 (37%) demoted** (top demoters: size,
+flags, timeout, head, tail — generic names shared with lockless structs).
+This is the honest safe-Rust ceiling for efftrace.
+
+Gates (load-bearing, pinned in test_lift.py, 10 tests): field-granular shape
+(no whole-struct `&mut *p`); lifted form MATCHes the SAME differential;
+sabotaged core store → DIVERGE; raw-pointer deref smuggled into the forbid
+module → rustc BUILD_FAIL; audit non-vacuous + demotes a lockless-field fn;
+multi-node not liftable.
+
+Reweave + boot (`weave_realized.py batch --lift`): **31 of the 54 woven
+realized fns carry machine-checked, field-scoped, audit-clean safe cores in
+the booting defconfig kernel**; 23 tier-(a) (20 audit-demoted — incl.
+update_load_add/sub (scheduler, lockless), seq_set_overflow, timer_set_idx —
++ 3 multi-node copiers). Boot-digest green.
+
+Safety-tier dashboard: **31 tier-b + 33 tier-a (23 realized + 10 readers)
+= 64 Rust fns.** The tier-b count DROPPED from the pre-A1 51 because A1 made
+the claim SOUND (whole-struct → field-scoped + concurrency audit) — the
+correct number, not the flattering one. Readers lift (A3) is next: their
+bodies are model-written, so the lift needs the differential-gated refactor
+path (SACTOR stage-2 + PR2 prompts) not deterministic emission.

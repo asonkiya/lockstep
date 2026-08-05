@@ -151,7 +151,12 @@ def build_realized_artifacts(file, fn, rec=None, tr=None, probes=None, lift=Fals
         raise Skip("two_node_params_one_struct")
 
     accessed = accessed_fields(tr)
-    lifted = bool(lift and tr.get("liftable"))
+    # A1: tier-(b) requires BOTH structural liftability AND the per-field
+    # concurrency audit (no accessed field is touched locklessly anywhere in
+    # the tree). A demoted fn falls back to tier-(a) mirror/unsafe, never a
+    # false safety claim.
+    tier_b_ok, _demoted = realize.lift_gate(tr) if lift else (False, set())
+    lifted = bool(tier_b_ok)
     fn_body_src = tr["fn_src_safe"] if lifted else tr["fn_src"]
 
     mirrors, rust_guards, c_guards = [], [], []

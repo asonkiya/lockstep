@@ -52,12 +52,18 @@ def test_lift_shape(lifted):
     assert tr["liftable"]
     src = tr["fn_src_safe"]
     assert "#![forbid(unsafe_code)]" in src
-    # entire unsafe surface = the boundary: `unsafe extern "C" fn` + ONE block
-    assert src.count("unsafe {") == 1
-    assert "&mut *" in src
-    # the core body operates on references, never raw pointers
+    # A1: FIELD-GRANULAR boundary. Each borrow is `&mut (*p).field` (field-
+    # scoped), never a whole-struct `&mut *p` (which would assert noalias over
+    # padding = other real kernel fields). The core takes `&mut TY` per field.
     core = src.split("#[no_mangle]")[0]
-    assert "*mut" not in core and "(*" not in core
+    boundary = src.split("#[no_mangle]")[1]
+    assert "&mut (*" in boundary            # field-scoped borrow present
+    assert re.search(r"&mut \*\w+\s*[,)]", src) is None   # NO whole-struct &mut *p
+    # the core is raw-pointer-free (the machine-checked-safe part)
+    assert "*mut" not in core and "*const" not in core
+    assert "&mut " in core                   # core params are references
+    # the boundary derefs each accessed field exactly once
+    assert boundary.count("&mut (*") == len(tr["lift_fields"])
 
 
 def test_lifted_passes_the_same_differential(lifted):
@@ -86,6 +92,32 @@ def test_forbid_is_load_bearing():
         "pub fn core(", "pub fn smuggle(p: *mut i32) { unsafe { *p = 1; } }\n    pub fn core(", 1)
     r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, sab, safe=True))
     assert r["verdict"] == "BUILD_FAIL_RS", r
+
+
+def test_concurrency_audit_is_nonvacuous_and_demotes():
+    # A1: the per-field audit must (a) actually fire on a known-lockless field
+    # (never a vacuous zero) and (b) demote a fn that accesses one.
+    racy = _R.field_audit({"flags", "zz_no_such_field_xyz"})
+    assert "flags" in racy                       # non-vacuous: flags is lockless
+    assert "zz_no_such_field_xyz" not in racy     # doesn't over-match
+    # a fn accessing a lockless field is NOT tier-(b) eligible (falls to tier a)
+    import json
+    ff_path = os.path.join(_HERE, "..", "realize", "fn_fields.json")
+    if not os.path.exists(ff_path):
+        pytest.skip("fn_fields.json cache absent")
+    ff = json.load(open(ff_path))
+    demoted_key = next((k for k, v in ff.items()
+                        if _R.field_audit(v) and len(v) >= 1), None)
+    if demoted_key is None:
+        pytest.skip("no demotable candidate in cache")
+    f, fn = demoted_key.rsplit(":", 1)
+    _rec, tr = _R.realize_light(f, fn)
+    ok, dem = _R.lift_gate(tr, audit=True)
+    assert not ok and dem, (demoted_key, dem)
+    # same fn WITHOUT the audit is structurally liftable (proves the audit is
+    # what demoted it, not a structural miss)
+    ok2, _ = _R.lift_gate(tr, audit=False)
+    assert ok2
 
 
 def test_multi_node_not_liftable():
