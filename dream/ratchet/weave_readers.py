@@ -71,7 +71,8 @@ def _cand_path(rel, fn):
 def _parse_candidate(text):
     """(mirror_struct_name, rs_fn_name, [(rustty, argname)], ret_rustty|None)."""
     sm = re.search(r"pub struct (\w+)", text)
-    fm = re.search(r'#\[no_mangle\]\s*pub extern "C" fn (\w+)\s*\(([^)]*)\)\s*(?:->\s*([\w:<>* ]+?))?\s*\{', text)
+    # allow the A3 lifted boundary `pub unsafe extern "C" fn` as well
+    fm = re.search(r'#\[no_mangle\]\s*pub (?:unsafe )?extern "C" fn (\w+)\s*\(([^)]*)\)\s*(?:->\s*([\w:<>* ]+?))?\s*\{', text)
     if not fm:
         raise SystemExit("candidate: no #[no_mangle] extern fn found")
     args = []
@@ -108,9 +109,40 @@ def _layout_from_candidate(text):
     return sm.group(1), int(sm.group(2)), fields, rows
 
 
+_LIFTED_CACHE = {}
+_LR_MOD = None      # lift_readers imported ONCE (its realize import caches the
+                    # tree-wide audit grep; re-importing re-runs it — a ~3min/fn
+                    # pathology on the reweave, so hold the module).
+
+
+def _lifted_reader_text(rel, fn):
+    """A3: if LIFT_READERS is set and this reader lifts to a tier-(b) safe core
+    (deterministic, structdiff-gated by lift_readers), return the LIFTED
+    candidate; else None (weave the original tier-(a) mirror). Cached."""
+    global _LR_MOD
+    if not os.environ.get("LIFT_READERS"):
+        return None
+    if (rel, fn) in _LIFTED_CACHE:
+        return _LIFTED_CACHE[(rel, fn)]
+    try:
+        if _LR_MOD is None:
+            import importlib.util as _il
+            spec = _il.spec_from_file_location(
+                "lift_readers_wr", os.path.join(REPO, "dream", "realize", "lift_readers.py"))
+            _LR_MOD = _il.module_from_spec(spec)
+            spec.loader.exec_module(_LR_MOD)
+        cand, tier, _fields, _racy = _LR_MOD.lift_reader(rel, fn)
+        out = cand if (cand is not None and tier == "b-safe-core") else None
+    except Exception as e:
+        print(f"  lift_readers({fn}) failed, weaving original: {str(e)[:80]}")
+        out = None
+    _LIFTED_CACHE[(rel, fn)] = out
+    return out
+
+
 def build_artifacts(rel, fn):
     cand_path, key = _cand_path(rel, fn)
-    text = open(cand_path).read()
+    text = _lifted_reader_text(rel, fn) or open(cand_path).read()
     _struct_rs, rs_fn, _rs_args, _rs_ret = _parse_candidate(text)
     ret_c, params_c, src = _real_sig(rel, fn)
     struct_c = _struct_of(rel, fn, src)

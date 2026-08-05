@@ -198,8 +198,14 @@ names flagged lockless somewhere), 0 failures. test_lift_readers.py 3 tests
 (clean reader → safe core + MATCH; audit demotes a lockless-field reader;
 non-field pointer use refused).
 
-**Combined safety-tier reach if the lifted readers are woven: 31 realized +
-7 reader = 38 tier-b of 64.** Weaving them is the mechanical follow-on
-(weave_readers already boots reader objects; the lifted candidate keeps the
-same `<fn>_rs` ABI + mirror struct + guards, so it is a drop-in source swap —
-not done here to avoid perturbing the booting kernel late in the session).
+**WOVEN (2026-08-05): 38 tier-b of 64 in the booting defconfig kernel.** The
+7 lifted readers are now woven with their forbid-core sources (`LIFT_READERS=1`
+routes tier-b readers through `lift_readers` in `weave_readers.build_artifacts`;
+all 7 compile freestanding aarch64, all 7 `<fn>_rs` seams present in vmlinux,
+boot-digest green). Dashboard: **31 realized + 7 reader = 38 tier-b**,
+26 tier-a = 64. To reproduce: `LIFT_READERS=1 WEAVE_VOL=cgir-kbuild-defconfig
+weave_readers`-aware `weave_realized.py batch --lift`. The 3 audit-demoted
+readers (resource_clip/bitmap_check_region `start`, linear_range `min`) stay
+tier-a mirror. `_parse_candidate` accepts the lifted `unsafe` boundary; the
+lift module is imported ONCE (its audit grep is ~3 min, re-import would re-run
+it per reader).

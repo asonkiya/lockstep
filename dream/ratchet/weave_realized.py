@@ -431,10 +431,24 @@ def cmd_batch(lift=False):
     r_present = [s for s in sorted(r_seams) if f" {s}" in nm.stdout]
     z_present = [s for s in sorted(z_seams) if f" {s}" in nm.stdout]
     tier_b = sum(1 for a in survivors.values() if a["tier"] == "b-safe-core")
+    # readers woven LIFTED (A3, LIFT_READERS=1) carry a forbid core too — count
+    # them so the tier dashboard reflects the whole woven set, not just realized
+    rd_tier_b = 0
+    outd = os.path.join(HERE, "readers")
+    for _, fn in readers:
+        if f"{fn}_rs" not in set(r_present):
+            continue
+        rf = [p for p in os.listdir(outd) if p.startswith("reader_") and p.endswith(f"_{fn}.rs")]
+        if rf and "#![forbid(unsafe_code)]" in open(os.path.join(outd, rf[0])).read():
+            rd_tier_b += 1
+    tb_tot = tier_b + rd_tier_b
+    n_present = len(z_present) + len(r_present)
     print(f"BUILT: {len(survivors)} realized source-woven; "
           f"PRESENT in vmlinux: {len(z_present)} realized + {len(r_present)} readers "
-          f"= {len(z_present) + len(r_present)} Rust fns "
-          f"[tier b (machine-checked safe core): {tier_b}, tier a (mirror/unsafe): {len(survivors) - tier_b}]")
+          f"= {n_present} Rust fns "
+          f"[tier b (machine-checked safe core): {tb_tot} "
+          f"({tier_b} realized + {rd_tier_b} reader), "
+          f"tier a (mirror/unsafe): {n_present - tb_tot}]")
     gone = sorted(set(z_seams) - set(z_present))
     if gone:
         print(f"  realized not-linked ({len(gone)}): {', '.join(gone)}")
