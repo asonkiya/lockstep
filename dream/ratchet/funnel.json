@@ -1,0 +1,18 @@
+{
+  "_comment": "Measured funnel constants for the dashboard. Live numbers (banked, present) are counted at print time; these are the stages that need a campaign run to re-measure. Update WITH provenance when a campaign changes them.",
+  "census_fns": 24194,
+  "census_src": "dream/SWEEP.md census (c8dbf03)",
+  "strongly_verifiable_pct": 17,
+  "c_forever_pct": 11,
+  "realized": {
+    "efftrace": 480,
+    "containers_t1": 5,
+    "containers_t2": 139,
+    "containers_t3": 95,
+    "src": "realize census 480/635 (e40a1a7); container T2 139/184 + T3 95/131 composed-gate (2026-08-07)"
+  },
+  "present_vmlinux": 64,
+  "present_src": "realized batch weave, defconfig boot green (eec8f9f)",
+  "tier_b_present": 51,
+  "tier_b_src": "safety lift batch --lift (d4432ee)"
+}

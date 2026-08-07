@@ -224,7 +224,44 @@ def cmd_status() -> int:
     for path, s in m["sources"].items():
         fns = ", ".join(f"{fn}[{meta['gate']}:{meta['verdict']}]" for fn, meta in s["functions"].items())
         print(f"  {path}: {fns}")
+    _print_funnel(rust)
     return 0
+
+
+def _print_funnel(manifest_rust: int) -> None:
+    """The global funnel — how far the whole dream actually is. Per-run numbers
+    above keep each campaign honest; this keeps the DENOMINATOR in every
+    report, so momentum never reads as more progress than 24k functions
+    justify. The bank is counted live; campaign-measured stages come from
+    funnel.json with provenance (the manifest is a transient last-woven-state,
+    so PRESENT uses the best-measured boot-verified number, flagged if the
+    loaded manifest disagrees)."""
+    fp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "funnel.json")
+    try:
+        f = json.load(open(fp))
+    except Exception:
+        return
+    verified_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                "firstrun", "verified")
+    try:
+        banked = sum(1 for x in os.listdir(verified_dir) if x.endswith(".rs"))
+    except OSError:
+        banked = 0
+    census = f["census_fns"]
+    realized = sum(v for k, v in f["realized"].items() if k != "src")
+    present = f["present_vmlinux"]
+    tier_b = f["tier_b_present"]
+    print("\n=== the dream, honestly (funnel vs whole kernel) ===")
+    print(f"  kernel functions (census)   : {census}  [{f['census_src']}]")
+    print(f"  strongly-verifiable ceiling : ~{f['strongly_verifiable_pct']}% with today's oracles"
+          f"  (~{f['c_forever_pct']}% C-forever)")
+    print(f"  verified banked             : {banked}  ({100*banked/census:.1f}%)")
+    print(f"  realized to real structs    : {realized}  ({100*realized/census:.1f}%)  [{f['realized']['src']}]")
+    note = ("" if manifest_rust == present else
+            f"  (loaded manifest tracks {manifest_rust} — a different volume/state)")
+    print(f"  PRESENT in booting vmlinux  : {present}  ({100*present/census:.2f}%)"
+          f"  [{f['present_src']}]{note}")
+    print(f"  machine-checked safe (b)    : {tier_b}  ({100*tier_b/census:.2f}%)  [{f['tier_b_src']}]")
 
 
 def main() -> int:

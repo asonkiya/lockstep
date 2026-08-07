@@ -22,9 +22,14 @@ Pipeline per candidate:
   4. emit Rust over the ListHead mirror with real pointers
   5. gate: chain-walking differential, real C vs realized Rust, over an arena
 
-v1 scope: single list, straight-line (no iteration), no allocation. `retire()`
-(kfree) is T3 and is REFUSED here — it needs composition with the allocator
-model, not a list oracle (per CONTAINERS-FEASIBILITY).
+Scope: single list; straight-line and unconditional iteration; T3's bare
+`kfree(node)` as a first-class op verified by the COMPOSED gate — the chain
+differential plus an order-sensitive free-event log where every event records
+(slot, chain-digest-at-free-time). The digest makes within-call ordering
+visible: free-before-unlink (a UAF in situ) produces a different digest than
+unlink-then-free, a class the ADT retire log (slots only) cannot see. Other
+allocator entry points (kmalloc/kmem_cache_free/kfree_rcu/...) stay refused —
+the t3_census measured ZERO of them in the banked population.
 
   container_realize.py map <file> <fn>    # show the C ops / ADT ops / mapping
   container_realize.py prove <file> <fn>  # realize + chain-walking differential
@@ -76,6 +81,11 @@ _C_OPS = {
     # the C ref performs the identical operation, so the differential still
     # arbitrates the translation rather than the kernel's own idiom.
     "INIT_LIST_HEAD": ("del",        "INIT_LIST_HEAD"),
+    # T3: kfree is a concrete op like any other, kept IN ORDER with the list
+    # ops. It emits a free EVENT (slot + chain-digest-at-free-time) rather than
+    # touching memory — the composed gate compares the event stream, so a
+    # dropped free, a wrong target, or a free-before-unlink (UAF) all DIVERGE.
+    "kfree":          ("retire",     "free_ev"),
 }
 _UNSUPPORTED_C = ("_rcu", "list_splice", "list_cut", "list_bulk", "list_replace",
                   "list_swap", "list_rotate", "hlist_")
@@ -92,9 +102,22 @@ def c_ops(rel, fn):
     for bad in _UNSUPPORTED_C:
         if bad in body:
             raise Refused(f"unsupported_c_op:{bad}")
-    if re.search(r"\b(kfree|kmem_cache_free|kzalloc|kmalloc)\b", body):
-        raise Refused("allocation_present:T3_needs_allocmodel")
+    # bare kfree(node) is the T3 op (129/131 of the census); every OTHER
+    # allocator entry point stays refused — zero occurrences in the banked
+    # population, so refuse-on-sight rather than model-by-guess.
+    if re.search(r"\b(kmem_cache_free|kmem_cache_alloc|kzalloc|kmalloc|kcalloc"
+                 r"|kvfree|kfree_rcu|kfree_sensitive|devm_kfree)\b", body):
+        raise Refused("allocation_present:unsupported_variant")
     it = _classify_iteration(body)
+    # SYMMETRY FIX (audit 2026-08-07): the conditional refusal lived only in
+    # the iteration path, so a straight-line body whose ops sit under an `if`
+    # (the pop-if-nonempty shape) was accepted with the guard silently DROPPED
+    # — and the gate could not catch it, because the C reference is re-emitted
+    # from the same unconditionally-extracted ops. Fail-closed on ANY
+    # conditional until a condition-scope parser exists (the measured v2
+    # lever: 24 T2 + 3 T3 fns were being over-accepted this way).
+    if it is None and re.search(r"\bif\b|\?", body):
+        raise Refused("conditional_body:v1_unconditional_only")
     ops = []
     for m in re.finditer(r"\b(" + "|".join(_C_OPS) + r")\s*\(", body):
         name = m.group(1)
@@ -103,6 +126,34 @@ def c_ops(rel, fn):
                     "args": [a.strip() for a in args]})
     if not ops:
         raise Refused("no_list_ops_in_c")
+    # T3 guards, fail-closed. (a) A body with 2+ distinct iterated heads is a
+    # multi-list function — collapsing them into one emitted walk would be
+    # silently wrong. (b) The freed pointer must be the node being operated on:
+    # the iteration cursor, or the base of a list-op's entry arg. `kfree(x)`
+    # where x is anything else (a sub-buffer, the wrong cursor) is refused, not
+    # guessed.
+    heads = set()
+    for lm_ in re.finditer(r"\blist_for_each_entry(_safe)?\s*\(", body):
+        largs_, _ = _split_call(body, lm_.end() - 1)
+        hidx = 2 if lm_.group(1) else 1
+        if len(largs_) > hidx:
+            heads.add(_norm_expr(largs_[hidx]))
+    if len(heads) > 1:
+        raise Refused("multi_head_iteration:multi_list")
+    if any(o["c_op"] == "kfree" for o in ops):
+        ok_bases = {_base_of(o["args"][0]) for o in ops if o["c_op"] != "kfree"}
+        lm_ = re.search(r"\blist_for_each_entry(?:_safe)?\s*\(", body)
+        if lm_:
+            largs_, _ = _split_call(body, lm_.end() - 1)
+            ok_bases = {_norm_expr(largs_[0])}          # only the cursor
+        for o in ops:
+            if o["c_op"] != "kfree":
+                continue
+            a = o["args"][0].strip()
+            if not re.fullmatch(r"[A-Za-z_]\w*", a):
+                raise Refused(f"free_arg_complex:{a[:30]}")
+            if a not in ok_bases:
+                raise Refused(f"free_target_mismatch:{a}")
     # CROSS-LIST guard: inside an iteration, a list_move* whose DESTINATION head
     # differs from the iterated head is a two-list function (T4 in the census),
     # not the single-list shape v1 models. Caught live on dev_exceptions_move
@@ -123,6 +174,12 @@ def c_ops(rel, fn):
 
 def _norm_expr(e):
     return re.sub(r"[\s&]", "", e or "")
+
+
+def _base_of(e):
+    """`&cl->node` -> `cl`; the identifier a list-op entry arg is rooted at."""
+    m = re.match(r"\s*&?\s*([A-Za-z_]\w*)", e or "")
+    return m.group(1) if m else ""
 
 
 def _classify_iteration(body):
@@ -195,8 +252,6 @@ def adt_ops(rel, fn):
     if not m:
         raise Refused("no_rs_call_body")
     body = m.group(1)
-    if re.search(r"(?<![\w])retire\s*\(", body):
-        raise Refused("retire:T3_needs_allocmodel")
     seq = [mm.group(1) for mm in
            re.finditer(r"(?<![\w])(" + "|".join(_ADT_OPS) + r")\s*\(", body)]
     return [o for o in seq if o not in ("field", "set_field")], body
@@ -223,7 +278,7 @@ def correspond(cops, aops):
     """The C's mutating ops must line up with the model's, after canonicalising
     moves into del+push on both sides."""
     mutators = [o for o in aops if o in ("push_back", "push_front", "del",
-                                         "move_tail", "move_front")]
+                                         "move_tail", "move_front", "retire")]
     a_can = _canon(mutators)
     c_can = _canon([o["adt"] for o in cops])
     if len(a_can) != len(c_can):
@@ -252,6 +307,12 @@ def emit_realized(rel, fn, L, sabotage=None):
             rs = {"list_add": "list_add_tail", "list_add_tail": "list_add"}.get(rs, rs)
         if sabotage == "del_not_init":      # the ADT-INVISIBLE defect class
             rs = {"list_del_init": "list_del"}.get(rs, rs)
+        if rs == "free_ev":
+            if sabotage == "no_free":       # right membership, dropped free
+                continue
+            lines.append("        free_ev(head);" if sabotage == "wrong_free"
+                         else "        free_ev(entry);")
+            continue
         if rs in ("list_add", "list_add_tail"):
             lines.append(f"        {rs}(entry, head);")
         elif rs in ("list_del", "list_del_init", "INIT_LIST_HEAD"):
@@ -259,6 +320,13 @@ def emit_realized(rel, fn, L, sabotage=None):
         else:                                # list_move / list_move_tail
             lines.append(f"        __list_del((*entry).prev, (*entry).next);")
             lines.append(f"        {'list_add' if rs=='list_move' else 'list_add_tail'}(entry, head);")
+    if sabotage == "free_before_del":
+        # the UAF ordering: the free fires BEFORE the op that precedes it.
+        # Chain state at call boundaries and freed slots are identical — only
+        # the chain-digest-at-free-time distinguishes the two orders.
+        i = next((k for k, l in enumerate(lines) if "free_ev" in l), 0)
+        if i > 0:
+            lines[i - 1], lines[i] = lines[i], lines[i - 1]
     body = "\n".join(lines)
     if it is not None:
         # per-iteration ops act on `pos`; the walk shape is dictated by the
@@ -307,7 +375,9 @@ def _ref_c(cops, L, it=None):
     """Host C reference: the real ops, applied in the real order."""
     calls = []
     for o in cops:
-        if o["c_op"] in ("list_add", "list_add_tail"):
+        if o["c_op"] == "kfree":
+            calls.append("    cgir_free_ev(entry);")
+        elif o["c_op"] in ("list_add", "list_add_tail"):
             calls.append(f"    {o['c_op']}(entry, head);")
         elif o["c_op"] in ("list_del", "list_del_init", "INIT_LIST_HEAD"):
             calls.append(f"    {o['c_op']}(entry);")
@@ -315,7 +385,9 @@ def _ref_c(cops, L, it=None):
             calls.append(f"    {o['c_op']}(entry, head);")
     iter_calls = []
     for o in cops:
-        if o["c_op"] in ("list_del", "list_del_init", "INIT_LIST_HEAD"):
+        if o["c_op"] == "kfree":
+            iter_calls.append("        cgir_free_ev(&pos->lh);")
+        elif o["c_op"] in ("list_del", "list_del_init", "INIT_LIST_HEAD"):
             iter_calls.append(f"        {o['c_op']}(&pos->lh);")
         elif o["c_op"] in ("list_add", "list_add_tail"):
             iter_calls.append(f"        {o['c_op']}(&pos->lh, head);")
@@ -348,7 +420,13 @@ static inline void list_move_tail(struct list_head *e, struct list_head *h) {{ _
 struct cgir_node {{ int id; struct list_head lh; long payload; }};
 static struct cgir_node C_ARENA[{NN}];
 static struct list_head C_HEAD;
+/* free-event log: pairs of (slot, chain-digest-at-free-time). kfree in the
+ * gate is an EVENT, not a memory op — the digest captures WHEN in the op
+ * sequence the free fired, so free-before-unlink != unlink-then-free. */
+static long FLOG[4096]; static int FN;
+static void cgir_free_ev(struct list_head *p);
 void c_reset(void) {{
+    FN = 0;
     INIT_LIST_HEAD(&C_HEAD);
     for (int i = 0; i < {NN}; i++) {{ C_ARENA[i].id = i; INIT_LIST_HEAD(&C_ARENA[i].lh); }}
     /* pre-populate so del/move have something to operate on */
@@ -375,6 +453,25 @@ static long normp(void *p) {{
     if (p == LIST_POISON2) return -101;
     for (int i = 0; i < {NN}; i++) if (p == (void *)&C_ARENA[i].lh) return i;
     return -999;
+}}
+static unsigned long chain_digest(void) {{
+    unsigned long h = 14695981039346656037UL; int g = 0;
+    struct list_head *w = C_HEAD.next;
+    while (g++ < {NN} + 2) {{
+        if (w == &C_HEAD) break;
+        long id = normp(w);
+        h = h * 1099511628211UL + (unsigned long)(id + 1000);
+        if (id < 0) break;
+        w = w->next;
+    }}
+    return h;
+}}
+static void cgir_free_ev(struct list_head *p) {{
+    FLOG[FN++] = normp(p); FLOG[FN++] = (long)chain_digest();
+}}
+int c_freelog(long *buf) {{
+    for (int i = 0; i < FN; i++) buf[i] = FLOG[i];
+    return FN;
 }}
 int c_snapshot(long *buf) {{
     int k = 0; struct list_head *w = C_HEAD.next; int g = 0;
@@ -405,7 +502,31 @@ static mut R_ARENA: [Node; {NN}] = [const {{ Node {{ id: 0,
     payload: 0 }} }}; {NN}];
 static mut R_HEAD: ListHead = ListHead {{ next: core::ptr::null_mut(),
                                          prev: core::ptr::null_mut() }};
+static mut FLOG: [i64; 4096] = [0; 4096];
+static mut FN_: usize = 0;
+unsafe fn chain_digest() -> u64 {{
+    let mut h: u64 = 14695981039346656037;
+    let mut g = 0;
+    let mut w = R_HEAD.next;
+    while g < {NN} + 2 {{
+        g += 1;
+        if w == &raw mut R_HEAD {{ break; }}
+        let id = normp(w);
+        h = h.wrapping_mul(1099511628211).wrapping_add((id + 1000) as u64);
+        if id < 0 {{ break; }}
+        w = (*w).next;
+    }}
+    h
+}}
+#[no_mangle] pub extern "C" fn free_ev(p: *mut ListHead) {{ unsafe {{
+    FLOG[FN_] = normp(p); FLOG[FN_ + 1] = chain_digest() as i64; FN_ += 2;
+}}}}
+#[no_mangle] pub extern "C" fn r_freelog(buf: *mut i64) -> i32 {{ unsafe {{
+    for i in 0..FN_ {{ *buf.add(i) = FLOG[i]; }}
+    FN_ as i32
+}}}}
 #[no_mangle] pub extern "C" fn r_reset() {{ unsafe {{
+    FN_ = 0;
     INIT_LIST_HEAD(&raw mut R_HEAD);
     for i in 0..{NN} {{ R_ARENA[i].id = i as i32; INIT_LIST_HEAD(&raw mut R_ARENA[i].lh); }}
     for i in 0..{NN} {{ list_add_tail(&raw mut R_ARENA[i].lh, &raw mut R_HEAD); }}
@@ -441,27 +562,37 @@ unsafe fn normp(p: *mut ListHead) -> i64 {{
 _PROBE = """#include <stdio.h>
 extern void c_reset(void); extern int c_snapshot(long*); extern int r_snapshot(long*);
 extern void r_reset(void);
+extern int c_freelog(long*); extern int r_freelog(long*);
 #if ITER_MODE
 extern void c_call_iter(void); extern void r_call_iter(void);
 #else
 extern void c_call(int); extern void r_call(int);
 #endif
-static long CB[512], RB[512];
+static long CB[4096], RB[4096];
 #define CMP(step) {                                                     \\
     int n1=c_snapshot(CB), n2=r_snapshot(RB);                           \\
     if (ADT_ONLY) { n1=adt_len(CB,n1); n2=adt_len(RB,n2); }             \\
     if (n1!=n2) { printf("CREALIZE verdict=DIVERGE step=%s reason=len %d!=%d\\n",step,n1,n2); return 1; } \\
     for (int j=0;j<n1;j++) if (CB[j]!=RB[j]) {                          \\
         printf("CREALIZE verdict=DIVERGE step=%s slot=%d c=%ld r=%ld\\n",step,j,CB[j],RB[j]); return 1; } }
+/* the composed axis: the free-event log, order-sensitive. ADT_ONLY keeps the
+ * slots and drops the digests — the retire-log view the ADT oracle had. */
+#define FCMP(step) {                                                    \\
+    int n1=c_freelog(CB), n2=r_freelog(RB);                             \\
+    if (ADT_ONLY) { n1=adt_flog(CB,n1); n2=adt_flog(RB,n2); }           \\
+    if (n1!=n2) { printf("CREALIZE verdict=DIVERGE step=%s reason=freelog_len %d!=%d\\n",step,n1,n2); return 1; } \\
+    for (int j=0;j<n1;j++) if (CB[j]!=RB[j]) {                          \\
+        printf("CREALIZE verdict=DIVERGE step=%s freelog=%d c=%ld r=%ld\\n",step,j,CB[j],RB[j]); return 1; } }
 static int adt_len(long *b, int n) { for (int i=0;i<n;i++) if (b[i]==-7) return i; return n; }
+static int adt_flog(long *b, int n) { for (int i=0;i+1<n;i+=2) b[i/2]=b[i]; return n/2; }
 int main(void) {
-    c_reset(); r_reset(); CMP("init");
+    c_reset(); r_reset(); CMP("init"); FCMP("init");
 #if ITER_MODE
-    c_call_iter(); r_call_iter(); CMP("iter");
-    printf("CREALIZE verdict=MATCH iter=1\\n");
+    c_call_iter(); r_call_iter(); CMP("iter"); FCMP("iter");
+    printf("CREALIZE verdict=MATCH iter=1 frees=%d\\n", c_freelog(CB)/2);
 #else
-    for (int a = 0; a < NNODES; a++) { c_call(a); r_call(a); CMP("call"); }
-    printf("CREALIZE verdict=MATCH calls=%d\\n", NNODES);
+    for (int a = 0; a < NNODES; a++) { c_call(a); r_call(a); CMP("call"); FCMP("call"); }
+    printf("CREALIZE verdict=MATCH calls=%d frees=%d\\n", NNODES, c_freelog(CB)/2);
 #endif
     return 0;
 }

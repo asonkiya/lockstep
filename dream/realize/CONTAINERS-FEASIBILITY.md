@@ -264,3 +264,73 @@ Nothing unsound reaches emission: ops come from the C, and disagreement is
 REFUSED, tallied and named. The 18 are a re-verification worklist for the
 container oracle (its workload needs a push-an-already-linked-node case), not
 lost coverage.
+
+> **CORRECTION (T3 audit, 2026-08-07): 163 → 139.** The conditional refusal
+> lived only in the iteration path, so a straight-line body whose ops sit
+> under an `if` (the pop-if-nonempty shape: `if (!list_empty(h)) { e = ...;
+> list_del(...); }`) was accepted with its guard silently dropped — and the
+> gate could not catch it, because the C reference is re-emitted from the same
+> unconditionally-extracted ops. An audit during the T3 build found **24 such
+> fns inside the 163** (plus 4 more hiding among the op-mismatch refusals, and
+> 3 in T3's acceptees). Fixed fail-closed: `conditional_body` now refuses any
+> straight-line body containing `if`/`?`, pinned by
+> `test_conditional_straightline_refused`. Honest T2 numbers now:
+> **184 = 139 chain-verified + 14 op-count (banked-model worklist) + 31
+> conditional/cross-list refused.**
+
+---
+
+## T3 DONE: the retire/kfree class, verified by the COMPOSED gate
+
+Census first (`t3_census.py`), per the T2 lesson. The population is clean:
+**103/131 in scope** — 71 unconditional safe-iteration flushes + 32
+straight-line del+kfree — and every single candidate frees with **one bare
+`kfree(node)`** (129 bare + 2 double, both in the 2 multi-head fns; ZERO
+`kfree_rcu`/`kvfree`/`kmem_cache_free` — the reach gate filtered them at
+banking). So "compose with the allocator model" reduces to exactly one new
+axis: **the free-event log**.
+
+**The composed gate** (`container_realize.py`, same module — T2+T3 now unify):
+`kfree` is a concrete op read from the real C, kept in order with the list
+ops, class `retire`. It emits an *event*, not a memory op: the gate records
+`(slot, chain-digest-at-free-time)` on both sides and compares the streams
+order-sensitively after every call, on top of the full chain-walking
+differential.
+
+**The digest is the load-bearing addition.** Comparing free *slots* alone (the
+ADT retire-log view) cannot see WHEN in the op sequence the free fired.
+`kfree(p); list_del(&p->list)` — a use-after-free in situ — produces identical
+chain states at call boundaries and identical freed slots; only the digest of
+the chain *at the moment of the free* differs. Measured, not asserted
+(`test_uaf_free_order_caught_structurally_only`):
+
+| sabotage | composed gate | ADT retire-log view |
+|---|---|---|
+| dropped free (over-credit) | DIVERGE | DIVERGE |
+| wrong free target | DIVERGE | DIVERGE |
+| **free before unlink (UAF)** | **DIVERGE** | **MATCH — blind** |
+
+Fourth instance of the theme, and the exact over-crediting failure this
+document predicted for a list-only oracle — now structurally excluded.
+
+**Fail-closed guards added:** `multi_head_iteration` (two `for_each` heads
+must not collapse into one walk — the 2 `vhost_clear_msg`-shaped fns),
+`free_target_mismatch` (the freed pointer must be the iteration cursor or the
+list-op entry base), `free_arg_complex`, and every non-`kfree` allocator entry
+point stays refused on sight.
+
+### Result: 95/131 realized + composed-gate verified (73%), zero diverges
+
+| outcome | n |
+|---|---:|
+| **MATCH (chain + free log)** | **95** |
+| conditional loop body | 23 |
+| op-count mismatch (banked-model worklist, same class as T2's) | 8 |
+| conditional straight-line body | 3 |
+| multi-head iteration | 2 |
+
+**The measured next lever is now the condition-scope parser**: 56 fns across
+both tiers (28+2 T2, 23+3 T3) refuse on conditionals — when T2 alone was
+measured it was worth 2 fns; the T3 census re-priced it. The 8+14 op-count
+mismatches are the banked-model re-verification worklist. Weave of realized
+containers into the booting kernel remains the integration step after that.
