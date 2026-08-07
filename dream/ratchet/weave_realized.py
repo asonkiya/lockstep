@@ -306,18 +306,24 @@ def _add_entry(manifest, file, fn, a):
     entry = manifest["sources"].setdefault(file, {"extern_block": "\n", "functions": {}})
     entry["extern_block"] += a["extern"]
     entry["functions"][fn] = {
-        "status": "rust", "tier": "tier-b", "gate": "differential",
+        "status": "rust",
+        "tier": "tier-b" if a["tier"] == "b-safe-core" else "tier-a",
+        "gate": "differential",
         "verdict": "PASS", "seam": a["seam"], "shell": f"{sig}\n{a['seam_body']}"}
     manifest["rust_objects"][a["key"]] = {
         "src": f"readers/{a['key']}.rs", "kbuild_dir": os.path.dirname(file),
         "obj": a["key"]}
 
 
-def cmd_batch(lift=False):
+def cmd_batch(lift=False, extra=None):
     """Batch-weave every weave-eligible realized fn (census MATCH, node-only,
     file built in this volume's config) CUMULATIVELY with the 10-reader base.
     Full honest funnel: skips tallied by reason, per-file compile-check drops,
-    link-repair drops, nm presence headline, boot digest."""
+    link-repair drops, nm presence headline, boot digest.
+
+    `extra`: additional {(file, fn): artifact} survivors from another realizer
+    (weave_containers.py) — same artifact shape, same funnel, counted
+    separately in the headline via artifact cls."""
     elig = json.load(open(os.path.join(REPO, "dream", "realize", "weave_eligible.json")))
     pairs = [tuple(k.rsplit(":", 1)) for k in elig]
     # a fn already woven via the readers base would emit a SECOND object with
@@ -366,10 +372,16 @@ def cmd_batch(lift=False):
 
     # 3. assemble: readers base + realized entries; clean tree
     survivors = dict(arts)
+    if extra:
+        survivors.update(extra)
     readers = list(_READERS_BASE)
+    # reset scope must be the UNION of everything ever woven: a file dropped
+    # in round N stays woven (broken seam and all) unless later rounds reset
+    # it too — first hit by the stop_machine.c compile-drop (cweave batch 1).
+    ever_rels = sorted({r for r, _ in readers} | {f for f, _ in survivors})
     for round_ in range(5):
         all_rels = sorted({r for r, _ in readers} | {f for f, _ in survivors})
-        WR._reset_stock(all_rels)
+        WR._reset_stock(ever_rels)
         WR._unwire(readers)
         _scrub_realized()
         manifest, rskip = WR._assemble(readers, W)
@@ -443,6 +455,11 @@ def cmd_batch(lift=False):
             rd_tier_b += 1
     tb_tot = tier_b + rd_tier_b
     n_present = len(z_present) + len(r_present)
+    cls_of = {a["seam"]: a.get("cls", "efftrace") for a in survivors.values()}
+    c_present = [s for s in z_present if cls_of.get(s) == "container"]
+    if c_present or any(v == "container" for v in cls_of.values()):
+        print(f"  containers: {len(c_present)} present of "
+              f"{sum(1 for v in cls_of.values() if v == 'container')} woven")
     print(f"BUILT: {len(survivors)} realized source-woven; "
           f"PRESENT in vmlinux: {len(z_present)} realized + {len(r_present)} readers "
           f"= {n_present} Rust fns "
