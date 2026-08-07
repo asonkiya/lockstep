@@ -147,9 +147,51 @@ def parse(rel, fn):
                        "args": [a.strip() for a in args], "seg": seg})
     if not events:
         raise Skip("no_events")
-    rm = re.search(r"\breturn\b", body)
-    if rm and any(e["pos"] > rm.start() for e in events):
-        raise Skip("early_return")
+    # list_empty guards (the gate-proven class). Guard structure comes from
+    # the SAME parser the differential gate proved (CR._parse_guard), never a
+    # re-derivation; the weave bar is whole-body reproduction, so the guard's
+    # early-return IS the reproduced control flow (not an unsupported return).
+    guard = None
+    if re.search(r"\bif\b|\?", body):
+        try:
+            guard = CR._parse_guard(body, {"safe": True} if it else None)
+        except CR.Refused as e:
+            raise Skip(f"guard:{str(e)[:50]}")
+        if it:
+            it["loop_guard"] = guard["loop_guard"]
+        else:
+            inv = {"empty": "not_empty", "not_empty": "empty"}
+            for e in events:
+                if guard["extent"][0] <= e["pos"] < guard["extent"][1]:
+                    e["cond"] = guard["pol"]
+                elif e["pos"] >= guard["extent"][1] and guard["inverts_rest"]:
+                    e["cond"] = inv[guard["pol"]]
+                else:
+                    e["cond"] = None
+            guard["pred_r"] = None           # resolved below with the others
+    if_extent = None
+    if guard:
+        gm = re.search(r"\bif\s*\(", body)
+        _pa, pend = CR._split_call(body, gm.end() - 1)
+        k = pend
+        while k < len(body) and body[k] in " \t\n":
+            k += 1
+        if body[k] == "{":
+            d, j2 = 0, k
+            while j2 < len(body):
+                d += body[j2] == "{"
+                d -= body[j2] == "}"
+                j2 += 1
+                if d == 0:
+                    break
+            if_extent = (k, j2)
+        else:
+            if_extent = (k, body.index(";", k) + 1)
+    for rm_ in re.finditer(r"\breturn\b", body):
+        if if_extent and if_extent[0] <= rm_.start() < if_extent[1]:
+            continue                 # the guard's own early return: reproduced
+        if any(e["pos"] > rm_.start() for e in events):
+            raise Skip("early_return")
 
     # resolve every referenced object; collect probes + statics
     probes, statics = set(), []
@@ -194,8 +236,12 @@ def parse(rel, fn):
         else:                                 # list ops
             ev["r"] = [resolve(a) for a in ev["args"]]
     head_r = resolve(it["head"]) if it else None
+    guard_res = None
+    if guard and not it:
+        guard_res = resolve("&" + guard["pred"])
     return {"rel": rel, "fn": fn, "ret_c": ret_c, "params_c": params_c,
             "params": params, "it": it, "events": events, "head_r": head_r,
+            "guard": guard, "guard_res": guard_res,
             "probes": sorted(probes), "statics": statics}
 
 
@@ -266,7 +312,15 @@ def emit(ir, probes, poison, sabotage=None):
         raise Skip(f"lh_form:{r[0]}")
 
     externs, lines_by_seg = set(), {"pre": [], "inner": [], "post": [], "line": []}
+    seq = []                                 # straight-line: (cond, text)
     flags_locals = set()
+
+    def _ap(seg, ev, text):
+        if seg == "line":
+            seq.append((ev.get("cond"), text))
+        else:
+            lines_by_seg[seg].append(text)
+
     for ev in ir["events"]:
         seg = ev["seg"]
         n = ev["name"]
@@ -275,40 +329,59 @@ def emit(ir, probes, poison, sabotage=None):
             r = ev["r"][0]
             if r[0] == "cursor":
                 base = f"((pos as usize) - {offs[(it['cstruct'], it['member'])]})"
-                lines_by_seg[seg].append(f"kfree({base} as *mut u8);")
+                _ap(seg, ev, f"kfree({base} as *mut u8);")
             else:
-                lines_by_seg[seg].append(f"kfree({r[1]} as *mut u8);")
+                _ap(seg, ev, f"kfree({r[1]} as *mut u8);")
         elif n in _LOCKS:
             sym = _LOCKS[n]
             addr = lh(ev["r"][0]).replace("*mut LH", "*mut u8")
             if "irqsave" in n:
                 externs.add(f"fn {sym}(l: *mut u8) -> u64;")
                 flags_locals.add(ev["flags"])
-                lines_by_seg[seg].append(f"{ev['flags']} = {sym}({addr});")
+                _ap(seg, ev, f"{ev['flags']} = {sym}({addr});")
             elif "irqrestore" in n:
                 externs.add(f"fn {sym}(l: *mut u8, f: u64);")
-                lines_by_seg[seg].append(f"{sym}({addr}, {ev['flags']});")
+                _ap(seg, ev, f"{sym}({addr}, {ev['flags']});")
             else:
                 externs.add(f"fn {sym}(l: *mut u8);")
-                lines_by_seg[seg].append(f"{sym}({addr});")
+                _ap(seg, ev, f"{sym}({addr});")
         else:                                 # list op
             rs = _LIST[n][1]
             rfn = {"INIT_LIST_HEAD": "lh_init"}.get(rs, rs)
             args = [lh(r) for r in ev["r"]]
-            lines_by_seg[seg].append(f"{rfn}({', '.join(args)});")
+            _ap(seg, ev, f"{rfn}({', '.join(args)});")
 
     body = []
     for f in sorted(flags_locals):
         body.append(f"    let mut {f}: u64 = 0; let _ = {f};")
     ind = "    "
     if it is None:
-        body += [ind + l for l in lines_by_seg["line"]]
+        # group consecutive same-cond runs into ONE guard block: the C
+        # evaluates the predicate once, and per-line wrapping would re-test a
+        # condition the earlier lines may have just changed
+        i = 0
+        while i < len(seq):
+            cond = seq[i][0]
+            j = i
+            while j < len(seq) and seq[j][0] == cond:
+                j += 1
+            chunk = [t for _, t in seq[i:j]]
+            if cond:
+                gp = lh(ir["guard_res"])
+                cmp_ = "==" if cond == "empty" else "!="
+                body.append(f"    let gp: *mut LH = {gp};")
+                body.append(f"    if (*gp).next {cmp_} gp {{")
+                body += ["        " + t for t in chunk]
+                body.append("    }")
+            else:
+                body += [ind + t for t in chunk]
+            i = j
     else:
-        body += [ind + l for l in lines_by_seg["pre"]]
+        seg_lines = [ind + l for l in lines_by_seg["pre"]]
         head = lh(ir["head_r"])
         inner = "\n".join("        " + l for l in lines_by_seg["inner"])
         if it["safe"]:
-            body.append(f"""    let head: *mut LH = {head};
+            seg_lines.append(f"""    let head: *mut LH = {head};
     let mut pos = (*head).next;
     while pos != head {{
         let n = (*pos).next;
@@ -316,13 +389,25 @@ def emit(ir, probes, poison, sabotage=None):
         pos = n;
     }}""")
         else:
-            body.append(f"""    let head: *mut LH = {head};
+            seg_lines.append(f"""    let head: *mut LH = {head};
     let mut pos = (*head).next;
     while pos != head {{
 {inner}
         pos = (*pos).next;
     }}""")
-        body += [ind + l for l in lines_by_seg["post"]]
+        seg_lines += [ind + l for l in lines_by_seg["post"]]
+        if it.get("loop_guard"):
+            # `if (list_empty(head)) return;` guards EVERYTHING after it —
+            # locks included — so the whole body goes in one block (per-event
+            # wrapping would re-test after the flush emptied the list and
+            # skip the unlock: a deadlock)
+            gh = lh(ir["head_r"])
+            body.append(f"    let gh: *mut LH = {gh};")
+            body.append("    if (*gh).next != gh {")
+            body += ["    " + l for l in seg_lines]
+            body.append("    }")
+        else:
+            body += seg_lines
 
     rparams = [f"{n}: *mut u8" for _, n in ir["params"]] \
         + [f"{sargs[s]}: *mut u8" for s in statics]

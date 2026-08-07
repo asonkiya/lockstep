@@ -63,7 +63,7 @@ _ASSERTS = ("lockdep_assert_held", "assert_spin_locked")
 _COVERED_CALLS = (list(CR._C_OPS) + list(_MUTEX) + list(_SPIN)
                   + list(_SPIN_IRQ) + list(_ASSERTS)
                   + ["list_for_each_entry_safe", "list_for_each_entry",
-                     "list_entry", "container_of"])
+                     "list_entry", "container_of", "list_empty"])
 
 
 def verified_pairs():
@@ -115,6 +115,10 @@ def _mask_covered(body):
     # irqsave flag declarations: `unsigned long flags;` — reproducible, the
     # _raw_spin_lock_irqsave symbol RETURNS the flags value
     s = re.sub(r"\bunsigned\s+long\s+flags\w*\s*;", " ", s)
+    # list_empty guard shells (the call itself was masked above): the guarded
+    # class is emitted by weave_containers via the gate-proven parser
+    s = re.sub(r"\bif\s*\(\s*!?\s*\)\s*return\s*;", " ", s)
+    s = re.sub(r"\bif\s*\(\s*!?\s*\)", " ", s)
     # bare control tokens weaving reproduces
     s = re.sub(r"\breturn\s*;", " ", s)
     s = re.sub(r"[{};]", " ", s)

@@ -38,3 +38,25 @@ load-bearing in-tree, not just in the gate).
 Funnel-dropped fns are named in the report with their refusal reason; the
 report states presence per lock-class (the lock-extern path is new machinery
 and gets its own accounting).
+
+---
+
+## Addendum (list_empty class, 2026-08-07) — re-freeze: D unchanged, batch not run
+
+After the list_empty class landed (+8 realized, 242 total), the weave front
+gate re-ran with guard-aware coverage (list_empty + guard shells masked;
+weave_containers now emits guarded bodies via the SAME parser the
+differential gate proved, single-block guards so a flush cannot skip its own
+unlock).
+
+**Re-frozen D = 40 — unchanged.** The 8 new fns add ZERO defconfig
+weave-eligibles, for named reasons: the 4 pop shapes return values (nonvoid
+is weave-refused by design — no partial-body weaves), `__kthread_cancel_work`
+returns bool, and the void guarded fns live in files no defconfig builds
+(gfs2, cxgb4, bnxt). Pre-registered decision rule: a batch re-weaving an
+IDENTICAL eligible set proves nothing and burns a boot — NOT RUN. Emitter
+regression instead: all 40 existing artifacts emit unchanged (40/40), and
+the guarded path is shape-verified (bnxt single-cond, cxgb4 loop-guard
+lock+walk+unlock in one block). The guarded emission machinery is in place
+for the first config that builds one of these files (config-coverage
+campaign, Summit 2.3).

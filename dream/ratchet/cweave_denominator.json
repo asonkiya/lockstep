@@ -1,5 +1,5 @@
 {
- "total_verified": 234,
+ "total_verified": 242,
  "weave_eligible": [
   {
    "rel": "drivers/base/syscore.c",
@@ -355,16 +355,17 @@
   }
  ],
  "locks_tally": {
-  "mutex": 42,
-  "none": 141,
-  "spin_irq": 28,
-  "spin": 23
+  "mutex": 43,
+  "none": 146,
+  "spin_irq": 29,
+  "spin": 24
  },
  "residual_leaders": {
-  "return": 13,
+  "return": 17,
   "coproc->chip_id": 1,
   "dbuf->dbuf_cookie": 1,
   "ctx->buffers_queued++": 1,
+  "rwi": 1,
   "cur_string->invalid_string": 1,
   "++entry->usage_count": 1,
   "bre->start": 1,
