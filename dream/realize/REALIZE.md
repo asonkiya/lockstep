@@ -209,3 +209,20 @@ readers (resource_clip/bitmap_check_region `start`, linear_range `min`) stay
 tier-a mirror. `_parse_candidate` accepts the lifted `unsafe` boundary; the
 lift module is imported ONCE (its audit grep is ~3 min, re-import would re-run
 it per reader).
+
+## v2 transpiler: early returns via label-break-value (+69 realized)
+
+v1 refused `return` outright (79 fns): the body is wrapped in
+`let __r: i64 = { .. }` and a mid-body return escapes the single cast site
+with the wrong type. v2 lowers `return X;` to `break 'cgir (X);` inside a
+labeled block — the value flows through the same cast; fns without returns
+emit byte-identically to v1 (the 480 stay stable). The safe core needs no
+transform (`return X;` inside `core() -> i64` is already correct). Bare
+`return;` stays refused. Every recovered fn re-gated by the same zero-trust
+differential.
+
+**Census after v2: 549/635 realized + re-verified MATCH (86%), 0 diverges.**
+635 = 549 + 72 refused (37 non-const-base, 23 cross-slot, 10 macro-token,
+1 global-const, 1 bare/other) + 14 build-fail. The 79 return-refusals:
+69 MATCH, 10 redistributed to deeper refusal classes now visible behind the
+return wall (5 cross-slot, 3 build-fail, WARN_* tokens).

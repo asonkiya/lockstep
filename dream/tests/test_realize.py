@@ -85,7 +85,35 @@ def test_differential_is_load_bearing_over_realized_output(realized):
 
 def test_out_of_vocabulary_is_refused(realized):
     rec, _, _ = realized
-    for bad in ("unsafe { S[0] }\n0", "return 3;\n0",
+    # NOTE: `return 3;` moved IN-vocabulary in v2 (label-break-value); the
+    # still-refused return form is the bare `return;` (no i64 to yield).
+    for bad in ("unsafe { S[0] }\n0", "return;\n0",
                 "set_field(F0_BD_WRITERS, a0 + 1, 1);\n0"):
         with pytest.raises(_R.Refused):
             _R.transpile(rec, bad)
+
+
+# ---------------------------------------------------------------------------
+# v2: early-return realization (the 79-fn refusal class)
+# ---------------------------------------------------------------------------
+
+_ER_FILE, _ER_FN = "block/blk-rq-qos.c", "rq_depth_calc_max_depth"
+
+
+def test_v2_early_return_realizes_and_passes_differential():
+    # v1 refused `return` outright (forbidden_token:return, 79 fns): the body
+    # is wrapped in `let __r: i64 = { .. }` and a mid-body return would escape
+    # the single cast site with the wrong type. v2 lowers `return X;` to
+    # label-break-value (`break 'cgir (X);`) so the value still flows through
+    # the cast — and the realized fn is re-gated by the SAME differential.
+    rec, prep, tr = _R.realize(_ER_FILE, _ER_FN)
+    assert "'cgir: {" in tr["fn_src"] and "break 'cgir" in tr["fn_src"]
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_v2_no_return_emission_is_unchanged(realized):
+    # fns without returns must emit EXACTLY as v1 did — the 480 verified
+    # census results stay byte-stable.
+    _, _, tr = realized
+    assert "'cgir" not in tr["fn_src"]

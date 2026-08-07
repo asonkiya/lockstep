@@ -230,7 +230,19 @@ def wrapify_stmts(body):
 
 
 _HELPER_RE = re.compile(r"(?<![\w])(set_field|field|set_g|g|set_out|out)\s*\(")
-_FORBIDDEN = re.compile(r"(?<![\w])(S\s*\[|norm\s*\(|CW\s*\[|NSTATE|rs_set|rs_reset|rs_state|return)\b")
+_FORBIDDEN = re.compile(r"(?<![\w])(S\s*\[|norm\s*\(|CW\s*\[|NSTATE|rs_set|rs_reset|rs_state)\b")
+
+
+def _labelize(body):
+    """v2: lower `return X;` to label-break-value so the value flows through
+    the single cast site (`let __r: i64 = 'cgir: { .. }`). v1 refused returns
+    outright (79 fns): a mid-body `return` escapes the wrapper uncast — a
+    type error at best, a wrong-typed value at worst. Bare `return;` stays
+    refused (an rs_call body always yields i64). Returns (body, n_returns);
+    n_returns == 0 -> caller emits the v1 plain block, byte-identical."""
+    if re.search(r"(?<![\w])return\s*;", body):
+        raise Refused("bare_return")
+    return re.subn(r"(?<![\w])return\b\s*([^;]*);", r"break 'cgir (\1);", body)
 
 
 def _split_args(text, start):
@@ -398,11 +410,18 @@ def transpile(rec, body):
     # the fn is self-contained: resolved defines become fn-local consts (an
     # unemitted define would compile as a match-pattern binding — see above)
     defc = [f"    const {n}: i64 = {v};" for n, v in rec["defines"].items()]
+    # v2: early returns lower to label-break-value; n_ret == 0 keeps the v1
+    # emission byte-identical (the 480 verified census results stay stable).
+    # The safe core needs NO transform: `return X;` inside `core() -> i64`
+    # already returns the i64 through the boundary's single cast site.
+    realized_lb, n_ret = _labelize(realized)
     fn_src = (
         f'#[no_mangle]\npub unsafe extern "C" fn {rec["fn"]}_rs({", ".join(sig)}){ret_sig} {{\n'
         + "\n".join(defc) + ("\n" if defc else "")
         + "\n".join(binds) + ("\n" if binds else "")
-        + f"    let __r: i64 = {{\n{realized}\n    }};\n    {ret_expr}\n}}\n")
+        + (f"    let __r: i64 = 'cgir: {{\n{realized_lb}\n    }};\n    {ret_expr}\n}}\n"
+           if n_ret else
+           f"    let __r: i64 = {{\n{realized}\n    }};\n    {ret_expr}\n}}\n"))
 
     # ---- tier-(b) SAFE form: machine-checked safe core + FIELD-GRANULAR
     # boundary (A1). The core is a #![forbid(unsafe_code)] module whose params
