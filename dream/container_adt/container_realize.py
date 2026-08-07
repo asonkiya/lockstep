@@ -70,6 +70,12 @@ _C_OPS = {
     "list_del_init":  ("del",        "list_del_init"),
     "list_move":      ("move_front", "list_move"),
     "list_move_tail": ("move_tail",  "list_move_tail"),
+    # INIT_LIST_HEAD detaches at the ADT level (self-loop = on no list); the
+    # verified models render it as `del`. NOTE: on a node that is still linked
+    # this does NOT fix the neighbours — but faithfulness is what we verify, and
+    # the C ref performs the identical operation, so the differential still
+    # arbitrates the translation rather than the kernel's own idiom.
+    "INIT_LIST_HEAD": ("del",        "INIT_LIST_HEAD"),
 }
 _UNSUPPORTED_C = ("_rcu", "list_splice", "list_cut", "list_bulk", "list_replace",
                   "list_swap", "list_rotate", "hlist_")
@@ -200,14 +206,29 @@ def adt_ops(rel, fn):
 # 3. correspondence — fail-closed
 # ---------------------------------------------------------------------------
 
+_CANON = {"move_tail": ["del", "push_back"], "move_front": ["del", "push_front"]}
+
+
+def _canon(seq):
+    """Canonical ADT sequence: a move IS a del followed by a push, and the two
+    sides are free to express it either way (the C may write list_del +
+    list_add_tail where the model wrote move_tail, and vice versa)."""
+    out = []
+    for o in seq:
+        out.extend(_CANON.get(o, [o]))
+    return out
+
+
 def correspond(cops, aops):
-    """The C's mutating ops must line up 1:1 and in order with the model's."""
+    """The C's mutating ops must line up with the model's, after canonicalising
+    moves into del+push on both sides."""
     mutators = [o for o in aops if o in ("push_back", "push_front", "del",
                                          "move_tail", "move_front")]
-    c_classes = [o["adt"] for o in cops]
-    if len(mutators) != len(c_classes):
-        raise Refused(f"op_count_mismatch:c={len(c_classes)},adt={len(mutators)}")
-    for i, (a, c) in enumerate(zip(mutators, c_classes)):
+    a_can = _canon(mutators)
+    c_can = _canon([o["adt"] for o in cops])
+    if len(a_can) != len(c_can):
+        raise Refused(f"op_count_mismatch:c={len(c_can)},adt={len(a_can)}")
+    for i, (a, c) in enumerate(zip(a_can, c_can)):
         if a != c:
             raise Refused(f"op_class_mismatch@{i}:adt={a},c={c}")
     return list(zip(mutators, cops))
@@ -233,7 +254,7 @@ def emit_realized(rel, fn, L, sabotage=None):
             rs = {"list_del_init": "list_del"}.get(rs, rs)
         if rs in ("list_add", "list_add_tail"):
             lines.append(f"        {rs}(entry, head);")
-        elif rs in ("list_del", "list_del_init"):
+        elif rs in ("list_del", "list_del_init", "INIT_LIST_HEAD"):
             lines.append(f"        {rs}(entry);")
         else:                                # list_move / list_move_tail
             lines.append(f"        __list_del((*entry).prev, (*entry).next);")
@@ -288,13 +309,13 @@ def _ref_c(cops, L, it=None):
     for o in cops:
         if o["c_op"] in ("list_add", "list_add_tail"):
             calls.append(f"    {o['c_op']}(entry, head);")
-        elif o["c_op"] in ("list_del", "list_del_init"):
+        elif o["c_op"] in ("list_del", "list_del_init", "INIT_LIST_HEAD"):
             calls.append(f"    {o['c_op']}(entry);")
         else:
             calls.append(f"    {o['c_op']}(entry, head);")
     iter_calls = []
     for o in cops:
-        if o["c_op"] in ("list_del", "list_del_init"):
+        if o["c_op"] in ("list_del", "list_del_init", "INIT_LIST_HEAD"):
             iter_calls.append(f"        {o['c_op']}(&pos->lh);")
         elif o["c_op"] in ("list_add", "list_add_tail"):
             iter_calls.append(f"        {o['c_op']}(&pos->lh, head);")

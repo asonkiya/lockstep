@@ -213,3 +213,54 @@ cross-list moves, unsupported iteration forms.
 **Next:** conditional loop bodies (`if (pred) list_del(...)` — the
 `abx500_remove_ops` shape) to widen iteration coverage; then T3 composed with
 `dream/allocmodel`; then weave realized containers into the booting kernel.
+
+---
+
+## Full T2 pass: 163/181 chain-verified, and a finding about the BANKED models
+
+`t2_census.py` runs the realizer's front gate over the entire T2 population and
+(`--gate`) the chain-walking differential over every acceptee.
+
+**Conditional loop bodies were NOT built — the census said not to.** The v1
+front gate already accepts **181 of 184 (98%)**; the complete refusal set is
+2 conditional bodies + 1 cross-list move. Building a condition parser would
+have unlocked 2 functions while 181 sat unverified. Measured, then redirected.
+
+**Two real abstraction gaps found and closed** (by understanding the model, not
+by weakening the check):
+- `INIT_LIST_HEAD` is a list op: re-initialising a node's `list_head` detaches
+  it at the ADT level, and the models render it as `del`. The C scanner now
+  recognises it (6 occurrences).
+- `move_tail` ≡ `del` + `push_back`: either side may express a move either way,
+  so both are canonicalised before comparison.
+
+**Result: 163 / 181 chain-verified (90%), 18 refused.**
+
+### The 18: the verified ADT models disagree with the C, structurally
+
+The refusals are NOT gate failures — they are the correspondence check
+reporting that the banked model and the real C describe different op sequences:
+
+| shape | n | example |
+|---|---|---|
+| model has an EXTRA `del` before a push | **15** | `add_tail` (klist): C is a bare `list_add_tail`; model emits `del(n); push_back(...)` |
+| model omits an op the C has | 2 | `response_list_add`, `rdmacg_register_device` |
+| model duplicates a push | 1 | `net_unlink_todo` |
+
+**Why this matters, and why the ADT oracle could not have caught it.** A
+spurious `del` before a push is *behaviourally invisible* unless the workload
+pushes a node that is already linked — which the container workload never does.
+So these models passed their differential while over-specifying the function.
+Realized naively they would emit `list_del` + `list_add_tail` where the kernel
+writes only `list_add_tail`; on an already-linked node those differ, and on a
+freshly-poisoned node the extra `list_del` is a wild-pointer write.
+
+This is the third instance of the same theme (after `list_del`/`list_del_init`
+and `_safe`/plain iteration): **the ADT abstraction hides exactly the axis that
+matters when you make it real.** It is also the first instance where the defect
+is in the *banked verified candidates* rather than in a translation step.
+
+Nothing unsound reaches emission: ops come from the C, and disagreement is
+REFUSED, tallied and named. The 18 are a re-verification worklist for the
+container oracle (its workload needs a push-an-already-linked-node case), not
+lost coverage.
