@@ -74,3 +74,56 @@ Sequencing suggestion, cheapest-first:
 3. Batch the remaining T2.
 4. T3 only after composing with the allocator model — and route it there
    explicitly rather than letting a list-only oracle certify a `kfree`.
+
+---
+
+## Step 2 DONE: the `list_head` mirror + faithful ops + chain-walking gate
+
+`dream/container_adt/listmirror.py` (tests: `test_listmirror.py`, 7).
+
+**Mirror.** `#[repr(C)] ListHead { next, prev }` with LOAD-BEARING pointer
+fields (the general mirror generator treats pointers as opaque blobs; here they
+are the thing under test), layout probed in-kernel — `size=16, next@0, prev@8`,
+node `container_of` offset probed too — and pinned by rustc const-asserts so a
+drift fails the compile.
+
+**Config-dependence was real.** `LIST_POISON1` is **not** the header's `0x100`:
+arm64 defconfig sets `CONFIG_ILLEGAL_POINTER_VALUE=0xdead000000000000`, so the
+real values are `0xdead000000000100/122`. Probed from the volume's `.config`;
+a test asserts the delta is applied (assuming the literal would have made every
+poison comparison silently wrong). `CONFIG_DEBUG_LIST` is off, so the
+`__list_add_valid`/`__list_del_entry_valid` hooks are the no-op forms.
+
+**Ops** are transcribed from `include/linux/list.h` write-for-write **and in
+the same order** (`next->prev`, `new->next`, `new->prev`, `prev->next`), incl.
+`list_del`'s poisoning vs `list_del_init`'s re-initialization.
+
+**The gate** drives the real C inlines and the Rust ops through an identical op
+script over separate arenas, comparing after EVERY op: forward chain, backward
+chain, and every node's raw next/prev, with pointers normalized to arena
+indices so the comparison is address-independent. Walkers never dereference a
+non-arena pointer (a corrupted chain is recorded as data, not a segfault).
+
+Result — 4/4, and the strictly-stronger property is **measured inside the
+gate**, not asserted:
+
+| variant | ADT-only view | structural |
+|---|---|---|
+| correct | MATCH | MATCH |
+| forward_only (prev not fixed) | DIVERGE | DIVERGE |
+| **no_poison** | **MATCH** | **DIVERGE** |
+| add_wrong_side | DIVERGE | DIVERGE |
+
+**Honest correction to this document's earlier expectation.** We predicted
+*chain corruption* would be the ADT-invisible class. Measurement says
+otherwise: `forward_only` is caught by the ADT view too, because a later
+`list_add_tail` reads `head->prev`, so backward-chain corruption propagates
+into forward order. The class the structural oracle uniquely catches is
+**unlink-without-poison** — perfect membership and order, wrong node state.
+Chain corruption tends to become observable once any op reads `prev`; poison
+state never does.
+
+**Next (step 3):** emit realized container functions against this mirror
+(`del`→`list_del`, `push_back`→`list_add_tail`, `iter`→chain walk with
+`container_of`), gated by this differential; then T3 only after composing with
+the allocator model.
