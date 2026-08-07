@@ -1,0 +1,380 @@
+{
+ "total_verified": 234,
+ "weave_eligible": [
+  {
+   "rel": "drivers/base/syscore.c",
+   "fn": "register_syscore",
+   "tier": "T2",
+   "locks": "mutex",
+   "bare_objs": [
+    "syscore_list",
+    "syscore_lock"
+   ]
+  },
+  {
+   "rel": "drivers/base/syscore.c",
+   "fn": "unregister_syscore",
+   "tier": "T2",
+   "locks": "mutex",
+   "bare_objs": [
+    "syscore_lock"
+   ]
+  },
+  {
+   "rel": "drivers/clk/clkdev.c",
+   "fn": "__clkdev_add",
+   "tier": "T2",
+   "locks": "mutex",
+   "bare_objs": [
+    "clocks",
+    "clocks_mutex"
+   ]
+  },
+  {
+   "rel": "drivers/dma-buf/dma-buf.c",
+   "fn": "__dma_buf_list_add",
+   "tier": "T2",
+   "locks": "mutex",
+   "bare_objs": [
+    "dmabuf_list",
+    "dmabuf_list_mutex"
+   ]
+  },
+  {
+   "rel": "drivers/firmware/arm_scpi.c",
+   "fn": "put_scpi_xfer",
+   "tier": "T2",
+   "locks": "mutex",
+   "bare_objs": []
+  },
+  {
+   "rel": "drivers/iio/industrialio-core.c",
+   "fn": "iio_device_ioctl_handler_unregister",
+   "tier": "T2",
+   "locks": "none",
+   "bare_objs": []
+  },
+  {
+   "rel": "drivers/leds/led-class.c",
+   "fn": "led_add_lookup",
+   "tier": "T2",
+   "locks": "mutex",
+   "bare_objs": [
+    "leds_lookup_list",
+    "leds_lookup_lock"
+   ]
+  },
+  {
+   "rel": "drivers/mtd/chips/chipreg.c",
+   "fn": "register_mtd_chip_driver",
+   "tier": "T2",
+   "locks": "spin",
+   "bare_objs": [
+    "chip_drvs_list",
+    "chip_drvs_lock"
+   ]
+  },
+  {
+   "rel": "drivers/mtd/chips/chipreg.c",
+   "fn": "unregister_mtd_chip_driver",
+   "tier": "T2",
+   "locks": "spin",
+   "bare_objs": [
+    "chip_drvs_lock"
+   ]
+  },
+  {
+   "rel": "drivers/mtd/mtdpart.c",
+   "fn": "deregister_mtd_parser",
+   "tier": "T2",
+   "locks": "spin",
+   "bare_objs": [
+    "part_parser_lock"
+   ]
+  },
+  {
+   "rel": "drivers/remoteproc/remoteproc_core.c",
+   "fn": "rproc_add_carveout",
+   "tier": "T2",
+   "locks": "none",
+   "bare_objs": []
+  },
+  {
+   "rel": "drivers/remoteproc/remoteproc_core.c",
+   "fn": "rproc_add_subdev",
+   "tier": "T2",
+   "locks": "none",
+   "bare_objs": []
+  },
+  {
+   "rel": "drivers/remoteproc/remoteproc_core.c",
+   "fn": "rproc_remove_subdev",
+   "tier": "T2",
+   "locks": "none",
+   "bare_objs": []
+  },
+  {
+   "rel": "drivers/scsi/scsi_error.c",
+   "fn": "scsi_eh_finish_cmd",
+   "tier": "T2",
+   "locks": "none",
+   "bare_objs": [
+    "done_q"
+   ]
+  },
+  {
+   "rel": "drivers/tty/vt/vt_ioctl.c",
+   "fn": "__vt_event_dequeue",
+   "tier": "T2",
+   "locks": "spin_irq",
+   "bare_objs": [
+    "flags",
+    "vt_event_lock"
+   ]
+  },
+  {
+   "rel": "drivers/video/fbdev/core/fb_defio.c",
+   "fn": "fb_deferred_io_pageref_put",
+   "tier": "T2",
+   "locks": "none",
+   "bare_objs": []
+  },
+  {
+   "rel": "fs/lockd/clntlock.c",
+   "fn": "nlmclnt_queue_block",
+   "tier": "T2",
+   "locks": "spin",
+   "bare_objs": [
+    "nlm_blocked",
+    "nlm_blocked_lock"
+   ]
+  },
+  {
+   "rel": "kernel/stop_machine.c",
+   "fn": "__cpu_stop_queue_work",
+   "tier": "T2",
+   "locks": "none",
+   "bare_objs": []
+  },
+  {
+   "rel": "lib/klist.c",
+   "fn": "add_head",
+   "tier": "T2",
+   "locks": "spin",
+   "bare_objs": []
+  },
+  {
+   "rel": "net/core/dev.c",
+   "fn": "net_set_todo",
+   "tier": "T2",
+   "locks": "none",
+   "bare_objs": [
+    "net_todo_list"
+   ]
+  },
+  {
+   "rel": "net/netfilter/nf_sockopt.c",
+   "fn": "nf_unregister_sockopt",
+   "tier": "T2",
+   "locks": "mutex",
+   "bare_objs": [
+    "nf_sockopt_mutex"
+   ]
+  },
+  {
+   "rel": "net/sunrpc/svc_xprt.c",
+   "fn": "svc_unreg_xprt_class",
+   "tier": "T2",
+   "locks": "spin",
+   "bare_objs": [
+    "svc_xprt_class_lock"
+   ]
+  },
+  {
+   "rel": "drivers/acpi/apei/apei-base.c",
+   "fn": "apei_res_clean",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "res"
+   ]
+  },
+  {
+   "rel": "drivers/acpi/mipi-disco-img.c",
+   "fn": "csi_csr2_release_connections",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "conn"
+   ]
+  },
+  {
+   "rel": "drivers/acpi/power.c",
+   "fn": "acpi_power_resources_list_free",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "entry"
+   ]
+  },
+  {
+   "rel": "drivers/acpi/scan.c",
+   "fn": "acpi_scan_delete_dep_data",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "dep"
+   ]
+  },
+  {
+   "rel": "drivers/clk/clkdev.c",
+   "fn": "clkdev_drop",
+   "tier": "T3",
+   "locks": "mutex",
+   "bare_objs": [
+    "cl",
+    "clocks_mutex"
+   ]
+  },
+  {
+   "rel": "drivers/hid/hid-core.c",
+   "fn": "hid_free_dynids",
+   "tier": "T3",
+   "locks": "spin",
+   "bare_objs": [
+    "dynid"
+   ]
+  },
+  {
+   "rel": "drivers/iio/industrialio-buffer.c",
+   "fn": "iio_buffer_demux_free",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "p"
+   ]
+  },
+  {
+   "rel": "drivers/mtd/spi-nor/core.c",
+   "fn": "spi_nor_destroy_erase_cmd_list",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "cmd"
+   ]
+  },
+  {
+   "rel": "drivers/pci/setup-bus.c",
+   "fn": "pci_dev_res_free_list",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "dev_res"
+   ]
+  },
+  {
+   "rel": "drivers/pnp/core.c",
+   "fn": "pnp_free_resource",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "pnp_res"
+   ]
+  },
+  {
+   "rel": "drivers/pnp/resource.c",
+   "fn": "pnp_free_options",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "option"
+   ]
+  },
+  {
+   "rel": "drivers/remoteproc/remoteproc_coredump.c",
+   "fn": "rproc_coredump_cleanup",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "entry"
+   ]
+  },
+  {
+   "rel": "drivers/vfio/vfio_iommu_type1.c",
+   "fn": "vfio_iommu_iova_free",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "n"
+   ]
+  },
+  {
+   "rel": "drivers/vfio/vfio_iommu_type1.c",
+   "fn": "vfio_iommu_resv_free",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "n"
+   ]
+  },
+  {
+   "rel": "fs/ext4/fsmap.c",
+   "fn": "ext4_getfsmap_free_fixed_metadata",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "p"
+   ]
+  },
+  {
+   "rel": "kernel/cgroup/cgroup.c",
+   "fn": "free_cgrp_cset_links",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "link"
+   ]
+  },
+  {
+   "rel": "kernel/power/snapshot.c",
+   "fn": "free_mem_extents",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "ext"
+   ]
+  },
+  {
+   "rel": "net/unix/garbage.c",
+   "fn": "unix_free_vertices",
+   "tier": "T3",
+   "locks": "none",
+   "bare_objs": [
+    "vertex"
+   ]
+  }
+ ],
+ "locks_tally": {
+  "mutex": 42,
+  "none": 141,
+  "spin_irq": 28,
+  "spin": 23
+ },
+ "residual_leaders": {
+  "return": 13,
+  "coproc->chip_id": 1,
+  "dbuf->dbuf_cookie": 1,
+  "ctx->buffers_queued++": 1,
+  "cur_string->invalid_string": 1,
+  "++entry->usage_count": 1,
+  "bre->start": 1,
+  "qedi_conn->active_cmd_count--": 1,
+  "ctrlr->dirty": 1,
+  "vw->done": 1,
+  "t->nr_regions++": 1,
+  "barn->nr_empty++": 1,
+  "upr_list->pending": 1,
+  "adapter->num_cloud_filters--": 1,
+  "priv->check_tdls_tx": 1
+ }
+}
