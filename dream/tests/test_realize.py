@@ -54,7 +54,11 @@ def test_transpile_shape(realized):
     assert "*mut Block_deviceMirror" in src
     # the verified decrement survives, retargeted at the real field
     assert re.search(r"\(\*bdev\)\.bd_writers\s*=", src)
-    assert "bd_writers as i64) - 1" in src.replace("\n", " ")
+    # arithmetic is emitted in EXPLICIT wrapping form (A4): the decrement
+    # survives as wrapping_sub, not a bare `-` (which would panic on overflow
+    # with checks on, i.e. hang a freestanding kernel object).
+    flat = src.replace("\n", " ")
+    assert "wrapping_sub" in flat and "bd_writers" in flat
     # no cell-model residue
     assert "S[" not in src and "set_field" not in src
 

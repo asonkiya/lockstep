@@ -61,7 +61,12 @@ def test_real_candidate_proves():
 def test_proof_is_non_vacuous():
     # sabotage the tier-(b) core only: the proof MUST fail, naming the field.
     lib, meta = _LP.build_proof(_FILE, _FN)
-    bad = lib.replace("- 1) as i32", "- 2) as i32", 1)
+    # form-agnostic sabotage: the emitted decrement is `wrapping_sub( 1)` after
+    # A4, and was a bare `- 1` before. Try both; if NEITHER applies the test
+    # fails loudly rather than "passing" a proof that was never sabotaged.
+    bad = lib.replace("wrapping_sub( 1)", "wrapping_sub( 2)", 1)
+    if bad == lib:
+        bad = lib.replace("- 1) as i32", "- 2) as i32", 1)
     assert bad != lib, "sabotage did not apply — update the pattern"
     d = tempfile.mkdtemp(prefix="liftproof_t_")
     os.makedirs(os.path.join(d, "src"), exist_ok=True)
