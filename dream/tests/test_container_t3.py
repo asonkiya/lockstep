@@ -87,11 +87,12 @@ def test_conditional_straightline_refused():
     # because the C reference is re-emitted from the same extracted ops. The
     # audit found 24 such fns already accepted in T2 + 3 in T3 — this pins the
     # fail-closed refusal that corrects both.
+    # (get_work moved IN-class with the list_empty-guard build — its guard is
+    # a bare list_empty and both gate sides now execute it; truthiness
+    # predicates like nfp_port_free's stay refused.)
     with pytest.raises(_CR.Refused, match="conditional_body"):
         _CR.c_ops("drivers/net/ethernet/netronome/nfp/nfp_port.c",
                   "nfp_port_free")
-    with pytest.raises(_CR.Refused, match="conditional_body"):
-        _CR.c_ops("drivers/infiniband/core/iwcm.c", "get_work")
 
 
 def test_straightline_t3_passes_composed_gate(layout):

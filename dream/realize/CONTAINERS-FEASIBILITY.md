@@ -356,3 +356,39 @@ it needs a NEW gate shape (entry extraction + value return, `realized_pop()
 (guard-dropped and wrong-token sabotages must DIVERGE), sequenced:
 list_empty class (12) first — smallest sound step — then tokf equality (22),
 then or_null truthiness (25).
+
+---
+
+## list_empty class DONE: +8 realized (T2 146/184, T3 96/131), 0 diverges
+
+The first conditional sub-class (census above): every predicate a bare
+`!?list_empty(expr)` — the one form expressible in list vocabulary, so BOTH
+gate sides EXECUTE the real predicate (the C ref emits `if (!?list_empty)`
+from the same parsed structure; sabotages never mutate the shared op dicts,
+which would silently drop the reference's guard too). A two-phase probe
+(populated arena, then drained self-looped arena) exercises both branches of
+every guard; supported shapes: guarded-entry (is-linked test), guarded-pop
+(`if (empty) return; e = first; del(e)` — FIRST resolves through the
+`list_first_entry` local), op-free else branches, and the early-return-
+before-flush loop guard.
+
+Negative controls, measured:
+
+| sabotage | verdict |
+|---|---|
+| flip_guard (wrong polarity) | DIVERGE |
+| drop_guard on the POP shape | DIVERGE (phase 2: del of head->next on empty ≠ no-op) |
+| drop_guard on guarded del_init | **MATCH — and correctly so**: `list_del_init` on a self-looped node is a no-op; the kernel's guard is an optimization, and a behavioral differential accepts semantically-equivalent translations |
+
+Sub-denominator accounting (12 strict): **8 MATCH** (get_scpi_xfer, get_work,
+bnxt_del_one_usr_fltr, get_next_rwi, __ordered_del_inode,
+__kthread_cancel_work, padata_work_alloc, cxgb4_free_mps_ref_entries),
+**3 banked-model defects** (net_unlink_todo guards the GLOBAL list's
+emptiness where the C guards the node's own list_head — the ADT cannot
+express per-node emptiness, so the model verified while describing a
+different function; o2net_debug_del_nst's model is half comments;
+ocfs2_resv_mark_lru has an extra mutator), **1 arena limit**
+(fuse_free_dax_mem_ranges needs a second list_head per node). Refusal
+taxonomy also sharpened: 8 T3 fns reclassified from conditional_loop_body to
+plain_iteration_with_mutation (the use-after-poison class, visible now that
+classification proceeds past the conditional check).

@@ -108,24 +108,46 @@ def c_ops(rel, fn):
     if re.search(r"\b(kmem_cache_free|kmem_cache_alloc|kzalloc|kmalloc|kcalloc"
                  r"|kvfree|kfree_rcu|kfree_sensitive|devm_kfree)\b", body):
         raise Refused("allocation_present:unsupported_variant")
-    it = _classify_iteration(body)
-    # SYMMETRY FIX (audit 2026-08-07): the conditional refusal lived only in
-    # the iteration path, so a straight-line body whose ops sit under an `if`
-    # (the pop-if-nonempty shape) was accepted with the guard silently DROPPED
-    # — and the gate could not catch it, because the C reference is re-emitted
-    # from the same unconditionally-extracted ops. Fail-closed on ANY
-    # conditional until a condition-scope parser exists (the measured v2
-    # lever: 24 T2 + 3 T3 fns were being over-accepted this way).
-    if it is None and re.search(r"\bif\b|\?", body):
-        raise Refused("conditional_body:v1_unconditional_only")
+    it = _classify_iteration(body, allow_cond=True)
+    # CONDITIONALS (audit 2026-08-07 → list_empty class 2026-08-07): the only
+    # supported predicate class is a bare `!?list_empty(expr)` — the one
+    # expressible entirely in list vocabulary, so BOTH gate sides execute the
+    # real predicate. Everything else stays fail-closed (the audit's lesson:
+    # a dropped guard is invisible when the C ref is re-emitted from the same
+    # unconditionally-extracted ops).
+    guard = None
+    if re.search(r"\bif\b|\?", body):
+        guard = _parse_guard(body, it)
+    # locals bound by `x = list_first_entry(head, T, member)` — the pop idiom
+    # resolves ops on `&x->member` to FIRST-of-head
+    firsts = {}
+    for fm in re.finditer(r"([A-Za-z_]\w*)\s*=\s*list_first_entry\s*\(", body):
+        fargs, _ = _split_call(body, fm.end() - 1)
+        if len(fargs) == 3:
+            firsts[fm.group(1)] = (_norm_expr(fargs[0]), fargs[2].strip())
     ops = []
     for m in re.finditer(r"\b(" + "|".join(_C_OPS) + r")\s*\(", body):
         name = m.group(1)
         args, _ = _split_call(body, m.end() - 1)
-        ops.append({"c_op": name, "adt": _C_OPS[name][0], "rs": _C_OPS[name][1],
-                    "args": [a.strip() for a in args]})
+        o = {"c_op": name, "adt": _C_OPS[name][0], "rs": _C_OPS[name][1],
+             "args": [a.strip() for a in args], "cond": None, "tgt": "entry",
+             "pos": m.start()}
+        am = re.fullmatch(r"&\s*([A-Za-z_]\w*)\s*->\s*(\w+)", (args[0] or "").strip())
+        if am and am.group(1) in firsts:
+            fhead, fmember = firsts[am.group(1)]
+            if am.group(2) != fmember:
+                raise Refused(f"first_member_mismatch:{am.group(2)}")
+            if name not in ("list_del", "list_del_init"):
+                raise Refused(f"first_target_op:{name}")
+            o["tgt"] = "first"
+            o["first_head"] = fhead
+        ops.append(o)
     if not ops:
         raise Refused("no_list_ops_in_c")
+    if guard and it is None:
+        _apply_guard(ops, guard)
+    if guard and it is not None:
+        it["guard"] = guard["loop_guard"]
     # T3 guards, fail-closed. (a) A body with 2+ distinct iterated heads is a
     # multi-list function — collapsing them into one emitted walk would be
     # silently wrong. (b) The freed pointer must be the node being operated on:
@@ -172,6 +194,115 @@ def c_ops(rel, fn):
     return ops, text, it
 
 
+def _parse_guard(body, it):
+    """The list_empty guard class, fail-closed. Exactly ONE `if`, no else, no
+    ternary, predicate `!?list_empty(expr)`. Returns:
+      straight-line: {pol, pred, extent, inverts_rest, loop_guard: None}
+      iteration:     {loop_guard: 'not_empty'} — the early-return-before-walk
+                     shape only; a guard INSIDE the loop body (e.g. on a
+                     second list_head member of the node) is out of the
+                     single-list arena's model and refused."""
+    if "?" in re.sub(r'"[^"]*"', "", body):
+        raise Refused("conditional_body:ternary")
+    ifs = list(re.finditer(r"\bif\s*\(", body))
+    if len(ifs) != 1:
+        raise Refused("conditional_body:multi_guard")
+    m = ifs[0]
+    if it is not None:
+        lm0 = re.search(r"\blist_for_each_entry(?:_safe)?\s*\(", body)
+        if lm0 and m.start() > lm0.start():
+            # a guard INSIDE the loop body — regardless of predicate form,
+            # per-element conditions are out of this class (fuse's second
+            # list_head per node, abx500's token equality)
+            raise Refused("conditional_loop_body:guard_in_loop")
+    pargs, pend = _split_call(body, m.end() - 1)
+    pred = ",".join(pargs).strip()
+    pm = re.fullmatch(r"(!?)\s*list_empty\s*\(\s*([^()]+?)\s*\)", pred)
+    if not pm:
+        raise Refused(f"conditional_body:non_list_empty_pred:{pred[:40]}")
+    pol = "not_empty" if pm.group(1) else "empty"   # polarity of the TRUE branch
+    pred_expr = _norm_expr(pm.group(2))
+    i = pend
+    while i < len(body) and body[i] in " \t\n":
+        i += 1
+    if body[i] == "{":
+        d, j = 0, i
+        while j < len(body):
+            d += body[j] == "{"
+            d -= body[j] == "}"
+            j += 1
+            if d == 0:
+                break
+        extent = (i, j)
+    else:
+        extent = (i, body.index(";", i) + 1)
+    if re.search(r"\belse\b", body):
+        # an else branch is allowed ONLY when it contains no list ops (the
+        # `else { rwi = NULL; }` pop shape) — anything else stays refused
+        j = extent[1]
+        while j < len(body) and body[j] in " \t\n":
+            j += 1
+        if not body.startswith("else", j):
+            raise Refused("conditional_body:else_branch")
+        k = j + 4
+        while k < len(body) and body[k] in " \t\n":
+            k += 1
+        if body[k] == "{":
+            d, e2 = 0, k
+            while e2 < len(body):
+                d += body[e2] == "{"
+                d -= body[e2] == "}"
+                e2 += 1
+                if d == 0:
+                    break
+        else:
+            e2 = body.index(";", k) + 1
+        if re.search(r"\b(" + "|".join(_C_OPS) + r")\s*\(", body[k:e2]):
+            raise Refused("conditional_body:else_branch_ops")
+    inverts_rest = bool(re.search(r"\breturn\b", body[extent[0]:extent[1]]))
+    if it is not None:
+        lm = re.search(r"\blist_for_each_entry(?:_safe)?\s*\(", body)
+        largs, _ = _split_call(body, lm.end() - 1)
+        head = largs[2 if "_safe" in lm.group(0) else 1]
+        if not (inverts_rest and pol == "empty"
+                and pred_expr == _norm_expr(head)):
+            raise Refused("conditional_loop_body:guard_shape")
+        if re.search(r"\b(" + "|".join(_C_OPS) + r")\s*\(",
+                     body[extent[0]:extent[1]]):
+            raise Refused("conditional_loop_body:ops_in_guard")
+        return {"loop_guard": "not_empty"}
+    return {"pol": pol, "pred": pred_expr, "extent": extent,
+            "inverts_rest": inverts_rest, "if_start": m.start(),
+            "loop_guard": None}
+
+
+def _apply_guard(ops, g):
+    """Annotate straight-line ops with (polarity, target) from the single
+    parsed guard; every op must land in a branch whose polarity is known."""
+    inv = {"empty": "not_empty", "not_empty": "empty"}
+    for o in ops:
+        if o["c_op"] == "kfree" and (g["extent"][0] <= o["pos"] < g["extent"][1]
+                                     or o["pos"] > g["extent"][1]):
+            raise Refused("guard_kfree_unsupported")
+        if g["extent"][0] <= o["pos"] < g["extent"][1]:
+            pol = g["pol"]
+        elif o["pos"] >= g["extent"][1] and g["inverts_rest"]:
+            pol = inv[g["pol"]]
+        elif o["pos"] >= g["extent"][1] or o["pos"] < g["if_start"]:
+            continue        # outside the if, no early return: unguarded
+        else:
+            raise Refused("guard_scope_unknown")
+        if _norm_expr(o["args"][0]) == g["pred"]:
+            tgt = "entry"
+        elif o["tgt"] == "first" and o.get("first_head") == g["pred"]:
+            tgt = "head"
+        elif len(o["args"]) > 1 and _norm_expr(o["args"][1]) == g["pred"]:
+            tgt = "head"
+        else:
+            raise Refused(f"guard_target_unknown:{g['pred'][:30]}")
+        o["cond"] = (pol, tgt)
+
+
 def _norm_expr(e):
     return re.sub(r"[\s&]", "", e or "")
 
@@ -182,7 +313,7 @@ def _base_of(e):
     return m.group(1) if m else ""
 
 
-def _classify_iteration(body):
+def _classify_iteration(body, allow_cond=False):
     """None | {'safe': bool}. The safe/plain distinction is LOAD-BEARING and,
     like list_del vs list_del_init, is INVISIBLE to the ADT model (whose iter()
     returns a snapshot, i.e. always _safe-like semantics).
@@ -203,7 +334,7 @@ def _classify_iteration(body):
         raise Refused("unsupported_iteration_form")
     else:
         return None
-    if re.search(r"\bif\b|\?", body):
+    if not allow_cond and re.search(r"\bif\b|\?", body):
         raise Refused("conditional_loop_body:v1_unconditional_only")
     mutates = re.search(r"\b(list_del|list_del_init|list_move|list_move_tail)\b", body)
     if mutates and not it["safe"]:
@@ -293,11 +424,31 @@ def correspond(cops, aops):
 # 4. emission — Rust over the ListHead mirror, real pointers
 # ---------------------------------------------------------------------------
 
+_INV_POL = {"empty": "not_empty", "not_empty": "empty"}
+
+
+def _eff_cond(o, sabotage):
+    """The Rust side's view of an op's guard. Sabotages NEVER mutate the op
+    dicts — run_gate hands the same cops to the C ref, and a mutated guard
+    there would drop the reference's guard too (a vacuous negative control)."""
+    c = o.get("cond")
+    if sabotage == "drop_guard":
+        return None
+    if sabotage == "flip_guard" and c:
+        return (_INV_POL[c[0]], c[1])
+    return c
+
+
 def emit_realized(rel, fn, L, sabotage=None):
     cops, ctext, it = c_ops(rel, fn)
     aops, abody = adt_ops(rel, fn)
     if it is None:
         correspond(cops, aops)
+    if (any(o.get("cond") for o in cops) or (it and it.get("guard"))) \
+            and "empty" not in abody:
+        # the verified model never consulted emptiness while the C guards on
+        # it — a correspondence failure, same family as op_count_mismatch
+        raise Refused("no_empty_in_model")
     if len({o["c_op"] for o in cops}) != len(cops) and len(cops) > 1:
         pass                        # repeated same op is fine
     lines = []
@@ -314,12 +465,23 @@ def emit_realized(rel, fn, L, sabotage=None):
                          else "        free_ev(entry);")
             continue
         if rs in ("list_add", "list_add_tail"):
-            lines.append(f"        {rs}(entry, head);")
+            core = [f"{rs}(entry, head);"]
         elif rs in ("list_del", "list_del_init", "INIT_LIST_HEAD"):
-            lines.append(f"        {rs}(entry);")
+            core = (["let e = (*head).next;", f"{rs}(e);"]
+                    if o.get("tgt") == "first" else [f"{rs}(entry);"])
         else:                                # list_move / list_move_tail
-            lines.append(f"        __list_del((*entry).prev, (*entry).next);")
-            lines.append(f"        {'list_add' if rs=='list_move' else 'list_add_tail'}(entry, head);")
+            core = ["__list_del((*entry).prev, (*entry).next);",
+                    f"{'list_add' if rs == 'list_move' else 'list_add_tail'}(entry, head);"]
+        cond = _eff_cond(o, sabotage)
+        if cond:
+            pol, ct = cond
+            t = "entry" if ct == "entry" else "head"
+            cmp_ = "==" if pol == "empty" else "!="
+            lines.append(f"        if (*{t}).next {cmp_} {t} {{")
+            lines += [f"            {c}" for c in core]
+            lines.append("        }")
+        else:
+            lines += [f"        {c}" for c in core]
     if sabotage == "free_before_del":
         # the UAF ordering: the free fires BEFORE the op that precedes it.
         # Chain state at call boundaries and freed slots are identical — only
@@ -351,6 +513,10 @@ def emit_realized(rel, fn, L, sabotage=None):
 {inner}
             pos = (*pos).next;
         }}"""
+        loop_guard = None if sabotage == "drop_guard" else it.get("guard")
+        if loop_guard:                       # the early-return-before-walk form
+            walk = ("        if (*head).next != head {\n"
+                    + walk + "\n        }")
         return f"""
 #[no_mangle] pub extern "C" fn realized_iter(head: *mut ListHead) {{
     unsafe {{
@@ -376,13 +542,22 @@ def _ref_c(cops, L, it=None):
     calls = []
     for o in cops:
         if o["c_op"] == "kfree":
-            calls.append("    cgir_free_ev(entry);")
+            core = ["cgir_free_ev(entry);"]
         elif o["c_op"] in ("list_add", "list_add_tail"):
-            calls.append(f"    {o['c_op']}(entry, head);")
+            core = [f"{o['c_op']}(entry, head);"]
         elif o["c_op"] in ("list_del", "list_del_init", "INIT_LIST_HEAD"):
-            calls.append(f"    {o['c_op']}(entry);")
+            core = (["struct list_head *e = head->next;", f"{o['c_op']}(e);"]
+                    if o.get("tgt") == "first" else [f"{o['c_op']}(entry);"])
         else:
-            calls.append(f"    {o['c_op']}(entry, head);")
+            core = [f"{o['c_op']}(entry, head);"]
+        if o.get("cond"):
+            pol, ct = o["cond"]
+            t = "entry" if ct == "entry" else "head"
+            neg = "" if pol == "empty" else "!"
+            calls.append(f"    if ({neg}list_empty({t})) {{ "
+                         + " ".join(core) + " }")
+        else:
+            calls += [f"    {c}" for c in core]
     iter_calls = []
     for o in cops:
         if o["c_op"] == "kfree":
@@ -394,6 +569,8 @@ def _ref_c(cops, L, it=None):
         else:
             iter_calls.append(f"        {o['c_op']}(&pos->lh, &C_HEAD);")
     ITER_BODY = chr(10).join(iter_calls) if it else "        (void)pos;"
+    ITER_GUARD = ("    if (list_empty(&C_HEAD)) return;\n"
+                  if (it and it.get("guard")) else "")
     return f"""
 #include <stddef.h>
 #define WRITE_ONCE(x, v) (*(volatile typeof(x) *)&(x) = (v))
@@ -401,6 +578,7 @@ def _ref_c(cops, L, it=None):
 #define LIST_POISON2 ((void *) {L['poison2']:#x}UL)
 struct list_head {{ struct list_head *next, *prev; }};
 static inline void INIT_LIST_HEAD(struct list_head *l) {{ l->next = l; l->prev = l; }}
+static inline int list_empty(const struct list_head *h) {{ return h->next == h; }}
 static inline void __list_add(struct list_head *n, struct list_head *p,
                               struct list_head *x) {{
     x->prev = n; n->next = x; n->prev = p; WRITE_ONCE(p->next, n);
@@ -432,10 +610,17 @@ void c_reset(void) {{
     /* pre-populate so del/move have something to operate on */
     for (int i = 0; i < {NN}; i++) list_add_tail(&C_ARENA[i].lh, &C_HEAD);
 }}
+/* COND_MODE phase 2: drained arena — every node self-looped, head empty, so
+ * list_empty guards take their OTHER branch (both polarities exercised) */
+void c_reset_empty(void) {{
+    FN = 0;
+    INIT_LIST_HEAD(&C_HEAD);
+    for (int i = 0; i < {NN}; i++) {{ C_ARENA[i].id = i; INIT_LIST_HEAD(&C_ARENA[i].lh); }}
+}}
 #define lh_to_node(p) ((struct cgir_node *)((char *)(p) - offsetof(struct cgir_node, lh)))
 /* the REAL list_for_each_entry_safe expansion: `n` is computed BEFORE the body */
 void c_call_iter(void) {{
-    struct cgir_node *pos, *n;
+{ITER_GUARD}    struct cgir_node *pos, *n;
     for (pos = lh_to_node(C_HEAD.next), n = lh_to_node(pos->lh.next);
          &pos->lh != &C_HEAD;
          pos = n, n = lh_to_node(n->lh.next)) {{
@@ -525,6 +710,11 @@ unsafe fn chain_digest() -> u64 {{
     for i in 0..FN_ {{ *buf.add(i) = FLOG[i]; }}
     FN_ as i32
 }}}}
+#[no_mangle] pub extern "C" fn r_reset_empty() {{ unsafe {{
+    FN_ = 0;
+    INIT_LIST_HEAD(&raw mut R_HEAD);
+    for i in 0..{NN} {{ R_ARENA[i].id = i as i32; INIT_LIST_HEAD(&raw mut R_ARENA[i].lh); }}
+}}}}
 #[no_mangle] pub extern "C" fn r_reset() {{ unsafe {{
     FN_ = 0;
     INIT_LIST_HEAD(&raw mut R_HEAD);
@@ -585,13 +775,26 @@ static long CB[4096], RB[4096];
         printf("CREALIZE verdict=DIVERGE step=%s freelog=%d c=%ld r=%ld\\n",step,j,CB[j],RB[j]); return 1; } }
 static int adt_len(long *b, int n) { for (int i=0;i<n;i++) if (b[i]==-7) return i; return n; }
 static int adt_flog(long *b, int n) { for (int i=0;i+1<n;i+=2) b[i/2]=b[i]; return n/2; }
+#if COND_MODE
+extern void c_reset_empty(void); extern void r_reset_empty(void);
+#endif
 int main(void) {
     c_reset(); r_reset(); CMP("init"); FCMP("init");
 #if ITER_MODE
     c_call_iter(); r_call_iter(); CMP("iter"); FCMP("iter");
+#if COND_MODE
+    /* phase 2: drained arena — the guard's other branch */
+    c_reset_empty(); r_reset_empty(); CMP("reset2"); FCMP("reset2");
+    c_call_iter(); r_call_iter(); CMP("iter2"); FCMP("iter2");
+#endif
     printf("CREALIZE verdict=MATCH iter=1 frees=%d\\n", c_freelog(CB)/2);
 #else
     for (int a = 0; a < NNODES; a++) { c_call(a); r_call(a); CMP("call"); FCMP("call"); }
+#if COND_MODE
+    /* phase 2: drained arena — every list_empty guard flips branch here */
+    c_reset_empty(); r_reset_empty(); CMP("reset2"); FCMP("reset2");
+    for (int a = 0; a < NNODES; a++) { c_call(a); r_call(a); CMP("call2"); FCMP("call2"); }
+#endif
     printf("CREALIZE verdict=MATCH calls=%d frees=%d\\n", NNODES, c_freelog(CB)/2);
 #endif
     return 0;
@@ -612,6 +815,7 @@ def run_gate(rel, fn, L, sabotage=None, adt_only=False):
         return "BUILD_FAIL_RS", r.stderr[-900:], d
     r = subprocess.run(["cc", "-O2", "-w", f"-DNNODES={NN}",
                         f"-DADT_ONLY={1 if adt_only else 0}", f"-DITER_MODE={1 if it else 0}",
+                        f"-DCOND_MODE={1 if (any(o.get('cond') for o in cops) or (it or {}).get('guard')) else 0}",
                         os.path.join(d, "probe.c"), os.path.join(d, "ref.c"),
                         os.path.join(d, "libcand.a"), "-o", os.path.join(d, "run")],
                        capture_output=True, text=True)
