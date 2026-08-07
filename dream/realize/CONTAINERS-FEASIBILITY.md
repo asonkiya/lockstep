@@ -127,3 +127,50 @@ state never does.
 (`del`→`list_del`, `push_back`→`list_add_tail`, `iter`→chain walk with
 `container_of`), gated by this differential; then T3 only after composing with
 the allocator model.
+
+---
+
+## Step 3 DONE: realized container functions, chain-verified
+
+`dream/container_adt/container_realize.py` (tests: `test_container_realize.py`, 7).
+
+**The design rule step 2 forced.** The ADT model renders `list_del` and
+`list_del_init` as the SAME abstract op (`del`) — they differ only in the
+removed node's state, exactly the axis step 2 measured the ADT view blind to.
+So realization takes the **concrete op sequence from the real C** and uses the
+verified ADT body only to *check correspondence*. The model says what the
+function does abstractly; the C says which kernel primitive to emit.
+
+Pipeline: parse real C → ordered concrete ops · parse verified model → ordered
+abstract ops · require 1:1 same-order same-class correspondence (else REFUSE,
+fail-closed) · emit Rust over the `ListHead` mirror · gate with the
+chain-walking differential (real C vs realized Rust over an arena).
+
+**Result: 8 real kernel functions realized and chain-verified, 0 failures**,
+2 refused fail-closed (function not found in this tree):
+
+| function | ops |
+|---|---|
+| `adf_service_add` / `adf_service_remove` | `list_add` / `list_del` |
+| `response_list_add`, `acpi_scan_add_handler`, `__clkdev_add` | `list_add_tail` |
+| `__dma_buf_list_add` | `list_add` |
+| `dm_cache_policy_unregister`, `get_work` | `list_del_init` |
+
+**The headline, on a real function.** Emitting `list_del` where
+`dm_cache_policy_unregister` writes `list_del_init`:
+
+    structural oracle = DIVERGE      ADT-only oracle = MATCH
+
+i.e. a defect with perfect list membership and order, wrong node state —
+invisible to the abstract oracle, caught by the chain-walking one. That is the
+concrete payoff of steps 2–3 and the reason realization reads the C.
+The gate is otherwise load-bearing too (`wrong_op` → DIVERGE).
+
+**v1 scope** (all refusals tallied, never guessed): single list, straight-line,
+no allocation. Refused: `_rcu` variants, splice/cut/replace/swap/rotate,
+`hlist_`, iteration, and anything containing `kfree` — T3 routes to the
+allocator model, not a list oracle.
+
+**Next:** iteration (`list_for_each_entry[_safe]` → chain walk with
+`container_of`) to reach the bulk of the remaining T2; then T3 composed with
+`dream/allocmodel`.
