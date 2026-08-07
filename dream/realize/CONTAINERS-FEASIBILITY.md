@@ -334,3 +334,25 @@ both tiers (28+2 T2, 23+3 T3) refuse on conditionals — when T2 alone was
 measured it was worth 2 fns; the T3 census re-priced it. The 8+14 op-count
 mismatches are the banked-model re-verification worklist. Weave of realized
 containers into the booting kernel remains the integration step after that.
+
+---
+
+## Conditional-class predicate census (measured 2026-08-07, pre-build)
+
+The 56-fn conditional refusal class across T2+T3, by predicate form:
+
+| form | n | what realization needs |
+|---|---:|---|
+| truthiness null-guard (`if (w)`) | 25 | model `list_first_entry_or_null` results — new extraction ABI |
+| token equality (`e->dev == dev`) | 22 | the ADT `tokf` class: real-field reads in the gate's C ref |
+| `list_empty` guard | 12 | closed list vocabulary — both gate sides can execute it |
+| other (compound/range) | 3 | refuse |
+
+**The honest finding: this is not a "condition parser."** The dominant shape
+is pop-if-nonempty (`if (!list_empty(h)) { e = first; del; return e; }`) —
+it needs a NEW gate shape (entry extraction + value return, `realized_pop()
+-> entry`), plus conditional correspondence against the model's
+`empty/first/tokf` vocabulary. Budget it as a build with negative controls
+(guard-dropped and wrong-token sabotages must DIVERGE), sequenced:
+list_empty class (12) first — smallest sound step — then tokf equality (22),
+then or_null truthiness (25).
