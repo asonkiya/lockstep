@@ -171,6 +171,45 @@ no allocation. Refused: `_rcu` variants, splice/cut/replace/swap/rotate,
 `hlist_`, iteration, and anything containing `kfree` — T3 routes to the
 allocator model, not a list oracle.
 
-**Next:** iteration (`list_for_each_entry[_safe]` → chain walk with
-`container_of`) to reach the bulk of the remaining T2; then T3 composed with
-`dream/allocmodel`.
+### Iteration support (`list_for_each_entry[_safe]`)
+
+The `safe` vs plain distinction is **load-bearing and, like `list_del` vs
+`list_del_init`, invisible to the ADT model** (whose `iter()` returns a
+snapshot, i.e. always `_safe`-like). `list_for_each_entry_safe` caches the next
+pointer BEFORE the body, so a body that unlinks `pos` is sound; plain
+`list_for_each_entry` reads `pos->next` AFTER the body — which, if the body
+unlinked `pos`, reads `LIST_POISON1`. So the emitted walk shape is taken from
+the C, and plain-iteration-with-mutation is REFUSED outright (we will not emit
+a use-after-poison even if asked).
+
+**Batch: 11 real functions realized + chain-verified, 0 failures, 4 refused
+fail-closed** — now including three `_safe` iteration functions
+(`mlx5_fw_tracer_clean_ready_list`, `stub_priv_pop_from_listhead`,
+`qedi_cleanup_active_cmd_list`).
+
+Three load-bearing controls, all on real functions:
+
+| control | verdict |
+|---|---|
+| `wrong_op` (list_add ↔ list_add_tail) | DIVERGE |
+| `del_not_init` on `dm_cache_policy_unregister` | **structural DIVERGE / ADT MATCH** |
+| `unsafe_iter` on `mlx5_fw_tracer_clean_ready_list` | **CRASH** (signal 11, wild-pointer deref) |
+
+The last is the iteration analogue of the poison finding: emitting the plain
+walk over a deleting body dereferences `LIST_POISON1` — a segfault in the
+harness, a kernel oops in situ. The gate classifies a crash or a hang as a
+REJECTION, never as UNKNOWN and never as a pass.
+
+**A scope violation the gate caught, then made static.** `dev_exceptions_move`
+HUNG: it iterates `orig` and moves to `dest` — genuinely two lists, which v1's
+single-list harness collapsed into a self-move that never terminates. Now
+refused statically (`cross_list_move`) by comparing each `list_move*`
+destination against the iterated head, rather than discovered by timeout.
+
+**Refusal classes (all tallied, never guessed):** `_rcu`, splice/cut/replace/
+swap/rotate, `hlist_`, allocation (`kfree` → T3), conditional loop bodies,
+cross-list moves, unsupported iteration forms.
+
+**Next:** conditional loop bodies (`if (pred) list_del(...)` — the
+`abx500_remove_ops` shape) to widen iteration coverage; then T3 composed with
+`dream/allocmodel`; then weave realized containers into the booting kernel.

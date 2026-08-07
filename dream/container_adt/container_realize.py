@@ -88,8 +88,7 @@ def c_ops(rel, fn):
             raise Refused(f"unsupported_c_op:{bad}")
     if re.search(r"\b(kfree|kmem_cache_free|kzalloc|kmalloc)\b", body):
         raise Refused("allocation_present:T3_needs_allocmodel")
-    if re.search(r"\b(list_for_each|while|for)\b", body):
-        raise Refused("iteration:v1_is_straight_line_only")
+    it = _classify_iteration(body)
     ops = []
     for m in re.finditer(r"\b(" + "|".join(_C_OPS) + r")\s*\(", body):
         name = m.group(1)
@@ -98,7 +97,55 @@ def c_ops(rel, fn):
                     "args": [a.strip() for a in args]})
     if not ops:
         raise Refused("no_list_ops_in_c")
-    return ops, text
+    # CROSS-LIST guard: inside an iteration, a list_move* whose DESTINATION head
+    # differs from the iterated head is a two-list function (T4 in the census),
+    # not the single-list shape v1 models. Caught live on dev_exceptions_move
+    # (iterates `orig`, moves to `dest`): collapsing the two heads turns it into
+    # a self-move and the walk never terminates. Refuse rather than mis-model.
+    if it is not None:
+        lm = re.search(r"\blist_for_each_entry(?:_safe)?\s*\(", body)
+        if lm:
+            largs, _ = _split_call(body, lm.end() - 1)
+            head_expr = _norm_expr(largs[3 if "_safe" in lm.group(0) else 2]
+                                   if len(largs) > 2 else "")
+            for o in ops:
+                if o["c_op"].startswith("list_move") and len(o["args"]) > 1:
+                    if _norm_expr(o["args"][1]) != head_expr:
+                        raise Refused("cross_list_move:v1_single_list_only")
+    return ops, text, it
+
+
+def _norm_expr(e):
+    return re.sub(r"[\s&]", "", e or "")
+
+
+def _classify_iteration(body):
+    """None | {'safe': bool}. The safe/plain distinction is LOAD-BEARING and,
+    like list_del vs list_del_init, is INVISIBLE to the ADT model (whose iter()
+    returns a snapshot, i.e. always _safe-like semantics).
+
+    `list_for_each_entry_safe` caches the next pointer BEFORE running the body,
+    so a body that unlinks `pos` is sound. Plain `list_for_each_entry` reads
+    `pos->next` AFTER the body — if the body unlinked pos, that reads
+    LIST_POISON1 (a wild pointer, i.e. a kernel crash). So:
+      * _safe  -> emit the cached-next walk
+      * plain  -> emit the read-after-body walk, and REFUSE if the body mutates
+                  the list (that combination would be a use-after-poison, and we
+                  will not emit it even if the C somehow contains it)."""
+    if "list_for_each_entry_safe" in body:
+        it = {"safe": True}
+    elif "list_for_each_entry" in body:
+        it = {"safe": False}
+    elif re.search(r"\b(while|for)\b", body) or "list_for_each" in body:
+        raise Refused("unsupported_iteration_form")
+    else:
+        return None
+    if re.search(r"\bif\b|\?", body):
+        raise Refused("conditional_loop_body:v1_unconditional_only")
+    mutates = re.search(r"\b(list_del|list_del_init|list_move|list_move_tail)\b", body)
+    if mutates and not it["safe"]:
+        raise Refused("plain_iteration_with_mutation:use_after_poison")
+    return it
 
 
 def _split_call(s, open_idx):
@@ -171,9 +218,10 @@ def correspond(cops, aops):
 # ---------------------------------------------------------------------------
 
 def emit_realized(rel, fn, L, sabotage=None):
-    cops, ctext = c_ops(rel, fn)
+    cops, ctext, it = c_ops(rel, fn)
     aops, abody = adt_ops(rel, fn)
-    correspond(cops, aops)
+    if it is None:
+        correspond(cops, aops)
     if len({o["c_op"] for o in cops}) != len(cops) and len(cops) > 1:
         pass                        # repeated same op is fine
     lines = []
@@ -191,20 +239,50 @@ def emit_realized(rel, fn, L, sabotage=None):
             lines.append(f"        __list_del((*entry).prev, (*entry).next);")
             lines.append(f"        {'list_add' if rs=='list_move' else 'list_add_tail'}(entry, head);")
     body = "\n".join(lines)
+    if it is not None:
+        # per-iteration ops act on `pos`; the walk shape is dictated by the
+        # C's safe/plain choice (see _classify_iteration).
+        inner = "\n".join(l.replace("entry", "pos") for l in lines)
+        if sabotage == "unsafe_iter":       # emit the plain walk for a _safe loop
+            walk = f"""        let mut pos = (*head).next;
+        while pos != head {{
+{inner}
+            pos = (*pos).next;   // READ AFTER BODY — poisoned if the body unlinked
+        }}"""
+        elif it["safe"]:
+            walk = f"""        let mut pos = (*head).next;
+        while pos != head {{
+            let n = (*pos).next;   // _safe: cache BEFORE the body
+{inner}
+            pos = n;
+        }}"""
+        else:
+            walk = f"""        let mut pos = (*head).next;
+        while pos != head {{
+{inner}
+            pos = (*pos).next;
+        }}"""
+        return f"""
+#[no_mangle] pub extern "C" fn realized_iter(head: *mut ListHead) {{
+    unsafe {{
+{walk}
+    }}
+}}
+""", cops, aops, it
     return f"""
 #[no_mangle] pub extern "C" fn realized_op(entry: *mut ListHead, head: *mut ListHead) {{
     unsafe {{
 {body}
     }}
 }}
-""", cops, aops
+""", cops, aops, it
 
 
 # ---------------------------------------------------------------------------
 # 5. the gate — real C vs realized Rust, chain-walking
 # ---------------------------------------------------------------------------
 
-def _ref_c(cops, L):
+def _ref_c(cops, L, it=None):
     """Host C reference: the real ops, applied in the real order."""
     calls = []
     for o in cops:
@@ -214,6 +292,15 @@ def _ref_c(cops, L):
             calls.append(f"    {o['c_op']}(entry);")
         else:
             calls.append(f"    {o['c_op']}(entry, head);")
+    iter_calls = []
+    for o in cops:
+        if o["c_op"] in ("list_del", "list_del_init"):
+            iter_calls.append(f"        {o['c_op']}(&pos->lh);")
+        elif o["c_op"] in ("list_add", "list_add_tail"):
+            iter_calls.append(f"        {o['c_op']}(&pos->lh, head);")
+        else:
+            iter_calls.append(f"        {o['c_op']}(&pos->lh, &C_HEAD);")
+    ITER_BODY = chr(10).join(iter_calls) if it else "        (void)pos;"
     return f"""
 #include <stddef.h>
 #define WRITE_ONCE(x, v) (*(volatile typeof(x) *)&(x) = (v))
@@ -246,6 +333,16 @@ void c_reset(void) {{
     /* pre-populate so del/move have something to operate on */
     for (int i = 0; i < {NN}; i++) list_add_tail(&C_ARENA[i].lh, &C_HEAD);
 }}
+#define lh_to_node(p) ((struct cgir_node *)((char *)(p) - offsetof(struct cgir_node, lh)))
+/* the REAL list_for_each_entry_safe expansion: `n` is computed BEFORE the body */
+void c_call_iter(void) {{
+    struct cgir_node *pos, *n;
+    for (pos = lh_to_node(C_HEAD.next), n = lh_to_node(pos->lh.next);
+         &pos->lh != &C_HEAD;
+         pos = n, n = lh_to_node(n->lh.next)) {{
+{ITER_BODY}
+    }}
+}}
 /* the REAL function's op sequence, applied to node `a` */
 void c_call(int a) {{
     struct list_head *entry = &C_ARENA[a].lh, *head = &C_HEAD;
@@ -274,7 +371,11 @@ int c_snapshot(long *buf) {{
 """
 
 
-def _cand_rs(realized, L):
+def _cand_rs(realized, L, it=None):
+    ENTRY = ('#[no_mangle] pub extern "C" fn r_call_iter() { unsafe { '
+             'realized_iter(&raw mut R_HEAD); }}' if it else
+             '#[no_mangle] pub extern "C" fn r_call(a: i32) { unsafe { '
+             'realized_op(&raw mut R_ARENA[a as usize].lh, &raw mut R_HEAD); }}')
     return LM.emit_mirror(L) + realized + f"""
 #[repr(C)]
 pub struct Node {{ pub id: i32, pub lh: ListHead, pub payload: i64 }}
@@ -288,9 +389,7 @@ static mut R_HEAD: ListHead = ListHead {{ next: core::ptr::null_mut(),
     for i in 0..{NN} {{ R_ARENA[i].id = i as i32; INIT_LIST_HEAD(&raw mut R_ARENA[i].lh); }}
     for i in 0..{NN} {{ list_add_tail(&raw mut R_ARENA[i].lh, &raw mut R_HEAD); }}
 }}}}
-#[no_mangle] pub extern "C" fn r_call(a: i32) {{ unsafe {{
-    realized_op(&raw mut R_ARENA[a as usize].lh, &raw mut R_HEAD);
-}}}}
+{ENTRY}
 unsafe fn normp(p: *mut ListHead) -> i64 {{
     if p == &raw mut R_HEAD {{ return -1; }}
     if p as usize == {L['poison1']:#x} {{ return -100; }}
@@ -319,8 +418,13 @@ unsafe fn normp(p: *mut ListHead) -> i64 {{
 
 
 _PROBE = """#include <stdio.h>
-extern void c_reset(void); extern void c_call(int); extern int c_snapshot(long*);
-extern void r_reset(void); extern void r_call(int); extern int r_snapshot(long*);
+extern void c_reset(void); extern int c_snapshot(long*); extern int r_snapshot(long*);
+extern void r_reset(void);
+#if ITER_MODE
+extern void c_call_iter(void); extern void r_call_iter(void);
+#else
+extern void c_call(int); extern void r_call(int);
+#endif
 static long CB[512], RB[512];
 #define CMP(step) {                                                     \\
     int n1=c_snapshot(CB), n2=r_snapshot(RB);                           \\
@@ -331,18 +435,23 @@ static long CB[512], RB[512];
 static int adt_len(long *b, int n) { for (int i=0;i<n;i++) if (b[i]==-7) return i; return n; }
 int main(void) {
     c_reset(); r_reset(); CMP("init");
+#if ITER_MODE
+    c_call_iter(); r_call_iter(); CMP("iter");
+    printf("CREALIZE verdict=MATCH iter=1\\n");
+#else
     for (int a = 0; a < NNODES; a++) { c_call(a); r_call(a); CMP("call"); }
     printf("CREALIZE verdict=MATCH calls=%d\\n", NNODES);
+#endif
     return 0;
 }
 """
 
 
 def run_gate(rel, fn, L, sabotage=None, adt_only=False):
-    realized, cops, aops = emit_realized(rel, fn, L, sabotage)
+    realized, cops, aops, it = emit_realized(rel, fn, L, sabotage)
     d = tempfile.mkdtemp(prefix="crealize_")
-    open(os.path.join(d, "ref.c"), "w").write(_ref_c(cops, L))
-    open(os.path.join(d, "cand.rs"), "w").write(_cand_rs(realized, L))
+    open(os.path.join(d, "ref.c"), "w").write(_ref_c(cops, L, it))
+    open(os.path.join(d, "cand.rs"), "w").write(_cand_rs(realized, L, it))
     open(os.path.join(d, "probe.c"), "w").write(_PROBE)
     r = subprocess.run(["rustc", "--edition", "2021", "-O", "--crate-type=staticlib",
                         os.path.join(d, "cand.rs"), "-o", os.path.join(d, "libcand.a")],
@@ -350,16 +459,29 @@ def run_gate(rel, fn, L, sabotage=None, adt_only=False):
     if r.returncode:
         return "BUILD_FAIL_RS", r.stderr[-900:], d
     r = subprocess.run(["cc", "-O2", "-w", f"-DNNODES={NN}",
-                        f"-DADT_ONLY={1 if adt_only else 0}",
+                        f"-DADT_ONLY={1 if adt_only else 0}", f"-DITER_MODE={1 if it else 0}",
                         os.path.join(d, "probe.c"), os.path.join(d, "ref.c"),
                         os.path.join(d, "libcand.a"), "-o", os.path.join(d, "run")],
                        capture_output=True, text=True)
     if r.returncode:
         return "BUILD_FAIL_C", r.stderr[-900:], d
-    r = subprocess.run([os.path.join(d, "run")], capture_output=True, text=True, timeout=60)
+    try:
+        r = subprocess.run([os.path.join(d, "run")], capture_output=True,
+                           text=True, timeout=60)
+    except subprocess.TimeoutExpired:
+        return "HANG", "candidate did not terminate (cyclic/corrupted chain)", d
     out = (r.stdout + r.stderr).strip()
     m = re.search(r"verdict=(\w+)", out)
-    return (m.group(1) if m else "UNKNOWN"), out, d
+    if m:
+        return m.group(1), out, d
+    # No verdict line => the candidate died mid-run. For list code that is the
+    # REAL failure mode, not a harness defect: walking a plain (non-cached)
+    # iteration over a body that unlinks reads LIST_POISON1 and dereferences a
+    # wild pointer — a segfault here, a kernel oops in situ. Report it as a
+    # rejection with its signal, never as UNKNOWN and never as a pass.
+    if r.returncode < 0:
+        return "CRASH", f"killed by signal {-r.returncode} (wild-pointer deref)", d
+    return "UNKNOWN", out or f"exit={r.returncode}", d
 
 
 _TARGETS = [
@@ -376,16 +498,26 @@ _TARGETS = [
     # the concrete op out of the C rather than trusting the abstract model.
     ("drivers/md/dm-cache-policy.c", "dm_cache_policy_unregister"),
     ("drivers/infiniband/core/iwcm.c", "get_work"),
+    # ITERATION (list_for_each_entry_safe): the walk shape is dictated by the
+    # C's safe/plain choice — emitting the plain walk over a deleting body
+    # dereferences LIST_POISON1 (kernel oops).
+    ("drivers/net/ethernet/mellanox/mlx5/core/diag/fw_tracer.c",
+     "mlx5_fw_tracer_clean_ready_list"),
+    ("drivers/usb/usbip/stub_main.c", "stub_priv_pop_from_listhead"),
+    ("drivers/scsi/qedi/qedi_iscsi.c", "qedi_cleanup_active_cmd_list"),
+    ("drivers/mfd/abx500-core.c", "abx500_remove_ops"),
+    ("security/device_cgroup.c", "dev_exceptions_move"),
 ]
 
 
 def cmd_map(rel, fn):
-    cops, _ = c_ops(rel, fn)
+    cops, _, it = c_ops(rel, fn)
     aops, _ = adt_ops(rel, fn)
     print(f"{rel}:{fn}")
     print(f"  C concrete ops : {[o['c_op'] for o in cops]}")
     print(f"  ADT model ops  : {aops}")
-    print(f"  correspondence : {[(a, o['c_op']) for a, o in correspond(cops, aops)]}")
+    print(f"  iteration      : {it}")
+    print(f"  correspondence : {[(a, o['c_op']) for a, o in correspond(cops, aops)] if it is None else '(iteration: per-element)'}")
     print(f"  emitted Rust   : {[o['rs'] for o in cops]}")
     return 0
 
@@ -414,9 +546,10 @@ def cmd_batch():
             print(f"  {fn:28s} ERROR: {str(e)[:60]}")
             fail += 1
             continue
-        cops, _ = c_ops(rel, fn)
+        cops, _, itc = c_ops(rel, fn)
         mark = "✓" if v == "MATCH" else "✗"
-        print(f"  {mark} {fn:28s} {v:8s}  ops={[o['c_op'] for o in cops]}")
+        tag = "  iter[safe]" if (itc and itc["safe"]) else ("  iter[plain]" if itc else "")
+        print(f"  {mark} {fn:32s} {v:8s}  ops={[o['c_op'] for o in cops]}{tag}")
         if v == "MATCH":
             ok += 1
             rows.append((rel, fn, cops))
@@ -430,8 +563,9 @@ def cmd_batch():
         print(f"\nnegative controls on {fn}:")
         for sab in ("wrong_op",):
             v, _, _ = run_gate(rel, fn, L, sabotage=sab)
-            print(f"  {'✓' if v == 'DIVERGE' else '✗ UNEXPECTED'} {sab:14s} -> {v}")
-            ok &= (v == "DIVERGE")
+            rej = v in ("DIVERGE", "CRASH", "HANG")
+            print(f"  {'✓' if rej else '✗ UNEXPECTED'} {sab:14s} -> {v}")
+            ok &= rej
     # the ADT-invisible class, on a del_init candidate if we have one
     di = [(r, f) for r, f, c in rows if any(o["c_op"] == "list_del_init" for o in c)]
     if di:
@@ -440,6 +574,19 @@ def cmd_batch():
         adt, _, _ = run_gate(rel, fn, L, sabotage="del_not_init", adt_only=True)
         print(f"\n  del_not_init on {fn}: structural={full}, ADT-only={adt}"
               f"  {'<-- ADT ORACLE BLIND' if adt == 'MATCH' and full == 'DIVERGE' else ''}")
+    # the ITERATION control: plain walk over a deleting body = poison deref
+    iters = [(r, f) for r, f, c in rows
+             if (c_ops(r, f)[2] or {}).get("safe")]
+    if iters:
+        rel, fn = iters[0]
+        v, out, _ = run_gate(rel, fn, L, sabotage="unsafe_iter")
+        rej = v in ("CRASH", "DIVERGE", "HANG")
+        print(f"\n  {'✓' if rej else '✗ UNEXPECTED'} unsafe_iter on {fn} -> {v}"
+              f"  ({out.splitlines()[-1][:50] if out else ''})")
+        print("    (the plain walk reads pos->next AFTER list_del poisoned it —"
+              " a wild pointer here and a kernel oops in situ)")
+        if not rej:
+            fail += 1
     return 0 if fail == 0 else 1
 
 

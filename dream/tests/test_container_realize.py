@@ -45,14 +45,14 @@ def layout():
 
 def test_concrete_op_comes_from_the_c_not_the_model():
     # both C functions' models say "del"; only the C distinguishes the op
-    cops, _ = _CR.c_ops(*_DEL_INIT)
+    cops, _, _ = _CR.c_ops(*_DEL_INIT)
     assert [o["c_op"] for o in cops] == ["list_del_init"]
     assert [o["adt"] for o in cops] == ["del"]          # ADT class is the same
     assert [o["rs"] for o in cops] == ["list_del_init"]  # emission follows the C
 
 
 def test_correspondence_is_required():
-    cops, _ = _CR.c_ops(*_ADD)
+    cops, _, _ = _CR.c_ops(*_ADD)
     aops, _ = _CR.adt_ops(*_ADD)
     assert _CR.correspond(cops, aops)                   # matching case works
     with pytest.raises(_CR.Refused):                    # count mismatch refused
@@ -94,3 +94,50 @@ def test_del_vs_del_init_is_adt_invisible_but_structurally_caught(layout):
                              sabotage="del_not_init", adt_only=True)
     assert full == "DIVERGE", "structural oracle must catch it"
     assert adt == "MATCH", "expected the ADT oracle to be blind to this class"
+
+
+# --- iteration (list_for_each_entry[_safe]) ---------------------------------
+
+_ITER = ("drivers/net/ethernet/mellanox/mlx5/core/diag/fw_tracer.c",
+         "mlx5_fw_tracer_clean_ready_list")
+
+
+def test_iteration_is_classified_from_the_c():
+    cops, _, it = _CR.c_ops(*_ITER)
+    assert it == {"safe": True}          # list_for_each_entry_safe
+    assert [o["c_op"] for o in cops] == ["list_del"]
+
+
+def test_safe_iteration_realizes_and_verifies(layout):
+    v, out, d = _CR.run_gate(_ITER[0], _ITER[1], layout)
+    assert v == "MATCH", (v, out[-300:])
+
+
+def test_emitted_safe_walk_caches_next_before_the_body(layout):
+    src, _, _, it = _CR.emit_realized(_ITER[0], _ITER[1], layout)
+    body = src[src.index("while"):]
+    # the cached next must be taken BEFORE the mutating op, else the walk reads
+    # a poisoned pointer after list_del
+    assert body.index("let n = (*pos).next") < body.index("list_del")
+    assert "pos = n;" in body
+
+
+def test_plain_walk_over_a_deleting_body_is_rejected(layout):
+    # emitting the non-cached walk reads pos->next AFTER list_del poisoned it:
+    # a wild-pointer dereference (segfault here, kernel oops in situ). The gate
+    # must REJECT — never report a pass.
+    v, out, d = _CR.run_gate(_ITER[0], _ITER[1], layout, sabotage="unsafe_iter")
+    assert v in ("CRASH", "DIVERGE", "HANG"), (v, out[-200:])
+
+
+def test_cross_list_move_is_refused():
+    # dev_exceptions_move iterates `orig` and moves to `dest` — a TWO-list
+    # function. v1 models one list, so it must refuse rather than mis-model
+    # (collapsing the heads makes it a self-move that never terminates).
+    with pytest.raises(_CR.Refused, match="cross_list_move"):
+        _CR.c_ops("security/device_cgroup.c", "dev_exceptions_move")
+
+
+def test_conditional_loop_body_is_refused():
+    with pytest.raises(_CR.Refused, match="conditional_loop_body"):
+        _CR.c_ops("drivers/mfd/abx500-core.c", "abx500_remove_ops")
