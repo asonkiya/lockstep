@@ -156,6 +156,22 @@ mod proofs {{
 _LOOPY = re.compile(r"\b(while|loop|for)\b")
 
 
+def _kill_group(proc):
+    """Kill the whole process group (cargo-kani AND the CBMC solver under it)."""
+    import signal
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+    try:
+        proc.wait(timeout=10)
+    except Exception:
+        pass
+
+
 def prove(file, fn, keep=False, timeout=900):
     lib, meta = build_proof(file, fn)
     if _LOOPY.search(lib):
@@ -167,8 +183,20 @@ def prove(file, fn, keep=False, timeout=900):
     open(os.path.join(d, "Cargo.toml"), "w").write(_CARGO)
     open(os.path.join(d, "src", "lib.rs"), "w").write(lib)
     try:
-        r = subprocess.run(["cargo", "kani"], cwd=d, capture_output=True,
-                           text=True, timeout=timeout)
+        # start_new_session so cargo-kani and its CBMC grandchild share a
+        # process group we can kill as a unit. subprocess's own timeout kills
+        # ONLY the direct child, which left CBMC orphaned at 100% CPU for
+        # 1d17h after an earlier sweep (~1.7GB RSS, two cores) — the solver
+        # does not notice its parent died and never terminates on its own.
+        proc = subprocess.Popen(["cargo", "kani"], cwd=d, text=True,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                start_new_session=True)
+        try:
+            out_s = proc.communicate(timeout=timeout)[0]
+            r = subprocess.CompletedProcess(proc.args, proc.returncode, out_s, "")
+        except subprocess.TimeoutExpired:
+            _kill_group(proc)
+            raise
     except subprocess.TimeoutExpired:
         # A model-checker timeout is a RESOURCE limit, not a defect: the claim
         # is simply undischarged. Report it as such (never as a pass, never as
