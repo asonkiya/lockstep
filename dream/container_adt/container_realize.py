@@ -31,6 +31,13 @@ unlink-then-free, a class the ADT retire log (slots only) cannot see. Other
 allocator entry points (kmalloc/kmem_cache_free/kfree_rcu/...) stay refused —
 the t3_census measured ZERO of them in the banked population.
 
+Conditional classes (all fail-closed, each predicate EXECUTED on both gate
+sides, never re-emitted from guard-stripped ops): bare `!?list_empty(expr)`
+guards; tokf equality (`cursor->field ==|!= token` inside an iteration);
+or_null pop (`x = list_first_entry_or_null(...); if (x) del; return x` — the
+value-return `realized_pop` ABI, probe drains past empty); param null-guards
+(`if (p) ops` / `if (!p) return;` — the probe adds a NULL-param phase).
+
   container_realize.py map <file> <fn>    # show the C ops / ADT ops / mapping
   container_realize.py prove <file> <fn>  # realize + chain-walking differential
 """
@@ -117,7 +124,19 @@ def c_ops(rel, fn):
     # unconditionally-extracted ops).
     guard = None
     if re.search(r"\bif\b|\?", body):
-        guard = _parse_guard(body, it)
+        # param names from the real signature — the pnull class must prove
+        # the guarded pointer is a parameter (fail-closed on parse trouble)
+        proto = text[:text.index("{")]
+        params = []
+        try:
+            pargs0, _ = _split_call(proto, proto.index("("))
+            for a in pargs0:
+                mm = re.search(r"([A-Za-z_]\w*)\s*$", a.strip())
+                if mm:
+                    params.append(mm.group(1))
+        except Exception:
+            params = []
+        guard = _parse_guard(body, it, params)
     # locals bound by `x = list_first_entry(head, T, member)` — the pop idiom
     # resolves ops on `&x->member` to FIRST-of-head
     firsts = {}
@@ -144,7 +163,25 @@ def c_ops(rel, fn):
         ops.append(o)
     if not ops:
         raise Refused("no_list_ops_in_c")
-    if guard and it is None:
+    if guard and it is None and guard.get("kind") == "ornull":
+        # the POP shape: exactly one del-class op on &x->member, inside the
+        # guard, plus the value leg (`return x`) — anything else is an unseen
+        # or_null shape and stays refused
+        g = guard["ornull"]
+        if len(ops) != 1 or ops[0]["c_op"] not in ("list_del", "list_del_init"):
+            raise Refused("ornull:op_shape")
+        o = ops[0]
+        am2 = re.fullmatch(r"&\s*([A-Za-z_]\w*)\s*->\s*(\w+)",
+                           o["args"][0].strip())
+        if not am2 or am2.group(1) != g["var"] or am2.group(2) != g["member"]:
+            raise Refused(f"ornull:op_target:{o['args'][0][:30]}")
+        if not (guard["extent"][0] <= o["pos"] < guard["extent"][1]):
+            raise Refused("ornull:op_outside_guard")
+        if not re.search(rf"\breturn\s+{re.escape(g['var'])}\s*;", body):
+            raise Refused("ornull:no_value_return")
+        o["cond"] = ("ornull", "first")
+        o["tgt"] = "first"
+    elif guard and it is None:
         _apply_guard(ops, guard)
     if guard and it is not None:
         it["guard"] = guard["loop_guard"]
@@ -200,14 +237,18 @@ def c_ops(rel, fn):
     return ops, text, it
 
 
-def _parse_guard(body, it):
-    """The list_empty guard class, fail-closed. Exactly ONE `if`, no else, no
-    ternary, predicate `!?list_empty(expr)`. Returns:
-      straight-line: {pol, pred, extent, inverts_rest, loop_guard: None}
-      iteration:     {loop_guard: 'not_empty'} — the early-return-before-walk
-                     shape only; a guard INSIDE the loop body (e.g. on a
-                     second list_head member of the node) is out of the
-                     single-list arena's model and refused."""
+def _parse_guard(body, it, params=None):
+    """The supported guard classes, fail-closed. Exactly ONE `if`, no else
+    with ops, no ternary. Predicate classes:
+      * `!?list_empty(expr)`     — both gate sides execute the real predicate
+      * `x` where x is bound by list_first_entry_or_null — the or_null POP
+        (kind='ornull'); needs the value-return gate ABI
+      * `x` / `!x` where x is a PARAM whose member the ops target — the
+        null-tolerant guard (kind='pnull'); the probe adds a NULL-param phase
+    The truthiness classes activate only when the caller supplies `params`
+    (the weave caller does not — it stays on the boot-proven list_empty
+    class). Iteration bodies additionally support the early-return-before-walk
+    list_empty shape and the tokf equality class."""
     if "?" in re.sub(r'"[^"]*"', "", body):
         raise Refused("conditional_body:ternary")
     ifs = list(re.finditer(r"\bif\s*\(", body))
@@ -224,11 +265,6 @@ def _parse_guard(body, it):
             return _parse_tok_guard(body, m, lm0)
     pargs, pend = _split_call(body, m.end() - 1)
     pred = ",".join(pargs).strip()
-    pm = re.fullmatch(r"(!?)\s*list_empty\s*\(\s*([^()]+?)\s*\)", pred)
-    if not pm:
-        raise Refused(f"conditional_body:non_list_empty_pred:{pred[:40]}")
-    pol = "not_empty" if pm.group(1) else "empty"   # polarity of the TRUE branch
-    pred_expr = _norm_expr(pm.group(2))
     i = pend
     while i < len(body) and body[i] in " \t\n":
         i += 1
@@ -267,20 +303,58 @@ def _parse_guard(body, it):
         if re.search(r"\b(" + "|".join(_C_OPS) + r")\s*\(", body[k:e2]):
             raise Refused("conditional_body:else_branch_ops")
     inverts_rest = bool(re.search(r"\breturn\b", body[extent[0]:extent[1]]))
+    pm = re.fullmatch(r"(!?)\s*list_empty\s*\(\s*([^()]+?)\s*\)", pred)
+    if pm:
+        pol = "not_empty" if pm.group(1) else "empty"   # TRUE-branch polarity
+        pred_expr = _norm_expr(pm.group(2))
+        if it is not None:
+            lm = re.search(r"\blist_for_each_entry(?:_safe)?\s*\(", body)
+            largs, _ = _split_call(body, lm.end() - 1)
+            head = largs[2 if "_safe" in lm.group(0) else 1]
+            if not (inverts_rest and pol == "empty"
+                    and pred_expr == _norm_expr(head)):
+                raise Refused("conditional_loop_body:guard_shape")
+            if re.search(r"\b(" + "|".join(_C_OPS) + r")\s*\(",
+                         body[extent[0]:extent[1]]):
+                raise Refused("conditional_loop_body:ops_in_guard")
+            return {"loop_guard": "not_empty"}
+        return {"pol": pol, "pred": pred_expr, "extent": extent,
+                "inverts_rest": inverts_rest, "if_start": m.start(),
+                "loop_guard": None}
+    # step 3: pointer-truthiness predicates — bare `x` / `!x` only
+    tm = re.fullmatch(r"(!?)\s*([A-Za-z_]\w*)", pred)
+    if params is None or not tm:
+        raise Refused(f"conditional_body:non_list_empty_pred:{pred[:40]}")
     if it is not None:
-        lm = re.search(r"\blist_for_each_entry(?:_safe)?\s*\(", body)
-        largs, _ = _split_call(body, lm.end() - 1)
-        head = largs[2 if "_safe" in lm.group(0) else 1]
-        if not (inverts_rest and pol == "empty"
-                and pred_expr == _norm_expr(head)):
-            raise Refused("conditional_loop_body:guard_shape")
-        if re.search(r"\b(" + "|".join(_C_OPS) + r")\s*\(",
-                     body[extent[0]:extent[1]]):
-            raise Refused("conditional_loop_body:ops_in_guard")
-        return {"loop_guard": "not_empty"}
-    return {"pol": pol, "pred": pred_expr, "extent": extent,
-            "inverts_rest": inverts_rest, "if_start": m.start(),
-            "loop_guard": None}
+        raise Refused("conditional_loop_body:truthiness_in_loop")
+    neg, var = tm.group(1), tm.group(2)
+    om = re.search(rf"\b{re.escape(var)}\s*=\s*list_first_entry_or_null\s*\(",
+                   body)
+    if om:
+        # the or_null POP: x = first-or-null(head); if (x) del(&x->member).
+        # Truthiness of x IS first-of-head existence — but only if x is bound
+        # exactly once and never negated into an unseen shape.
+        if neg:
+            raise Refused("ornull:negated_pred_unseen")
+        largs, _ = _split_call(body, om.end() - 1)
+        if len(largs) != 3:
+            raise Refused("ornull:bad_binding")
+        if len(re.findall(rf"\b{re.escape(var)}\s*=(?!=)", body)) != 1:
+            raise Refused("ornull:var_rebound")
+        return {"loop_guard": None, "kind": "ornull",
+                "ornull": {"var": var, "head": _norm_expr(largs[0]),
+                           "member": largs[2].strip()},
+                "extent": extent, "if_start": m.start()}
+    if var not in params:
+        # truthiness of a local that is neither the or_null binding nor a
+        # param: state the arena does not model — refused, not guessed
+        raise Refused(f"conditional_body:truthiness_nonparam:{var}")
+    if re.findall(rf"\b{re.escape(var)}\s*=(?!=)", body):
+        raise Refused("pnull:param_reassigned")
+    return {"loop_guard": None, "kind": "pnull",
+            "pol": "null" if neg else "nonnull", "pred": var,
+            "extent": extent, "inverts_rest": inverts_rest,
+            "if_start": m.start()}
 
 
 def _parse_tok_guard(body, ifm, lm0):
@@ -330,6 +404,29 @@ def _parse_tok_guard(body, ifm, lm0):
             "tok_extent": extent}
 
 
+def _check_ornull_model(abody):
+    """The pop model must consult first-of-list emptiness — `empty(L)` or a
+    sentinel compare on `first(L)`'s result. A model popping unconditionally
+    verified while describing a different function (the net_unlink_todo
+    banked-model-defect family)."""
+    if not re.search(r"\bfirst\s*\(", abody):
+        raise Refused("ornull_model:no_first")
+    if not (re.search(r"\bempty\s*\(", abody)
+            or re.search(r"(?:!=|==)\s*-1|>=\s*0|<\s*0", abody)):
+        raise Refused("ornull_model:no_empty_or_sentinel")
+
+
+def _check_pnull_model(abody):
+    """The model must guard on the ARG's null sentinel (`a0 != -1`,
+    `a0 == -1 { return }`, `a0 >= 0`). Dialects that encode the null check as
+    a tokf/field read of the id (nfp_port_free, nand_ecc_unregister_...)
+    cannot be executed-and-corresponded by this gate — named worklist,
+    never gated."""
+    if not re.search(r"\ba\d+(?:\s+as\s+\w+)*\s*(?:!=|==)\s*-1|\ba\d+\s*>=\s*0",
+                     abody):
+        raise Refused("pnull_model:no_arg_sentinel_guard")
+
+
 def _check_tok_model(tok, abody, fn):
     """Correspondence for the tokf class: the verified model must compare the
     SAME member the C compares (its T_*/F_* constant names the field), with
@@ -352,6 +449,24 @@ def _check_tok_model(tok, abody, fn):
 def _apply_guard(ops, g):
     """Annotate straight-line ops with (polarity, target) from the single
     parsed guard; every op must land in a branch whose polarity is known."""
+    if g.get("kind") == "pnull":
+        # null-tolerant param guard: every op (kfree included) must be in the
+        # nonnull branch and rooted at the guarded param — a NULL-branch op
+        # or an op on another object is an unseen shape, refused
+        invn = {"nonnull": "null", "null": "nonnull"}
+        for o in ops:
+            if g["extent"][0] <= o["pos"] < g["extent"][1]:
+                pol = g["pol"]
+            elif o["pos"] >= g["extent"][1] and g["inverts_rest"]:
+                pol = invn[g["pol"]]
+            else:
+                raise Refused("pnull:unguarded_op")
+            if pol != "nonnull":
+                raise Refused("pnull:op_in_null_branch")
+            if _base_of(o["args"][0]) != g["pred"]:
+                raise Refused(f"pnull:op_base_mismatch:{_base_of(o['args'][0])}")
+            o["cond"] = ("nonnull", "entry")
+        return
     inv = {"empty": "not_empty", "not_empty": "empty"}
     for o in ops:
         if o["c_op"] == "kfree" and (g["extent"][0] <= o["pos"] < g["extent"][1]
@@ -497,7 +612,8 @@ def correspond(cops, aops):
 # 4. emission — Rust over the ListHead mirror, real pointers
 # ---------------------------------------------------------------------------
 
-_INV_POL = {"empty": "not_empty", "not_empty": "empty"}
+_INV_POL = {"empty": "not_empty", "not_empty": "empty",
+            "nonnull": "null", "null": "nonnull"}
 
 
 def _eff_cond(o, sabotage):
@@ -517,13 +633,48 @@ def emit_realized(rel, fn, L, sabotage=None):
     aops, abody = adt_ops(rel, fn)
     if it is None:
         correspond(cops, aops)
-    if (any(o.get("cond") for o in cops) or (it and it.get("guard"))) \
-            and "empty" not in abody:
+    conds = {o["cond"][0] for o in cops if o.get("cond")}
+    if it and it.get("guard"):
+        conds.add("not_empty")
+    if conds & {"empty", "not_empty"} and "empty" not in abody:
         # the verified model never consulted emptiness while the C guards on
         # it — a correspondence failure, same family as op_count_mismatch
         raise Refused("no_empty_in_model")
+    if "ornull" in conds:
+        _check_ornull_model(abody)
+    if conds & {"nonnull", "null"}:
+        _check_pnull_model(abody)
     if it and it.get("tok"):
         _check_tok_model(it["tok"], abody, fn)
+    if "ornull" in conds:
+        # the POP shape: guarded first-del + the value leg, one emission
+        o = cops[0]
+        rs = o["rs"]
+        if sabotage == "del_not_init":
+            rs = {"list_del_init": "list_del"}.get(rs, rs)
+        if sabotage == "drop_guard":
+            inner = (f"        let e = (*head).next;\n"
+                     f"        {rs}(e);\n"
+                     f"        e")
+        else:
+            cmp_ = "==" if sabotage == "flip_guard" else "!="
+            e_expr = ("(*(*head).next).next" if sabotage == "skip_first"
+                      else "(*head).next")
+            inner = (f"        if (*head).next {cmp_} head {{\n"
+                     f"            let e = {e_expr};\n"
+                     f"            {rs}(e);\n"
+                     f"            e\n"
+                     f"        }} else {{\n"
+                     f"            core::ptr::null_mut()\n"
+                     f"        }}")
+        return f"""
+#[no_mangle]
+pub extern "C" fn realized_pop(head: *mut ListHead) -> *mut ListHead {{
+    unsafe {{
+{inner}
+    }}
+}}
+""", cops, aops, it
     if len({o["c_op"] for o in cops}) != len(cops) and len(cops) > 1:
         pass                        # repeated same op is fine
     lines = []
@@ -536,10 +687,9 @@ def emit_realized(rel, fn, L, sabotage=None):
         if rs == "free_ev":
             if sabotage == "no_free":       # right membership, dropped free
                 continue
-            lines.append("        free_ev(head);" if sabotage == "wrong_free"
-                         else "        free_ev(entry);")
-            continue
-        if rs in ("list_add", "list_add_tail"):
+            core = ["free_ev(head);" if sabotage == "wrong_free"
+                    else "free_ev(entry);"]
+        elif rs in ("list_add", "list_add_tail"):
             core = [f"{rs}(entry, head);"]
         elif rs in ("list_del", "list_del_init", "INIT_LIST_HEAD"):
             core = (["let e = (*head).next;", f"{rs}(e);"]
@@ -550,9 +700,13 @@ def emit_realized(rel, fn, L, sabotage=None):
         cond = _eff_cond(o, sabotage)
         if cond:
             pol, ct = cond
-            t = "entry" if ct == "entry" else "head"
-            cmp_ = "==" if pol == "empty" else "!="
-            lines.append(f"        if (*{t}).next {cmp_} {t} {{")
+            if pol in ("nonnull", "null"):
+                neg = "!" if pol == "nonnull" else ""
+                lines.append(f"        if {neg}entry.is_null() {{")
+            else:
+                t = "entry" if ct == "entry" else "head"
+                cmp_ = "==" if pol == "empty" else "!="
+                lines.append(f"        if (*{t}).next {cmp_} {t} {{")
             lines += [f"            {c}" for c in core]
             lines.append("        }")
         else:
@@ -630,8 +784,10 @@ pub extern "C" fn realized_iter(head: *mut ListHead{sig_tok}) {{
 
 def _ref_c(cops, L, it=None):
     """Host C reference: the real ops, applied in the real order."""
+    pop = bool(cops and cops[0].get("cond")
+               and cops[0]["cond"][0] == "ornull")
     calls = []
-    for o in cops:
+    for o in ([] if pop else cops):
         if o["c_op"] == "kfree":
             core = ["cgir_free_ev(entry);"]
         elif o["c_op"] in ("list_add", "list_add_tail"):
@@ -643,12 +799,30 @@ def _ref_c(cops, L, it=None):
             core = [f"{o['c_op']}(entry, head);"]
         if o.get("cond"):
             pol, ct = o["cond"]
-            t = "entry" if ct == "entry" else "head"
-            neg = "" if pol == "empty" else "!"
-            calls.append(f"    if ({neg}list_empty({t})) {{ "
-                         + " ".join(core) + " }")
+            if pol in ("nonnull", "null"):
+                neg = "" if pol == "nonnull" else "!"
+                calls.append(f"    if ({neg}entry) {{ "
+                             + " ".join(core) + " }")
+            else:
+                t = "entry" if ct == "entry" else "head"
+                neg = "" if pol == "empty" else "!"
+                calls.append(f"    if ({neg}list_empty({t})) {{ "
+                             + " ".join(core) + " }")
         else:
             calls += [f"    {c}" for c in core]
+    if pop:
+        calls = ["    (void)entry; (void)head;"]
+    # the REAL list_first_entry_or_null expansion + truthiness guard,
+    # EXECUTED against arena state (never re-emitted from the guard-stripped
+    # op list — the T3-audit rule), plus the value leg the probe compares
+    POP_FN = (f"""
+long c_call_pop(void) {{
+    struct cgir_node *x = C_HEAD.next != &C_HEAD ? lh_to_node(C_HEAD.next) : 0;
+    if (x)
+        {cops[0]['c_op']}(&x->lh);
+    return x ? normp(&x->lh) : -2;
+}}
+""" if pop else "")
     iter_calls = []
     for o in cops:
         if o["c_op"] == "kfree":
@@ -729,9 +903,10 @@ void c_call_iter({ITER_SIG}) {{
 {ITER_BODY}
     }}
 }}
-/* the REAL function's op sequence, applied to node `a` */
+/* the REAL function's op sequence, applied to node `a` (a<0 = NULL param —
+ * the pnull class's probe phase exercises the real truthiness branch) */
 void c_call(int a) {{
-    struct list_head *entry = &C_ARENA[a].lh, *head = &C_HEAD;
+    struct list_head *entry = a < 0 ? 0 : &C_ARENA[a].lh, *head = &C_HEAD;
 {chr(10).join(calls)}
 }}
 static long normp(void *p) {{
@@ -773,11 +948,15 @@ int c_snapshot(long *buf) {{
     buf[k++] = normp(C_HEAD.next); buf[k++] = normp(C_HEAD.prev);
     return k;
 }}
-"""
+{POP_FN}"""
 
 
-def _cand_rs(realized, L, it=None):
-    if it and it.get("tok"):
+def _cand_rs(realized, L, it=None, pop=False):
+    if pop:
+        ENTRY = ('#[no_mangle] pub extern "C" fn r_call_pop() -> i64 { unsafe { '
+                 'let p = realized_pop(&raw mut R_HEAD); '
+                 'if p.is_null() { -2 } else { normp(p) } }}')
+    elif it and it.get("tok"):
         ENTRY = ('#[no_mangle] pub extern "C" fn r_call_iter(tok: i64) { unsafe { '
                  'realized_iter(&raw mut R_HEAD, tok); }}')
     elif it:
@@ -785,7 +964,9 @@ def _cand_rs(realized, L, it=None):
                  'realized_iter(&raw mut R_HEAD); }}')
     else:
         ENTRY = ('#[no_mangle] pub extern "C" fn r_call(a: i32) { unsafe { '
-                 'realized_op(&raw mut R_ARENA[a as usize].lh, &raw mut R_HEAD); }}')
+                 'let e = if a < 0 { core::ptr::null_mut() } '
+                 'else { &raw mut R_ARENA[a as usize].lh }; '
+                 'realized_op(e, &raw mut R_HEAD); }}')
     return LM.emit_mirror(L) + realized + f"""
 #[repr(C)]
 pub struct Node {{ pub id: i32, pub lh: ListHead, pub payload: i64 }}
@@ -864,7 +1045,9 @@ _PROBE = """#include <stdio.h>
 extern void c_reset(void); extern int c_snapshot(long*); extern int r_snapshot(long*);
 extern void r_reset(void);
 extern int c_freelog(long*); extern int r_freelog(long*);
-#if ITER_MODE
+#if POP_MODE
+extern long c_call_pop(void); extern long r_call_pop(void);
+#elif ITER_MODE
 #if TOK_MODE
 extern void c_call_iter(long); extern void r_call_iter(long);
 #else
@@ -895,7 +1078,16 @@ extern void c_reset_empty(void); extern void r_reset_empty(void);
 #endif
 int main(void) {
     c_reset(); r_reset(); CMP("init"); FCMP("init");
-#if ITER_MODE
+#if POP_MODE
+    /* pop until well past drain: the empty->null->no-op tail must be
+     * distinguishable from one-extra-pop, and the VALUE leg must agree */
+    for (int k = 0; k < NNODES + 2; k++) {
+        long rc = c_call_pop(), rr = r_call_pop();
+        if (rc != rr) { printf("CREALIZE verdict=DIVERGE step=popval k=%d c=%ld r=%ld\\n", k, rc, rr); return 1; }
+        CMP("pop"); FCMP("pop");
+    }
+    printf("CREALIZE verdict=MATCH pops=%d\\n", NNODES + 2);
+#elif ITER_MODE
 #if TOK_MODE
     /* token sweep with DUPLICATE arena tokens (i%3): t=0..2 delete different
      * subsets, t=3 matches nothing; plus the drained-arena phase */
@@ -916,7 +1108,14 @@ int main(void) {
     printf("CREALIZE verdict=MATCH iter=1 frees=%d\\n", c_freelog(CB)/2);
 #endif
 #else
+#if PNULL_MODE
+    /* the NULL-param phase: the real truthiness guard's other branch */
+    c_call(-1); r_call(-1); CMP("nullcall"); FCMP("nullcall");
+#endif
     for (int a = 0; a < NNODES; a++) { c_call(a); r_call(a); CMP("call"); FCMP("call"); }
+#if PNULL_MODE
+    c_call(-1); r_call(-1); CMP("nullcall2"); FCMP("nullcall2");
+#endif
 #if COND_MODE
     /* phase 2: drained arena — every list_empty guard flips branch here */
     c_reset_empty(); r_reset_empty(); CMP("reset2"); FCMP("reset2");
@@ -931,9 +1130,11 @@ int main(void) {
 
 def run_gate(rel, fn, L, sabotage=None, adt_only=False):
     realized, cops, aops, it = emit_realized(rel, fn, L, sabotage)
+    pop = bool(cops and cops[0].get("cond") and cops[0]["cond"][0] == "ornull")
+    pnull = any((o.get("cond") or ("",))[0] == "nonnull" for o in cops)
     d = tempfile.mkdtemp(prefix="crealize_")
     open(os.path.join(d, "ref.c"), "w").write(_ref_c(cops, L, it))
-    open(os.path.join(d, "cand.rs"), "w").write(_cand_rs(realized, L, it))
+    open(os.path.join(d, "cand.rs"), "w").write(_cand_rs(realized, L, it, pop))
     open(os.path.join(d, "probe.c"), "w").write(_PROBE)
     r = subprocess.run(["rustc", "--edition", "2021", "-O", "--crate-type=staticlib",
                         os.path.join(d, "cand.rs"), "-o", os.path.join(d, "libcand.a")],
@@ -942,6 +1143,8 @@ def run_gate(rel, fn, L, sabotage=None, adt_only=False):
         return "BUILD_FAIL_RS", r.stderr[-900:], d
     r = subprocess.run(["cc", "-O2", "-w", f"-DNNODES={NN}",
                         f"-DADT_ONLY={1 if adt_only else 0}", f"-DITER_MODE={1 if it else 0}",
+                        f"-DPOP_MODE={1 if pop else 0}",
+                        f"-DPNULL_MODE={1 if pnull else 0}",
                         f"-DCOND_MODE={1 if (any(o.get('cond') for o in cops) or (it or {}).get('guard')) else 0}",
                         f"-DTOK_MODE={1 if (it or {}).get('tok') else 0}",
                         os.path.join(d, "probe.c"), os.path.join(d, "ref.c"),

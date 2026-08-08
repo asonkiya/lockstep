@@ -207,3 +207,106 @@ def test_tok_model_field_mismatch_is_refused(layout):
     wrong = _re.sub(r"T_DEV", "T_WRONGFIELD", abody)
     with pytest.raises(_CR.Refused, match="tokf_field_mismatch"):
         _CR._check_tok_model(it["tok"], wrong, "abx500_remove_ops")
+
+
+# ---------------------------------------------------------------------------
+# step 3: truthiness guards — or_null pop (value-return ABI) + param null-guard
+# ---------------------------------------------------------------------------
+
+# or_null pop, file-static head, list_del:
+#   bus_ops = list_first_entry_or_null(h, T, m); if (bus_ops) list_del; return
+_ORN = ("drivers/pci/pcie/aer_inject.c", "pci_bus_ops_pop")
+# or_null pop, PARAM head, list_del_init (the del-variant axis)
+_ORN2 = ("drivers/android/binder.c", "binder_dequeue_work_head_ilocked")
+# param null-guard, ops-in-branch form: if (entry) list_del(&entry->list_item)
+_PN = ("drivers/misc/vmw_vmci/vmci_queue_pair.c", "qp_list_remove_entry")
+# param null-guard, early-exit form: if (!p) return; mutex; list_del
+_PNI = ("drivers/leds/led-class.c", "led_remove_lookup")
+# param null-guard + kfree (T3 composed gate under the truthiness guard)
+_PNK = ("drivers/usb/host/xhci-debugfs.c", "xhci_debugfs_free_regset")
+# model expresses the null-check as a tokf-sentinel read, not an arg sentinel:
+# a DIALECT the gate cannot execute-and-correspond — named worklist, not gated
+_PN_DIALECT = ("drivers/mtd/nand/ecc.c", "nand_ecc_unregister_on_host_hw_engine")
+# model guards on `!= 0` (wrong sentinel) AND dels before push (spurious-del
+# family) — refused at op correspondence
+_PN_SPUR = ("drivers/misc/vmw_vmci/vmci_queue_pair.c", "qp_list_add_entry")
+# member-flag truthiness with a member write — not pointer truthiness; refused
+_MEMBER = ("drivers/greybus/es2.c", "arpc_del")
+# compound predicate — refused
+_COMPOUND = ("drivers/mmc/core/pwrseq.c", "mmc_pwrseq_register")
+
+
+def test_ornull_parsed_as_guarded_first_pop():
+    cops, _, it = _CR.c_ops(*_ORN)
+    assert it is None
+    assert [o["c_op"] for o in cops] == ["list_del"]
+    assert cops[0]["cond"] == ("ornull", "first")
+    assert cops[0]["tgt"] == "first"
+
+
+def test_ornull_pop_matches_including_value_and_drain(layout):
+    # the probe pops NN+2 times: populated pops, then the DRAINED phase where
+    # both sides must return the null sentinel (empty -> null -> no-op is
+    # distinguishable from one-extra-iteration)
+    for rel, fn in (_ORN, _ORN2):
+        v, out, _ = _CR.run_gate(rel, fn, layout)
+        assert v == "MATCH", (fn, v, out[-200:] if out else "")
+        assert "pops=" in out
+
+
+def test_ornull_negative_controls(layout):
+    # drop_guard: pop-without-null-check unlinks the HEAD once drained;
+    # flip_guard: pops only when empty; skip_first: off-by-one (pops second)
+    for sab in ("drop_guard", "flip_guard", "skip_first"):
+        v, _, _ = _CR.run_gate(*_ORN, layout, sabotage=sab)
+        assert v in ("DIVERGE", "CRASH", "HANG"), (sab, v)
+
+
+def test_ornull_del_variant_is_load_bearing(layout):
+    # binder pops with list_del_init; emitting list_del leaves POISON where
+    # the kernel leaves a self-loop — per-node snapshot catches it
+    v, _, _ = _CR.run_gate(*_ORN2, layout, sabotage="del_not_init")
+    assert v in ("DIVERGE", "CRASH", "HANG"), v
+
+
+def test_pnull_parsed_both_forms():
+    cops, _, it = _CR.c_ops(*_PN)
+    assert it is None and cops[0]["cond"] == ("nonnull", "entry")
+    cops2, _, _ = _CR.c_ops(*_PNI)     # if (!p) return; -> inverted guard
+    assert cops2[0]["cond"] == ("nonnull", "entry")
+
+
+def test_pnull_matches_with_null_phase(layout):
+    for rel, fn in (_PN, _PNI):
+        v, out, _ = _CR.run_gate(rel, fn, layout)
+        assert v == "MATCH", (fn, v, out[-200:] if out else "")
+
+
+def test_pnull_kfree_composed(layout):
+    v, out, _ = _CR.run_gate(*_PNK, layout)
+    assert v == "MATCH", (v, out[-200:] if out else "")
+    assert "frees=" in out and "frees=0" not in out
+    v, _, _ = _CR.run_gate(*_PNK, layout, sabotage="no_free")
+    assert v in ("DIVERGE", "CRASH", "HANG"), v
+
+
+def test_pnull_negative_controls(layout):
+    # drop_guard dels the NULL param in the probe's null phase (a null deref
+    # here, an oops in situ); flip_guard fires ops only when null
+    for sab in ("drop_guard", "flip_guard"):
+        v, _, _ = _CR.run_gate(*_PN, layout, sabotage=sab)
+        assert v in ("DIVERGE", "CRASH", "HANG"), (sab, v)
+
+
+def test_pnull_model_dialects_join_the_worklist(layout):
+    with pytest.raises(_CR.Refused, match="pnull_model"):
+        _CR.emit_realized(*_PN_DIALECT, layout)
+    with pytest.raises(_CR.Refused, match="op_count_mismatch|pnull_model"):
+        _CR.emit_realized(*_PN_SPUR, layout)
+
+
+def test_truthiness_out_of_class_stays_refused():
+    with pytest.raises(_CR.Refused, match="conditional_body"):
+        _CR.c_ops(*_MEMBER)
+    with pytest.raises(_CR.Refused, match="conditional_body"):
+        _CR.c_ops(*_COMPOUND)

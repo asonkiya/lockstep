@@ -81,18 +81,19 @@ def test_multi_head_iteration_refused():
 
 
 def test_conditional_straightline_refused():
-    # nfp_port_free: `if (...) ...; list_del; kfree` — a straight-line body
-    # whose ops sit under (or after) a conditional. Extracting the ops
-    # unconditionally would DROP the guard, and the gate could not see it
-    # because the C reference is re-emitted from the same extracted ops. The
-    # audit found 24 such fns already accepted in T2 + 3 in T3 — this pins the
-    # fail-closed refusal that corrects both.
-    # (get_work moved IN-class with the list_empty-guard build — its guard is
-    # a bare list_empty and both gate sides now execute it; truthiness
-    # predicates like nfp_port_free's stay refused.)
+    # arpc_del: `if (rpc->active) { rpc->active = false; list_del; }` — a
+    # straight-line body whose ops sit under a conditional the gate cannot
+    # execute (a member-FLAG read plus a member write — not list state, not
+    # pointer truthiness). Extracting the ops unconditionally would DROP the
+    # guard, and the gate could not see it because the C reference is
+    # re-emitted from the same extracted ops. This pins the fail-closed
+    # refusal the audit introduced.
+    # (get_work moved IN-class with the list_empty build; nfp_port_free moved
+    # IN-class at c_ops with the truthiness build — its refusal now fires at
+    # MODEL correspondence, pinned in test_container_cond.py — member-flag
+    # and compound predicates stay refused here.)
     with pytest.raises(_CR.Refused, match="conditional_body"):
-        _CR.c_ops("drivers/net/ethernet/netronome/nfp/nfp_port.c",
-                  "nfp_port_free")
+        _CR.c_ops("drivers/greybus/es2.c", "arpc_del")
 
 
 def test_straightline_t3_passes_composed_gate(layout):

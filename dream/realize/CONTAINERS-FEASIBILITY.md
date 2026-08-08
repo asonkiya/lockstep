@@ -447,3 +447,85 @@ op_count_mismatch banked-model defects unchanged), **T3 102/131 MATCH**
 5 tok_guard, 5 conditional_body, 2 multi_head_iteration,
 1 conditional_loop_body), zero unexplained diverges in either tier.
 Remaining conditional classes: or_null truthiness (25), break-variants (3).
+
+---
+
+## Truthiness class DONE: +14 realized (T2 160/184, T3 103/131), 0 diverges
+
+The third and last conditional sub-class (census row "truthiness null-guard,
+25"). On contact the row split into TWO executable sub-shapes plus named
+residue — the census-shrinkage law again, and the honest ladder is:
+
+**25 (census 2026-08-07) → 18 bare-pointer-truthiness surviving at build
+time** (7 absorbed by the list_empty/tokf builds and reclassifications) **→
+14 in-scope and 14/14 MATCH** + 4 named banked-model refusals + 3 named
+out-of-class.
+
+**Sub-shape A — or_null pop (9/9 MATCH, all T2, all nonvoid):** `x =
+list_first_entry_or_null(h, T, m); if (x) list_del[_init](&x->m); return x`
+— disk_get_zone_wplugs_work, binder_dequeue_work_head_ilocked,
+zram_select_idle_req, relay_dequeue_transaction, fdp1_dequeue_field,
+__rtw89_ser_dequeue_msg, pci_bus_ops_pop, ssam_event_queue_pop,
+sk_psock_link_pop. This is the census's predicted "new extraction ABI":
+`realized_pop(head) -> *mut ListHead` (entry or null). The C ref executes
+the REAL or_null expansion (`head->next != head ? entry : NULL`) plus the
+real guard; the probe pops NN+2 times so the drained tail (empty → null →
+no-op) is distinguishable from one-extra-pop, and the VALUE leg (returned
+slot vs null sentinel) is compared on every pop alongside the chain
+snapshot. Strictness: single binding, single del-class op on `&x->member`
+inside the guard, member must match the or_null binding, `return x` present.
+Zero while-pop drain loops exist in the population — the shape was NOT
+built, the probe's repeated-pop drain covers the drain semantics.
+
+**Sub-shape B — param null-guard (5/9 MATCH):** `if (entry) list_del(...)`
+and `if (!p) return; ops` where the guarded pointer is a PARAM whose member
+every op targets — qp_list_remove_entry, mcast_list_del, rproc_remove_rvdev,
+led_remove_lookup (T2), xhci_debugfs_free_regset (T3, del+kfree under the
+guard: the composed free-log rides inside the truthiness branch). The
+predicate executes on BOTH sides against a real NULL: the probe adds a
+null-param phase (`c_call(-1)`/`r_call(-1)` — entry = NULL), so the guard's
+other branch is exercised for real, not modeled.
+
+Negative controls, measured on both shapes:
+
+| sabotage | pci_bus_ops_pop (A) | binder_dequeue (A) | qp_list_remove_entry (B) | xhci_debugfs_free_regset (B) |
+|---|---|---|---|---|
+| drop_guard | DIVERGE (k=6 drained: pops the HEAD, value leg -1≠-2) | DIVERGE (same) | CRASH (null deref in the null phase — an oops in situ) | CRASH |
+| flip_guard | DIVERGE (k=0: null vs popped slot) | DIVERGE | DIVERGE (ops never fire on real entries) | DIVERGE |
+| skip_first (off-by-one) | DIVERGE (k=0: pops slot 1, value leg 1≠0) | DIVERGE | — | — |
+| del_not_init | — | DIVERGE (POISON −100 in the pop snapshot) | — | — |
+| no_free | — | — | — | DIVERGE (freelog 2≠0) |
+
+**The 4 banked-model refusals (named, never gated):**
+`pnull_model:no_arg_sentinel_guard` — **acpi_scan_add_handler** (NEW
+finding: previously realized in v1, audit-refused, now front-accepted again
+— and the correspondence gate exposed that its model never guards the arg's
+null sentinel, i.e. the model verified without a null case),
+**nfp_port_free** and **nand_ecc_unregister_on_host_hw_engine** (both encode
+the null check as a `tokf(...)` sentinel read of the id — a dialect the gate
+cannot execute-and-correspond); **qp_list_add_entry** (op_count c=1,adt=2 —
+the spurious-del family: model dels before push, and guards on `!= 0` where
+the harness sentinel is −1). **Out-of-class, named:** arpc_del (member-FLAG
+truthiness + member write), mmc_pwrseq_register (compound predicate),
+pool_free (range compare).
+
+Full census re-pass: **T2 160/184 MATCH** (180 front-accepted — pnull/ornull
+moved 16 fns past the front gate — 18 op_count_mismatch = 17 pre-existing +
+qp_list_add_entry newly exposed, 2 pnull_model; front refusals now only
+3 conditional_body + 1 cross_list_move), **T3 103/131 MATCH** (104
+front-accepted; refusals: 8 plain_iteration_with_mutation, 8
+op_count_mismatch, 5 tok_guard, 3 conditional_body, 2 multi_head_iteration,
+1 conditional_loop_body; 1 pnull_model = nfp_port_free), zero unexplained
+diverges in either tier. **Containers realized: 263/344.**
+
+Weave note: untouched this slice. All 9 pop fns are nonvoid — weave-
+ineligible under the standing nonvoid rule regardless; the 5 pnull fns'
+weave eligibility awaits the next denominator re-freeze.
+
+Remaining conditional class: break-variants (4: iort ×2,
+pci_dev_res_remove_from_list, kprobe_remove_area_blacklist —
+delete-first-and-stop semantics). Banked-model worklist now 29 named fns:
+26 op_count_mismatch across tiers (18 T2 incl. the qp_list_add_entry
+spurious-del + 8 T3, the net_unlink_todo/o2net/ocfs2 findings among them)
++ 3 pnull_model (acpi_scan_add_handler, nfp_port_free,
+nand_ecc_unregister_on_host_hw_engine).
