@@ -51,8 +51,9 @@ _ADDIF = ("net/core/dev.c", "net_unlink_todo")
 # guarded-flush (T3): if (list_empty(head)) return; for_each_safe {del;kfree}
 _FLUSH = ("drivers/net/ethernet/chelsio/cxgb4/cxgb4_mps.c",
           "cxgb4_free_mps_ref_entries")
-# equality predicate — stays refused (tokf class, out of scope)
-_EQ = ("drivers/mfd/abx500-core.c", "abx500_remove_ops")
+# truthiness predicate + else branch — stays refused (or_null class)
+# (abx500_remove_ops, step 1's out-of-scope example, moved IN-class in step 2)
+_EQ = ("drivers/net/ethernet/intel/iavf/iavf_main.c", "iavf_clear_cloud_filters")
 # second list_head per node — the arena cannot model it; stays refused
 _SECOND = ("fs/fuse/dax.c", "fuse_free_dax_mem_ranges")
 
@@ -136,3 +137,73 @@ def test_out_of_class_predicates_stay_refused():
         _CR.c_ops(*_EQ)
     with pytest.raises(_CR.Refused, match="conditional|guard|second"):
         _CR.c_ops(*_SECOND)
+
+
+# ---------------------------------------------------------------------------
+# step 2: tokf equality guards (member ==/!= loop-invariant token, in-loop)
+# ---------------------------------------------------------------------------
+
+# canonical: iterate, del on member match (model: tokf(id, T_DEV) == a0)
+_TOK = ("drivers/mfd/abx500-core.c", "abx500_remove_ops")
+# T3 flush shape with kfree (model dialect: field(id, F_IFINDEX) == tok_field)
+_TOK_FREE = ("net/dcb/dcbnl.c", "dcbnl_flush_dev")
+# reversed operand order: param == cursor->field
+_TOK_REV = ("drivers/iio/inkern.c", "iio_map_array_unregister_locked")
+# delete-first-and-stop (break): DIFFERENT semantics under duplicate tokens —
+# stays refused this slice
+_TOK_BRK = ("drivers/pci/setup-bus.c", "pci_dev_res_remove_from_list")
+
+
+def test_tok_guard_parsed_into_structure():
+    cops, _, it = _CR.c_ops(*_TOK)
+    assert it is not None and it["safe"]
+    assert it.get("tok") == {"field": "dev", "op": "=="}
+    assert [o["c_op"] for o in cops] == ["list_del"]
+
+
+def test_tok_guard_reversed_operands():
+    _, _, it = _CR.c_ops(*_TOK_REV)
+    assert it.get("tok", {}).get("field") == "indio_dev"
+
+
+def test_tok_break_stays_refused():
+    with pytest.raises(_CR.Refused, match="tok_guard:break"):
+        _CR.c_ops(*_TOK_BRK)
+
+
+def test_tok_candidates_pass_the_gate(layout):
+    for rel, fn in (_TOK, _TOK_FREE, _TOK_REV):
+        v, out, _ = _CR.run_gate(rel, fn, layout)
+        assert v == "MATCH", (fn, v, out[-200:] if out else "")
+        # the probe must have exercised MATCHING branches: frees/dels happened
+        assert "toksweep=1" in out
+
+
+def test_tok_wrong_field_diverges(layout):
+    # reading a DIFFERENT member than the C compares (id instead of the token
+    # field): with duplicate tokens in the arena the match sets differ
+    v, _, _ = _CR.run_gate(*_TOK, layout, sabotage="wrong_field")
+    assert v in ("DIVERGE", "CRASH", "HANG"), v
+
+
+def test_tok_flipped_polarity_diverges(layout):
+    v, _, _ = _CR.run_gate(*_TOK, layout, sabotage="flip_guard")
+    assert v in ("DIVERGE", "CRASH", "HANG"), v
+
+
+def test_tok_dropped_guard_diverges(layout):
+    # unconditional del/kfree while the C deletes only the matching subset
+    v, _, _ = _CR.run_gate(*_TOK_FREE, layout, sabotage="drop_guard")
+    assert v in ("DIVERGE", "CRASH", "HANG"), v
+
+
+def test_tok_model_field_mismatch_is_refused(layout):
+    # correspondence: the model must compare the SAME field the C compares —
+    # a model comparing a different member is a banked-model defect (the
+    # net_unlink_todo family), refused by name, never gated
+    import re as _re
+    cops, _, it = _CR.c_ops(*_TOK)
+    aops, abody = _CR.adt_ops(*_TOK)
+    wrong = _re.sub(r"T_DEV", "T_WRONGFIELD", abody)
+    with pytest.raises(_CR.Refused, match="tokf_field_mismatch"):
+        _CR._check_tok_model(it["tok"], wrong, "abx500_remove_ops")

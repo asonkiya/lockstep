@@ -139,5 +139,8 @@ def test_cross_list_move_is_refused():
 
 
 def test_conditional_loop_body_is_refused():
-    with pytest.raises(_CR.Refused, match="conditional_loop_body"):
-        _CR.c_ops("drivers/mfd/abx500-core.c", "abx500_remove_ops")
+    # (abx500_remove_ops, the original example here, moved IN-class with the
+    # tokf-equality build; the per-node list_empty predicate is the shape the
+    # single-list arena still cannot model)
+    with pytest.raises(_CR.Refused, match="conditional_loop_body|tok_guard"):
+        _CR.c_ops("fs/fuse/dax.c", "fuse_free_dax_mem_ranges")

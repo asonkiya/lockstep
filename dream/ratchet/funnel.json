@@ -7,9 +7,9 @@
  "realized": {
   "efftrace": 549,
   "containers_t1": 5,
-  "containers_t2": 146,
-  "containers_t3": 96,
-  "src": "realize census v2 549/635 (310a733); containers T2 146/184 + T3 96/131 incl. list_empty class (2026-08-07)"
+  "containers_t2": 147,
+  "containers_t3": 102,
+  "src": "realize census v2 549/635 (310a733); containers T2 147/184 + T3 102/131 incl. list_empty + tokf-equality classes (2026-08-08)"
  },
  "present_vmlinux": 104,
  "present_src": "containers batch weave: 40/40 containers + 54 realized + 10 readers, defconfig boot green (2026-08-07)",

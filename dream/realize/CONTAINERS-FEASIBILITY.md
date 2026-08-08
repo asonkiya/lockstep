@@ -392,3 +392,58 @@ ocfs2_resv_mark_lru has an extra mutator), **1 arena limit**
 taxonomy also sharpened: 8 T3 fns reclassified from conditional_loop_body to
 plain_iteration_with_mutation (the use-after-poison class, visible now that
 classification proceeds past the conditional check).
+
+---
+
+## tokf-equality class DONE: +7 realized (T2 147/184, T3 102/131), 0 diverges
+
+The second conditional sub-class: a guard INSIDE the iteration body comparing
+ONE cursor member against a loop-invariant token (`if (e->field ==|!= x)`
+del/kfree on match — the `abx500_remove_ops` shape the ADT models express as
+`if tokf(id, T_*) == a0 { del(id); retire(id) }`). Realization reads the REAL
+member on both gate sides: the C ref compares `pos->payload` (the arena's
+token field), the Rust side recovers the node via `offset_of!(Node, lh)`
+container arithmetic and compares at the same member. The arena assigns
+DUPLICATE tokens (`i % 3`) so delete-all, delete-none, delete-subset and
+wrong-field all produce different chains, and the probe sweeps tokens
+t=0..3 (three distinct match-subsets + a no-match value) plus a
+drained-arena phase.
+
+**Frozen sub-denominator (strict re-enumeration of the census's 22
+"token equality" predicates, single-if iteration bodies only): 16 examined,
+10 in the member-compare shape, of which 7 in-scope** (single `==`/`!=` of
+`cursor->field` vs a call-free, cursor-free rhs; no break/continue/goto; no
+else; every op inside the guard extent). **7/7 MATCH:**
+
+- T2: abx500_remove_ops
+- T3: iio_map_array_unregister_locked (reversed operands: `param == e->field`),
+  mlx5_macsec_del_roce_gid, mei_cl_vtag_remove_by_fp, bnx2fc_free_vport,
+  mem_cgroup_oom_unregister_event, dcbnl_flush_dev (model dialect
+  `field(id, F_IFINDEX)` vs abx500's `tokf(id, T_DEV)` — both accepted by
+  correspondence, which requires the model's T_*/F_* constant to NAME the
+  same member the C compares, with the same operator; a model comparing a
+  different member is the net_unlink_todo banked-model-defect family,
+  refused by name)
+
+The other 9: **3 break-variants refused** (`tok_guard:break_in_loop` —
+iort_delete_fwnode, iort_deregister_domain_token,
+pci_dev_res_remove_from_list: delete-FIRST-and-stop differs from delete-all
+under duplicate tokens, so modeling break as absent would be exactly the
+over-credit this arena was built to catch; next sub-class), 6 out-of-class
+(truthiness+else = or_null, per-node list_empty, range compare, 3 multi-if).
+
+Negative controls, measured on BOTH shapes (del-only abx500, del+kfree
+dcbnl_flush_dev):
+
+| sabotage | abx500_remove_ops | dcbnl_flush_dev |
+|---|---|---|
+| wrong_field (compare `id`, not the token member) | DIVERGE | DIVERGE |
+| flip_guard (`==` -> `!=`) | DIVERGE | DIVERGE |
+| drop_guard (unconditional del/kfree) | DIVERGE | DIVERGE |
+
+Full census re-pass: **T2 147/184 MATCH** (164 front-accepted, 17
+op_count_mismatch banked-model defects unchanged), **T3 102/131 MATCH**
+(refusals now: 8 plain_iteration_with_mutation, 8 op_count_mismatch,
+5 tok_guard, 5 conditional_body, 2 multi_head_iteration,
+1 conditional_loop_body), zero unexplained diverges in either tier.
+Remaining conditional classes: or_null truthiness (25), break-variants (3).

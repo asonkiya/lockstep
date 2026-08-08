@@ -148,6 +148,12 @@ def c_ops(rel, fn):
         _apply_guard(ops, guard)
     if guard and it is not None:
         it["guard"] = guard["loop_guard"]
+        if guard.get("tok"):
+            it["tok"] = guard["tok"]
+            lo, hi = guard["tok_extent"]
+            for o in ops:
+                if not (lo <= o["pos"] < hi):
+                    raise Refused("tok_guard:ops_outside_guard")
     # T3 guards, fail-closed. (a) A body with 2+ distinct iterated heads is a
     # multi-list function — collapsing them into one emitted walk would be
     # silently wrong. (b) The freed pointer must be the node being operated on:
@@ -211,10 +217,11 @@ def _parse_guard(body, it):
     if it is not None:
         lm0 = re.search(r"\blist_for_each_entry(?:_safe)?\s*\(", body)
         if lm0 and m.start() > lm0.start():
-            # a guard INSIDE the loop body — regardless of predicate form,
-            # per-element conditions are out of this class (fuse's second
-            # list_head per node, abx500's token equality)
-            raise Refused("conditional_loop_body:guard_in_loop")
+            # a guard INSIDE the loop body: the only supported shape is the
+            # tokf equality class (member ==/!= loop-invariant token) — the
+            # per-element condition the ADT models express as
+            # `if tokf(id, T_*) == a0`. Everything else stays refused.
+            return _parse_tok_guard(body, m, lm0)
     pargs, pend = _split_call(body, m.end() - 1)
     pred = ",".join(pargs).strip()
     pm = re.fullmatch(r"(!?)\s*list_empty\s*\(\s*([^()]+?)\s*\)", pred)
@@ -274,6 +281,72 @@ def _parse_guard(body, it):
     return {"pol": pol, "pred": pred_expr, "extent": extent,
             "inverts_rest": inverts_rest, "if_start": m.start(),
             "loop_guard": None}
+
+
+def _parse_tok_guard(body, ifm, lm0):
+    """Tokf equality class, fail-closed: iterate, compare ONE cursor member
+    against a loop-invariant token, del/kfree on match. Predicate forms
+    `cursor->field ==|!= rhs` or `rhs ==|!= cursor->field`; rhs must be a
+    call-free param path (`x` / `x->y` / `x.y`) that never names the cursor
+    (a cursor-dependent rhs is not a token). `break`/`continue`/`goto` change
+    which matches are deleted under DUPLICATE tokens — the delete-first-and-
+    stop shape is refused this slice, not silently modeled as delete-all."""
+    if re.search(r"\b(break|continue|goto)\b", body):
+        raise Refused("tok_guard:break_in_loop")
+    if re.search(r"\belse\b", body):
+        raise Refused("tok_guard:else_branch")
+    largs, _ = _split_call(body, lm0.end() - 1)
+    cursor = largs[0].strip()
+    pargs, pend = _split_call(body, ifm.end() - 1)
+    pred = " ".join(",".join(pargs).split())
+    rhs_pat = r"[A-Za-z_]\w*(?:\s*(?:->|\.)\s*\w+)*"
+    ma = re.fullmatch(rf"{re.escape(cursor)}\s*->\s*(\w+)\s*(==|!=)\s*({rhs_pat})", pred)
+    mb = re.fullmatch(rf"({rhs_pat})\s*(==|!=)\s*{re.escape(cursor)}\s*->\s*(\w+)", pred)
+    if ma:
+        field, op, rhs = ma.group(1), ma.group(2), ma.group(3)
+    elif mb:
+        rhs, op, field = mb.group(1), mb.group(2), mb.group(3)
+    else:
+        raise Refused(f"conditional_loop_body:non_tok_pred:{pred[:40]}")
+    if re.search(rf"\b{re.escape(cursor)}\b", rhs):
+        raise Refused("tok_guard:rhs_uses_cursor")
+    # guard extent: every list op / kfree in the loop must sit INSIDE it —
+    # an op outside the guard would be silently unconditionalized
+    i = pend
+    while i < len(body) and body[i] in " \t\n":
+        i += 1
+    if body[i] == "{":
+        d, j = 0, i
+        while j < len(body):
+            d += body[j] == "{"
+            d -= body[j] == "}"
+            j += 1
+            if d == 0:
+                break
+        extent = (i, j)
+    else:
+        extent = (i, body.index(";", i) + 1)
+    return {"loop_guard": None, "tok": {"field": field, "op": op},
+            "tok_extent": extent}
+
+
+def _check_tok_model(tok, abody, fn):
+    """Correspondence for the tokf class: the verified model must compare the
+    SAME member the C compares (its T_*/F_* constant names the field), with
+    the same operator. A model comparing a different member verified while
+    describing a different function — the banked-model defect family
+    (net_unlink_todo); refused by name, never gated."""
+    want = tok["field"].upper()
+    hits = re.findall(r"(?:tokf|field)\s*\(\s*\w+\s*,\s*[TF]_([A-Z0-9_]+)\s*\)"
+                      r"(?:\s+as\s+\w+)?\s*(==|!=)", abody)
+    if not hits:
+        raise Refused(f"tokf_field_mismatch:model_has_no_tok_compare,c={tok['field']}")
+    fields = {f for f, _o in hits}
+    if want not in fields:
+        raise Refused(f"tokf_field_mismatch:model={sorted(fields)},c={tok['field']}")
+    ops = {o for f, o in hits if f == want}
+    if tok["op"] not in ops:
+        raise Refused(f"tokf_polarity_mismatch:model={sorted(ops)},c={tok['op']}")
 
 
 def _apply_guard(ops, g):
@@ -449,6 +522,8 @@ def emit_realized(rel, fn, L, sabotage=None):
         # the verified model never consulted emptiness while the C guards on
         # it — a correspondence failure, same family as op_count_mismatch
         raise Refused("no_empty_in_model")
+    if it and it.get("tok"):
+        _check_tok_model(it["tok"], abody, fn)
     if len({o["c_op"] for o in cops}) != len(cops) and len(cops) > 1:
         pass                        # repeated same op is fine
     lines = []
@@ -494,6 +569,20 @@ def emit_realized(rel, fn, L, sabotage=None):
         # per-iteration ops act on `pos`; the walk shape is dictated by the
         # C's safe/plain choice (see _classify_iteration).
         inner = "\n".join(l.replace("entry", "pos") for l in lines)
+        tok = None if sabotage == "drop_guard" else it.get("tok")
+        if tok:
+            # token read via container arithmetic from the link pointer —
+            # wrong_field reads a DIFFERENT member (the id), the exact
+            # translation defect this class risks
+            fld = "id as i64" if sabotage == "wrong_field" else "payload"
+            cmp_ = tok["op"]
+            if sabotage == "flip_guard":
+                cmp_ = "!=" if cmp_ == "==" else "=="
+            inner = (f"            let node = (pos as *mut u8)"
+                     f".sub(core::mem::offset_of!(Node, lh)) as *mut Node;\n"
+                     f"            if ((*node).{fld}) {cmp_} tok {{\n"
+                     + "\n".join("    " + l for l in inner.splitlines())
+                     + "\n            }")
         if sabotage == "unsafe_iter":       # emit the plain walk for a _safe loop
             walk = f"""        let mut pos = (*head).next;
         while pos != head {{
@@ -517,8 +606,10 @@ def emit_realized(rel, fn, L, sabotage=None):
         if loop_guard:                       # the early-return-before-walk form
             walk = ("        if (*head).next != head {\n"
                     + walk + "\n        }")
+        sig_tok = ", tok: i64" if it.get("tok") else ""
         return f"""
-#[no_mangle] pub extern "C" fn realized_iter(head: *mut ListHead) {{
+#[no_mangle] #[allow(unused_variables)]
+pub extern "C" fn realized_iter(head: *mut ListHead{sig_tok}) {{
     unsafe {{
 {walk}
     }}
@@ -569,6 +660,12 @@ def _ref_c(cops, L, it=None):
         else:
             iter_calls.append(f"        {o['c_op']}(&pos->lh, &C_HEAD);")
     ITER_BODY = chr(10).join(iter_calls) if it else "        (void)pos;"
+    if it and it.get("tok"):
+        # the C side reads the REAL arena member and applies the C's operator
+        ITER_BODY = (f"        if (pos->payload {it['tok']['op']} tok) {{\n"
+                     + "\n".join("    " + l for l in ITER_BODY.splitlines())
+                     + "\n        }")
+    ITER_SIG = "long tok" if (it and it.get("tok")) else "void"
     ITER_GUARD = ("    if (list_empty(&C_HEAD)) return;\n"
                   if (it and it.get("guard")) else "")
     return f"""
@@ -606,7 +703,11 @@ static void cgir_free_ev(struct list_head *p);
 void c_reset(void) {{
     FN = 0;
     INIT_LIST_HEAD(&C_HEAD);
-    for (int i = 0; i < {NN}; i++) {{ C_ARENA[i].id = i; INIT_LIST_HEAD(&C_ARENA[i].lh); }}
+    /* payload doubles as the TOKEN field, with DUPLICATES (i%3) so token
+     * guards distinguish match-subsets: delete-all, delete-none and
+     * wrong-field all produce different chains */
+    for (int i = 0; i < {NN}; i++) {{ C_ARENA[i].id = i;
+        C_ARENA[i].payload = i % 3; INIT_LIST_HEAD(&C_ARENA[i].lh); }}
     /* pre-populate so del/move have something to operate on */
     for (int i = 0; i < {NN}; i++) list_add_tail(&C_ARENA[i].lh, &C_HEAD);
 }}
@@ -615,11 +716,12 @@ void c_reset(void) {{
 void c_reset_empty(void) {{
     FN = 0;
     INIT_LIST_HEAD(&C_HEAD);
-    for (int i = 0; i < {NN}; i++) {{ C_ARENA[i].id = i; INIT_LIST_HEAD(&C_ARENA[i].lh); }}
+    for (int i = 0; i < {NN}; i++) {{ C_ARENA[i].id = i;
+        C_ARENA[i].payload = i % 3; INIT_LIST_HEAD(&C_ARENA[i].lh); }}
 }}
 #define lh_to_node(p) ((struct cgir_node *)((char *)(p) - offsetof(struct cgir_node, lh)))
 /* the REAL list_for_each_entry_safe expansion: `n` is computed BEFORE the body */
-void c_call_iter(void) {{
+void c_call_iter({ITER_SIG}) {{
 {ITER_GUARD}    struct cgir_node *pos, *n;
     for (pos = lh_to_node(C_HEAD.next), n = lh_to_node(pos->lh.next);
          &pos->lh != &C_HEAD;
@@ -675,10 +777,15 @@ int c_snapshot(long *buf) {{
 
 
 def _cand_rs(realized, L, it=None):
-    ENTRY = ('#[no_mangle] pub extern "C" fn r_call_iter() { unsafe { '
-             'realized_iter(&raw mut R_HEAD); }}' if it else
-             '#[no_mangle] pub extern "C" fn r_call(a: i32) { unsafe { '
-             'realized_op(&raw mut R_ARENA[a as usize].lh, &raw mut R_HEAD); }}')
+    if it and it.get("tok"):
+        ENTRY = ('#[no_mangle] pub extern "C" fn r_call_iter(tok: i64) { unsafe { '
+                 'realized_iter(&raw mut R_HEAD, tok); }}')
+    elif it:
+        ENTRY = ('#[no_mangle] pub extern "C" fn r_call_iter() { unsafe { '
+                 'realized_iter(&raw mut R_HEAD); }}')
+    else:
+        ENTRY = ('#[no_mangle] pub extern "C" fn r_call(a: i32) { unsafe { '
+                 'realized_op(&raw mut R_ARENA[a as usize].lh, &raw mut R_HEAD); }}')
     return LM.emit_mirror(L) + realized + f"""
 #[repr(C)]
 pub struct Node {{ pub id: i32, pub lh: ListHead, pub payload: i64 }}
@@ -713,12 +820,16 @@ unsafe fn chain_digest() -> u64 {{
 #[no_mangle] pub extern "C" fn r_reset_empty() {{ unsafe {{
     FN_ = 0;
     INIT_LIST_HEAD(&raw mut R_HEAD);
-    for i in 0..{NN} {{ R_ARENA[i].id = i as i32; INIT_LIST_HEAD(&raw mut R_ARENA[i].lh); }}
+    for i in 0..{NN} {{ R_ARENA[i].id = i as i32;
+        R_ARENA[i].payload = (i % 3) as i64;
+        INIT_LIST_HEAD(&raw mut R_ARENA[i].lh); }}
 }}}}
 #[no_mangle] pub extern "C" fn r_reset() {{ unsafe {{
     FN_ = 0;
     INIT_LIST_HEAD(&raw mut R_HEAD);
-    for i in 0..{NN} {{ R_ARENA[i].id = i as i32; INIT_LIST_HEAD(&raw mut R_ARENA[i].lh); }}
+    for i in 0..{NN} {{ R_ARENA[i].id = i as i32;
+        R_ARENA[i].payload = (i % 3) as i64;
+        INIT_LIST_HEAD(&raw mut R_ARENA[i].lh); }}
     for i in 0..{NN} {{ list_add_tail(&raw mut R_ARENA[i].lh, &raw mut R_HEAD); }}
 }}}}
 {ENTRY}
@@ -754,7 +865,11 @@ extern void c_reset(void); extern int c_snapshot(long*); extern int r_snapshot(l
 extern void r_reset(void);
 extern int c_freelog(long*); extern int r_freelog(long*);
 #if ITER_MODE
+#if TOK_MODE
+extern void c_call_iter(long); extern void r_call_iter(long);
+#else
 extern void c_call_iter(void); extern void r_call_iter(void);
+#endif
 #else
 extern void c_call(int); extern void r_call(int);
 #endif
@@ -775,12 +890,23 @@ static long CB[4096], RB[4096];
         printf("CREALIZE verdict=DIVERGE step=%s freelog=%d c=%ld r=%ld\\n",step,j,CB[j],RB[j]); return 1; } }
 static int adt_len(long *b, int n) { for (int i=0;i<n;i++) if (b[i]==-7) return i; return n; }
 static int adt_flog(long *b, int n) { for (int i=0;i+1<n;i+=2) b[i/2]=b[i]; return n/2; }
-#if COND_MODE
+#if COND_MODE || TOK_MODE
 extern void c_reset_empty(void); extern void r_reset_empty(void);
 #endif
 int main(void) {
     c_reset(); r_reset(); CMP("init"); FCMP("init");
 #if ITER_MODE
+#if TOK_MODE
+    /* token sweep with DUPLICATE arena tokens (i%3): t=0..2 delete different
+     * subsets, t=3 matches nothing; plus the drained-arena phase */
+    for (long t = 0; t <= 3; t++) {
+        c_reset(); r_reset(); CMP("treset"); FCMP("treset");
+        c_call_iter(t); r_call_iter(t); CMP("titer"); FCMP("titer");
+    }
+    c_reset_empty(); r_reset_empty(); CMP("treset_e"); FCMP("treset_e");
+    c_call_iter(0); r_call_iter(0); CMP("titer_e"); FCMP("titer_e");
+    printf("CREALIZE verdict=MATCH iter=1 toksweep=1 frees=%d\\n", c_freelog(CB)/2);
+#else
     c_call_iter(); r_call_iter(); CMP("iter"); FCMP("iter");
 #if COND_MODE
     /* phase 2: drained arena — the guard's other branch */
@@ -788,6 +914,7 @@ int main(void) {
     c_call_iter(); r_call_iter(); CMP("iter2"); FCMP("iter2");
 #endif
     printf("CREALIZE verdict=MATCH iter=1 frees=%d\\n", c_freelog(CB)/2);
+#endif
 #else
     for (int a = 0; a < NNODES; a++) { c_call(a); r_call(a); CMP("call"); FCMP("call"); }
 #if COND_MODE
@@ -816,6 +943,7 @@ def run_gate(rel, fn, L, sabotage=None, adt_only=False):
     r = subprocess.run(["cc", "-O2", "-w", f"-DNNODES={NN}",
                         f"-DADT_ONLY={1 if adt_only else 0}", f"-DITER_MODE={1 if it else 0}",
                         f"-DCOND_MODE={1 if (any(o.get('cond') for o in cops) or (it or {}).get('guard')) else 0}",
+                        f"-DTOK_MODE={1 if (it or {}).get('tok') else 0}",
                         os.path.join(d, "probe.c"), os.path.join(d, "ref.c"),
                         os.path.join(d, "libcand.a"), "-o", os.path.join(d, "run")],
                        capture_output=True, text=True)
