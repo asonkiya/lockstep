@@ -1,6 +1,6 @@
-# infra — the three wall-clock levers (COSTDOWN §1–§5, built)
+# infra — the wall-clock levers (COSTDOWN §1–§5, built)
 
-The 1–3-month single-laptop wall-clock collapses to days via three legs, in
+The 1–3-month single-laptop wall-clock collapses to days via these legs, in
 order of build:
 
 ## 1. `oracle/` + `grinder/` — the always-on $0 grinder
@@ -31,6 +31,22 @@ ephemeral boxes), shards work by phase; `status` / `collect DIR` / `down`.
 phases with `GRIND_SHARD=k`/`GRIND_OF=N`; `firstrun/shardlib.py` slices each
 raw worklist modulo — disjoint and exhaustive by construction
 (`dream/tests/test_shard.py`).
+
+## 4. `gpu3080/` — borrowed-GPU big pass (the $0 synth rung at speed)
+
+`push_3080.sh up user@host` turns a temporarily-borrowed x86_64 + NVIDIA box
+(RTX 3080 class) into a one-shot boot-free harvest worker: provisions via
+`setup_3080.sh` (ollama + qwen2.5-coder:14b on GPU, rustup, kernel source —
+no kernel builds, no docker), pushes the repo via rsync, and runs the
+`overnight.py` ladder with the local model doing the bulk. localbench measured
+14b at 62.5% first-pass (~85% of Haiku) at $0; the 3080 removes the wall-clock
+penalty that made the 14b rung impractical on the M2. Soundness: an x86 host
+gates for an arm64 kernel target, so setup installs a `cc` shim pinning
+`-funsigned-char` (arm64 plain-char semantics) for every gate compile.
+`status` / `collect DIR` / `stop`. This script never transports secrets; the
+Haiku tail rung activates only if the user appends the key to `~/grind/.env`
+on the box. Collected candidates re-enter the bank only through zero-trust
+re-verify on the Mac.
 
 ## Secrets discipline
 
