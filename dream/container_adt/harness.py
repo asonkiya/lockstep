@@ -342,6 +342,26 @@ def prepare(rec):
         if uses and all(u.startswith("list_add") for u in uses):
             fresh.add(p["name"])
 
+    # NULL-guarded pointer params (worklist repair 2026-08-09): a param the C
+    # null-checks gets ONE workload row passing NULL (node/entry sentinel -1,
+    # token 0), so a model that never guards the sentinel cannot verify — the
+    # pnull worklist fns shipped dead `tokf(id) == -1` guards precisely
+    # because no row ever exercised the reject path. Only null-GUARDED params
+    # qualify: passing NULL to an unguarded C fn is a crash, not a
+    # differential (fail-closed).
+    nullable = []
+    for i, p in enumerate(rec["params"]):
+        nm = p["name"]
+        if nm in holders:
+            continue
+        if not (p["kind"] in ("node", "token")
+                or (p["kind"] == "lh" and p.get("role") == "entry")):
+            continue
+        if (re.search(rf"\bif\s*\(\s*!\s*{nm}\s*\)", fn_text)
+                or re.search(rf"\bif\s*\(\s*{nm}\s*==\s*NULL\s*\)", fn_text)
+                or re.search(rf"\bif\s*\(\s*{nm}\s*\)", fn_text)):
+            nullable.append(i)
+
     fields = list(scalars)              # scalar field order
     sf_ix = {f: i for i, f in enumerate(fields)}
     tf_ix = {f: i for i, f in enumerate(tokf)}
@@ -478,12 +498,14 @@ int cadt_retlog(int *buf, int cap){{
         if p["name"] in holders:
             call_args.append(f"&__hold_{p['name']}")   # head-holder singleton
         elif p["kind"] == "node":
-            call_args.append(f"&CADT_ARENA[{a}]")
+            # -1 = NULL (only ever drawn for null-GUARDED params)
+            call_args.append(f"({a} < 0 ? 0 : &CADT_ARENA[{a}])")
         elif p["kind"] == "lh":
             if p.get("role") == "entry":
                 if len(members) > 1:
                     raise Unsupported("entry-role lh param on multi-member node")
-                call_args.append(f"&CADT_ARENA[{a}].{members[0]}")
+                call_args.append(
+                    f"({a} < 0 ? 0 : &CADT_ARENA[{a}].{members[0]})")
             else:
                 call_args.append(f"CADT_LISTS[{a}]")
         elif p["kind"] == "token":
@@ -535,8 +557,12 @@ fn del_m(m: usize, id: u32) {{ unsafe {{
     for (l, v) in LISTS.iter_mut().enumerate() {{
         if LM[l] == m {{ if let Some(p) = v.iter().position(|&x| x == id) {{ v.remove(p); }} }}
     }}
+}}}}
+fn linked_m(m: usize, id: u32) -> bool {{ unsafe {{
+    LISTS.iter().enumerate().any(|(l, v)| LM[l] == m && v.contains(&id))
 }}}}""" if multi else
-               "fn del(id: u32) { unsafe { for v in LISTS.iter_mut() { if let Some(p) = v.iter().position(|&x| x == id) { v.remove(p); } } } }")
+               """fn del(id: u32) { unsafe { for v in LISTS.iter_mut() { if let Some(p) = v.iter().position(|&x| x == id) { v.remove(p); } } } }
+fn linked(id: u32) -> bool { unsafe { LISTS.iter().any(|v| v.contains(&id)) } }""")
     del_call = "del_m(LM[l], id)" if multi else "del(id)"
     surface = f"""#![allow(non_snake_case, dead_code, static_mut_refs, unused_unsafe, unused_imports, unused_variables)]
 // generated ADT surface — lists are id-sequences; nodes are field tables.
@@ -592,7 +618,10 @@ fn retire(id: u32) {{ unsafe {{ RETIRED.push(id); }} }}
 
     # ---- deterministic workload tables ------------------------------------
     g = _lcg()
-    fresh_ids = list(range(NN - 4, NN)) if fresh else []
+    # id 0 is IN the fresh pool (worklist repair 2026-08-09): a model that
+    # conflates `id != 0` with a null check skips a valid node and diverges —
+    # the qp_list_add_entry conflation was invisible while fresh ids were 4..7.
+    fresh_ids = [0] + list(range(NN - 3, NN)) if fresh else []
     linked_ids = [i for i in range(NN) if i not in fresh_ids]
     # one attach per node per membership universe (a node sits on <=1 list of
     # each member); pool draw == old `% nl` stream when there is one member.
@@ -626,16 +655,30 @@ fn retire(id: u32) {{ unsafe {{ RETIRED.push(id); }} }}
                 consuming.add(p["name"])
         elif p["kind"] == "lh" and p.get("role") == "entry":
             consuming.add(p["name"])
-    ncalls = min(W, len(fresh_ids)) if fresh else W
+    # reserve pool capacity for the null rows (their OTHER slots draw like any
+    # row; a fn whose guard does not dominate later ops still consumes)
+    null_fresh_need = sum(1 for ni in nullable
+                          for j, p in enumerate(rec["params"])
+                          if j != ni and p["kind"] == "node"
+                          and p["name"] in fresh)
+    null_consume_need = sum(1 for ni in nullable
+                            for j, p in enumerate(rec["params"])
+                            if j != ni and p["name"] in consuming)
+    ncalls = min(W, len(fresh_ids) - null_fresh_need) if fresh else W
     if consuming:
-        ncalls = min(ncalls, len(linked_ids) // len(consuming))
+        ncalls = min(ncalls,
+                     (len(linked_ids) - null_consume_need) // len(consuming))
+    if ncalls < 1:
+        raise Unsupported("workload_starved_by_null_rows")
     fresh_pool = iter(fresh_ids)
     consume_pool = list(linked_ids)
-    calls = []
-    for _ in range(ncalls):
+
+    def _draw_row(null_ix=None):
         row = []
-        for p in rec["params"]:
-            if p["name"] in holders:
+        for j, p in enumerate(rec["params"]):
+            if j == null_ix:
+                row.append(0 if p["kind"] == "token" else -1)   # NULL
+            elif p["name"] in holders:
                 row.append(0)              # holder arg unused (trampoline passes &__hold)
             elif p["kind"] == "node":
                 row.append(next(fresh_pool) if p["name"] in fresh
@@ -657,7 +700,10 @@ fn retire(id: u32) {{ unsafe {{ RETIRED.push(id); }} }}
                 row.append(1 + next(g) % NTOK)
             else:
                 row.append([0, 1, 2, 7, -1, 3, 8, 5][next(g) % 8])
-        calls.append(row)
+        return row
+
+    calls = [_draw_row() for _ in range(ncalls)]
+    calls += [_draw_row(null_ix=ni) for ni in nullable]
 
     member_doc = ""
     if multi:
@@ -680,6 +726,14 @@ fn retire(id: u32) {{ unsafe {{ RETIRED.push(id); }} }}
                            f"the list &{pname}->{fld} is L_{pname.upper()}_{fld.upper()}"
                            f" — iterate it via iter(L_{pname.upper()}_{fld.upper()}); "
                            f"the a-arg for {pname} is an opaque handle, ignore its value.")
+    if nullable:
+        member_doc += (
+            "\n// NULL args: "
+            + ", ".join(f"a{i}" for i in nullable)
+            + " may be NULL — a NULL node/list pointer arrives as a{i} == -1"
+              " (a NULL token arg as 0). Guard EXACTLY like the C does"
+              " (e.g. `if aK == -1 { return ...; }`); never index a helper"
+              " with a negative id.")
     doc = (f"// C function under translation (from {rec['file']}):\n"
            + "\n".join("// " + ln for ln in fn_text.split("\n"))
            + "\n// Available constants:\n"
@@ -690,7 +744,10 @@ fn retire(id: u32) {{ unsafe {{ RETIRED.push(id); }} }}
            + ("del_m removes from wherever the member is linked."
               if multi else "del(id) removes from wherever the node is linked.")
            + "\n// Helpers: iter(l)->Vec<u32> (snapshot), empty(l), "
-           + ("del_m(M_*,id)," if multi else "del(id),")
+           + ("del_m(M_*,id), linked_m(M_*,id)->bool,"
+              if multi else "del(id), linked(id)->bool,")
+           + "\n//   [linked = C `!list_empty(&node->member)`: is the NODE"
+           + " on a list? use it for that C idiom, NOT empty(l)],"
            + "\n//   push_back/push_front(l,id) [list_add_tail/list_add],"
            + "\n//   move_tail/move_front(l,id), first(l)/last(l)->i64 id or -1"
            + "\n//   [list_first_entry(_or_null)/list_last_entry],"
@@ -765,7 +822,11 @@ int main(void) {
             int eq = (cn == rn);
             for (int j = 0; eq && j < cn; j++) if (cb[j] != rb[j]) eq = 0;
             if (!eq) {{
-                printf("CADT_HARNESS verdict=DIVERGE:adt call=%d list=%d cn=%d rn=%d\\n", k, l, cn, rn);
+                printf("CADT_HARNESS verdict=DIVERGE:adt call=%d list=%d cn=%d rn=%d c_seq=", k, l, cn, rn);
+                for (int j = 0; j < cn; j++) printf("%d,", cb[j]);
+                printf(" rust_seq=");
+                for (int j = 0; j < rn; j++) printf("%d,", rb[j]);
+                printf("\\n");
                 return 1;
             }}
         }}

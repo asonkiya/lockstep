@@ -97,15 +97,26 @@ def test_guarded_candidates_pass_the_gate(layout):
         assert v == "MATCH", (fn, v, out[-200:] if out else "")
 
 
-def test_wrong_object_model_is_refused_not_gated(layout):
-    # net_unlink_todo FINDING: the C guards on the NODE's own list_head
-    # ("is dev unlinked" — a self-loop test), but the banked model guards on
-    # the GLOBAL list's emptiness with an else branch — the ADT vocabulary
-    # cannot even express per-node emptiness, so the model verified while
-    # describing a different function. Correspondence must refuse it BEFORE
-    # the gate; realizing it naively would change kernel behavior.
+def test_wrong_object_model_is_refused_repaired_model_gates(layout):
+    # net_unlink_todo, post-repair (2026-08-09): the C guards on the NODE's
+    # own list_head ("is dev unlinked" — a self-loop test). The linked_m()
+    # surface helper now expresses per-node emptiness faithfully, the banked
+    # model was re-synthesized to that dialect, corresponds, and gates MATCH.
+    # A model guarding the WRONG object (the global list's emptiness, with
+    # the push duplicated across branches — the original banked defect) is
+    # still refused BEFORE the gate.
+    bad = ("if empty(L_NET_UNLINK_LIST) {\n"
+           "    push_back(L_NET_UNLINK_LIST, a0 as u32);\n"
+           "} else {\n"
+           "    let v = iter(L_NET_UNLINK_LIST);\n"
+           "    if !v.contains(&(a0 as u32)) {\n"
+           "        push_back(L_NET_UNLINK_LIST, a0 as u32);\n"
+           "    }\n"
+           "}\n0")
     with pytest.raises(_CR.Refused, match="op_count_mismatch|no_empty"):
-        _CR.emit_realized(*_ADDIF, layout)
+        _CR.model_check(*_ADDIF, bad)
+    v, _, _ = _CR.run_gate(*_ADDIF, layout)
+    assert v == "MATCH", v
 
 
 def test_dropped_guard_is_rejected_where_it_matters(layout):
@@ -298,11 +309,18 @@ def test_pnull_negative_controls(layout):
         assert v in ("DIVERGE", "CRASH", "HANG"), (sab, v)
 
 
-def test_pnull_model_dialects_join_the_worklist(layout):
+def test_pnull_dialect_refused_repaired_models_gate(layout):
+    # the tokf-sentinel dialect (a null check encoded as a field read the
+    # gate cannot execute-and-correspond) is still refused as a BODY — the
+    # check is unchanged — but the banked models of this class were repaired
+    # (2026-08-09) to the `== -1` arg-sentinel dialect and now gate MATCH.
     with pytest.raises(_CR.Refused, match="pnull_model"):
-        _CR.emit_realized(*_PN_DIALECT, layout)
-    with pytest.raises(_CR.Refused, match="op_count_mismatch|pnull_model"):
-        _CR.emit_realized(*_PN_SPUR, layout)
+        _CR._check_pnull_model(
+            "if tokf(a0 as u32, T_DEV) == 0 { return -22; }\ndel(a0 as u32);\n0")
+    v, _, _ = _CR.run_gate(*_PN_DIALECT, layout)
+    assert v == "MATCH", v
+    v, _, _ = _CR.run_gate(*_PN_SPUR, layout)
+    assert v == "MATCH", v
 
 
 def test_truthiness_out_of_class_stays_refused():

@@ -68,6 +68,9 @@ def _load_by_path(name, path):
 
 cadt_harness = _load_by_path(
     "cadt_harness", os.path.join(HERE, "..", "container_adt", "harness.py"))
+cadt_realize = _load_by_path(
+    "cadt_realize", os.path.join(HERE, "..", "container_adt",
+                                 "container_realize.py"))
 eff_harness = _load_by_path(
     "eff_harness", os.path.join(HERE, "..", "efftrace", "harness.py"))
 alloc_harness = _load_by_path(
@@ -348,6 +351,7 @@ Helper signatures (EXACT — these are the ONLY functions that exist):
   fn tokf(id: u32, t: usize) -> i64    // read node POINTER field T_* as an opaque token
   fn tok_field(h: i64, f: usize) -> i64 // read scalar field P_* of a token-object arg
   fn retire(id: u32)                   // kfree(node) — call exactly where the C frees
+  fn linked(id: u32) -> bool           // C `!list_empty(&node->member)`: is the NODE linked?
 
 Rules: use ONLY these helpers, the F_*/T_*/P_*/L_* constants, and the a0..aN
 args (pointer-struct args are opaque tokens: compare with `tokf(id, T_X) == aN`,
@@ -357,9 +361,16 @@ calls. PRESERVE C SEMANTICS EXACTLY: if the C compares `unsigned` values, cast
 both sides `as u64` before comparing (an i64 -1 is a HUGE unsigned); kernel
 error returns are numeric (-EINVAL = -22, -ENOMEM = -12, -EBUSY = -16,
 -ENOENT = -2, -EEXIST = -17). No unsafe, no statics, no external calls, no
-panics. If the C does something the helpers can't express, reply exactly
-`// UNSUPPORTED`. Output ONLY the body, no signature, no outer braces, no
-``` fences.
+panics. STRUCTURAL PARSIMONY (verified by correspondence with the C): express
+EXACTLY the C's list ops in order — never add a defensive del() before an add,
+never duplicate an op across branches when one guarded op expresses it;
+INIT_LIST_HEAD on the node's own member (fresh node / sub-anchor) is a NO-OP —
+omit it. If the C null-checks a pointer arg, the NULL case arrives as that arg
+== -1 (token args: 0): guard exactly like the C (`if aK == -1 {{ return ...; }}`),
+never as a tokf()/field() read. For C `if (!list_empty(&node->member))` use
+linked(id) / linked_m(M_*, id), NOT empty(L_*). If the C does something the
+helpers can't express, reply exactly `// UNSUPPORTED`. Output ONLY the body,
+no signature, no outer braces, no ``` fences.
 """
 
 
@@ -381,6 +392,22 @@ def solve_container(item, done):
         with tempfile.TemporaryDirectory() as d:
             r = cadt_harness.close(prep, body, workdir=d)
         if r["verdict"] == "MATCH":
+            # correspondence IN THE SYNTH LOOP (worklist repair 2026-08-09):
+            # behavioral equivalence on the legal envelope cannot kill a
+            # spurious-del / dead-guard model — structure is checked here so
+            # the bank never accumulates non-corresponding models again.
+            # C-side front refusals = out of realize scope, not a defect.
+            try:
+                cadt_realize.model_check(rel, fn, body)
+            except cadt_realize.Refused as e:
+                if str(e).startswith(("op_count_mismatch", "op_class_mismatch",
+                                      "no_empty_in_model", "ornull_model",
+                                      "pnull_model", "tokf_field_mismatch")):
+                    return False, (f"verdict=MATCH but the model does not "
+                                   f"structurally correspond to the C: {e}. "
+                                   f"Express EXACTLY the C's ops.")
+            except Exception:
+                pass
             return True, ""
         # feed compile errors / divergence back for the repair round; coverage
         # refusals are the WORKLOAD's fault, not the candidate's — no repair.

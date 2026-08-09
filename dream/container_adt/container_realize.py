@@ -163,6 +163,24 @@ def c_ops(rel, fn):
         ops.append(o)
     if not ops:
         raise Refused("no_list_ops_in_c")
+    # the gate arena links nodes through ONE probed member: ops that mutate
+    # through TWO different members of the node (rio_mport_delete_*_filter,
+    # free_cg_rpool_locked) would be collapsed onto one offset — a
+    # double-del there is a LIST_POISON deref (measured CRASH, 2026-08-09),
+    # and a silent collapse is worse. Refused by name; the multi-member
+    # arena is a future feature, same family as multi_head_iteration.
+    # INIT_LIST_HEAD is exempt: a self-loop init is a no-op on the fresh
+    # arena regardless of which member it names.
+    mut_members = set()
+    for o in ops:
+        if o["c_op"] in ("kfree", "INIT_LIST_HEAD"):
+            continue
+        am1 = re.fullmatch(r"&\s*([A-Za-z_]\w*)\s*->\s*(\w+)",
+                           (o["args"][0] or "").strip())
+        if am1:
+            mut_members.add(am1.group(2))
+    if len(mut_members) > 1:
+        raise Refused(f"multi_member_ops:{','.join(sorted(mut_members))}")
     if guard and it is None and guard.get("kind") == "ornull":
         # the POP shape: exactly one del-class op on &x->member, inside the
         # guard, plus the value leg (`return x`) — anything else is an unseen
@@ -557,8 +575,20 @@ def _split_call(s, open_idx):
 # 2. abstract ops from the VERIFIED ADT model  (used only for correspondence)
 # ---------------------------------------------------------------------------
 
-_ADT_OPS = ("push_back", "push_front", "del", "move_tail", "move_front",
-            "iter", "empty", "first", "last", "retire", "set_field", "field")
+_ADT_OPS = ("push_back", "push_front", "del_m", "del", "move_tail",
+            "move_front", "iter", "empty", "first", "last", "retire",
+            "set_field", "field")
+
+
+def _adt_seq(body):
+    """Ordered ADT op names in a model body. `del_m(M_X, id)` — the
+    multi-membership dialect the surface itself generates — counts as `del`:
+    8 T3 banked models were structurally CORRECT and refused only because
+    this parser could not see del_m (worklist repair 2026-08-09)."""
+    seq = [mm.group(1) for mm in
+           re.finditer(r"(?<![\w])(" + "|".join(_ADT_OPS) + r")\s*\(", body)]
+    return ["del" if o == "del_m" else o
+            for o in seq if o not in ("field", "set_field")]
 
 
 def adt_ops(rel, fn):
@@ -571,9 +601,7 @@ def adt_ops(rel, fn):
     if not m:
         raise Refused("no_rs_call_body")
     body = m.group(1)
-    seq = [mm.group(1) for mm in
-           re.finditer(r"(?<![\w])(" + "|".join(_ADT_OPS) + r")\s*\(", body)]
-    return [o for o in seq if o not in ("field", "set_field")], body
+    return _adt_seq(body), body
 
 
 # ---------------------------------------------------------------------------
@@ -595,16 +623,35 @@ def _canon(seq):
 
 def correspond(cops, aops):
     """The C's mutating ops must line up with the model's, after canonicalising
-    moves into del+push on both sides."""
+    moves into del+push on both sides. A C-side INIT_LIST_HEAD op is OPTIONAL
+    on the model side: the harness surface documents fresh-node / sub-anchor
+    INIT as a no-op (models were told to omit it), while the older banked
+    dialect renders it as `del` — both align. The realized emission takes its
+    concrete ops from the REAL C either way, so the woven code still performs
+    the INIT and the gate compares identical concrete ops on both sides; only
+    the correspondence witness is relaxed, and only for INIT."""
     mutators = [o for o in aops if o in ("push_back", "push_front", "del",
                                          "move_tail", "move_front", "retire")]
     a_can = _canon(mutators)
-    c_can = _canon([o["adt"] for o in cops])
-    if len(a_can) != len(c_can):
-        raise Refused(f"op_count_mismatch:c={len(c_can)},adt={len(a_can)}")
-    for i, (a, c) in enumerate(zip(a_can, c_can)):
-        if a != c:
-            raise Refused(f"op_class_mismatch@{i}:adt={a},c={c}")
+    c_items = []                     # (class, optional) in canonical order
+    for o in cops:
+        for cls in _CANON.get(o["adt"], [o["adt"]]):
+            c_items.append((cls, o["c_op"] == "INIT_LIST_HEAD"))
+
+    def _align(ci, ai):
+        if ci == len(c_items):
+            return ai == len(a_can)
+        cls, opt = c_items[ci]
+        if ai < len(a_can) and a_can[ai] == cls and _align(ci + 1, ai + 1):
+            return True
+        return opt and _align(ci + 1, ai)
+
+    if not _align(0, 0):
+        n_req = sum(1 for _, opt in c_items if not opt)
+        raise Refused(f"op_count_mismatch:c={len(c_items)},adt={len(a_can)}"
+                      if len(a_can) < n_req or len(a_can) > len(c_items)
+                      else f"op_class_mismatch:c={[c for c, _ in c_items]},"
+                           f"adt={a_can}")
     return list(zip(mutators, cops))
 
 
@@ -628,6 +675,58 @@ def _eff_cond(o, sabotage):
     return c
 
 
+def _check_empty_consult(cops, it, abody):
+    """The model must consult the SAME emptiness the C guards on — else it
+    verified while describing a different function (the original
+    no_empty_in_model family). Dialects by guard target:
+      * head-target (`list_empty(&head)`): `empty(` — the list_empty class.
+      * entry-target (`list_empty(&node->member)`, i.e. "is the NODE
+        linked?"): `linked(`/`linked_m(` or an `iter(..).contains` scan.
+      * EXCEPTION (canonically redundant): a not_empty guard on a del-class
+        op's OWN member needs no consult — del of an unlinked-inited node is
+        a no-op on both gate sides (measured in the list_empty class:
+        drop_guard on a guarded del_init MATCHes); the guard is a C-side
+        optimization, and the emission still emits it from the C ops."""
+    need_head = it is not None and bool(it.get("guard"))
+    need_entry = False
+    for o in cops:
+        c = o.get("cond")
+        if not c or c[0] not in ("empty", "not_empty"):
+            continue
+        if c[1] == "head":
+            need_head = True
+        elif c[0] == "not_empty" and o["adt"] == "del":
+            continue                     # redundant self-membership guard
+        else:
+            need_entry = True
+    if need_head and "empty" not in abody:
+        raise Refused("no_empty_in_model")
+    if need_entry and not re.search(r"\blinked(?:_m)?\s*\(|\.contains\s*\(",
+                                    abody):
+        raise Refused("no_empty_in_model:entry_target_needs_linked")
+
+
+def model_check(rel, fn, abody):
+    """Structural correspondence of a model BODY against the real C — the
+    full model-side check battery, usable at synth time (before banking) and
+    at re-verification. Raises Refused; C-side front refusals propagate (the
+    fn is out of realize scope, which is not a model defect)."""
+    cops, _t, it = c_ops(rel, fn)
+    if it is None:
+        correspond(cops, _adt_seq(abody))
+    conds = {o["cond"][0] for o in cops if o.get("cond")}
+    if it and it.get("guard"):
+        conds.add("not_empty")
+    if conds & {"empty", "not_empty"}:
+        _check_empty_consult(cops, it, abody)
+    if "ornull" in conds:
+        _check_ornull_model(abody)
+    if conds & {"nonnull", "null"}:
+        _check_pnull_model(abody)
+    if it and it.get("tok"):
+        _check_tok_model(it["tok"], abody, fn)
+
+
 def emit_realized(rel, fn, L, sabotage=None):
     cops, ctext, it = c_ops(rel, fn)
     aops, abody = adt_ops(rel, fn)
@@ -636,10 +735,8 @@ def emit_realized(rel, fn, L, sabotage=None):
     conds = {o["cond"][0] for o in cops if o.get("cond")}
     if it and it.get("guard"):
         conds.add("not_empty")
-    if conds & {"empty", "not_empty"} and "empty" not in abody:
-        # the verified model never consulted emptiness while the C guards on
-        # it — a correspondence failure, same family as op_count_mismatch
-        raise Refused("no_empty_in_model")
+    if conds & {"empty", "not_empty"}:
+        _check_empty_consult(cops, it, abody)
     if "ornull" in conds:
         _check_ornull_model(abody)
     if conds & {"nonnull", "null"}:

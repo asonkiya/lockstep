@@ -529,3 +529,98 @@ delete-first-and-stop semantics). Banked-model worklist now 29 named fns:
 spurious-del + 8 T3, the net_unlink_todo/o2net/ocfs2 findings among them)
 + 3 pnull_model (acpi_scan_add_handler, nfp_port_free,
 nand_ecc_unregister_on_host_hw_engine).
+
+## Banked-model repair (2026-08-09) — the 29-fn worklist dispositioned
+
+Workload-first, per the audit discipline: the bank's defective models had
+passed verification because the workload had measured holes. Every hole was
+PROVEN (stored model passes the old workload, fails the strengthened one)
+before any model was touched; the whole 344-model bank was then re-verified
+and repaired to **344/344 behaviorally MATCHing + structurally corresponding**.
+
+**The holes, measured (old → new on the stored models):**
+
+| hole | proof fn | old | new |
+|---|---|---|---|
+| no NULL row: pnull models shipped DEAD `tokf(id)==-1` guards, reject path never exercised | acpi_scan_add_handler (+nfp_port_free, nand_ecc_unregister) | MATCH | KILLED (panic/DIVERGE on the null row) |
+| fresh pool never held id 0: `id != 0` passed as a null check | qp_list_add_entry | MATCH | DIVERGE:adt (id-0 row: push skipped) |
+| spurious `del()` before add: envelope-equal, NO workload can kill it (a linked node into bare `list_add` is caller-contract violation → corruption, not a differential) | esp_put_ent | MATCH | MATCH — caught by CORRESPONDENCE instead (op_count c=1,adt=2) |
+
+Workload strengthening (`harness.py`): (1) one NULL row per null-GUARDED
+pointer param (node/entry sentinel −1, token 0; unguarded fns get none —
+fail-closed), with pool reservations so null rows never starve consuming
+draws; (2) fresh pool = {0, 5, 6, 7}; (3) `linked(id)`/`linked_m(M_*,id)`
+surface helpers — the faithful dialect for C `!list_empty(&node->member)`;
+(4) DIVERGE:adt now prints both id-sequences (counterexample feedback; it is
+what landed the last repair).
+
+**Realizer dialect gaps — 10 of the 29 were NOT model defects:**
+`adt_ops` could not parse `del_m(M_X, id)` (the multi-membership dialect the
+surface itself generates) — the 8 T3 "op_count" fns (dca_free_domain,
+__esw_qos_free_node, nxp_c45_secy_free, __team_option_inst_del,
+ddebug_table_free, rio_mport_delete_db_filter, rio_mport_delete_pw_filter,
+free_cg_rpool_locked) had CORRECT models all along. And `correspond` now
+treats a C-side INIT_LIST_HEAD as optional on the model side (backtracking
+alignment; the surface documents fresh-node/sub-anchor INIT as a no-op, the
+older banked dialect renders it as `del` — both align; emission still emits
+the INIT from the C, so the realized gate compares identical concrete ops)
+— which cleared rdmacg_register_device (c=3) and response_list_add (c=2).
+`_check_empty_consult` replaces the `no_empty_in_model` string check:
+head-target guards still demand `empty(`; entry-target guards accept the
+`linked`/`contains` dialect; a not_empty guard on a del-class op's OWN member
+is canonically redundant (measured in the list_empty class) and needs no
+consult.
+
+**Bank-wide re-verify (all 344, strengthened workload + correspondence):**
+323 clean on first pass; 21 fails = the 19 remaining worklist fns + **2 NEW
+findings only the null rows could catch**: mmc_pwrseq_register (DIVERGE:ret —
+model returns the wrong value for a NULL arg) and
+nand_ecc_register_on_host_hw_engine (panic on NULL — the register twin,
+previously on no list). Re-synthesis (Haiku, behavioral MATCH **and**
+`model_check` correspondence in the loop): 21/21 repaired, **$0.078** total.
+Final pass: **344/344 clean, zero exceptions, zero refused-by-name residue**.
+
+Pipeline hardening: `overnight.py`'s container gate now runs
+`container_realize.model_check` at synth time (a MATCHing but
+non-corresponding candidate is refused with feedback), and its prompt carries
+the parsimony / NULL-sentinel / linked-dialect rules — the bank cannot
+re-accumulate this defect class. Re-verification driver:
+`dream/container_adt/reverify.py` (`--resynth` to repair).
+
+**Full census re-pass after repair (solo, 2026-08-09):** **T2 180/184 MATCH,
+zero fails** (front refusals now only 3 conditional_body + 1 cross_list_move
+— every op_count/pnull refusal converted); **T3 109/131 MATCH, zero fails**
+(refusals: 8 plain_iteration_with_mutation, 5 tok_guard, 3 multi_member_ops,
+3 conditional_body, 2 multi_head_iteration, 1 conditional_loop_body).
+**Containers realized: 289/344** (was 263).
+
+One finding the repair EXPOSED: the three multi-member del fns
+(rio_mport_delete_db_filter, rio_mport_delete_pw_filter,
+free_cg_rpool_locked — `list_del` through TWO different members + kfree) had
+been accidentally shielded by the del_m parse gap; once front-accepted they
+CRASHed the realized gate (the single-member arena collapses both dels onto
+one probed offset → double-del → LIST_POISON deref). Now refused by name —
+`multi_member_ops` — before the differential; the multi-member arena is a
+future feature in the same family as multi_head_iteration. Their BANKED
+models are correct and behaviorally verified (the ADT harness models
+per-member lists natively); only realize/weave waits on the arena.
+
+Worklist disposition, all 29 by name:
+- **REALIZED via realizer dialect fixes alone (10):** dca_free_domain,
+  __esw_qos_free_node, nxp_c45_secy_free, __team_option_inst_del,
+  ddebug_table_free (del_m parse); rdmacg_register_device,
+  response_list_add (INIT-optional correspondence) — models untouched;
+  rio_mport_delete_db_filter, rio_mport_delete_pw_filter,
+  free_cg_rpool_locked (del_m parse → bank-clean, realize-refused
+  multi_member_ops as above).
+- **REPAIRED by re-synthesis, now gate MATCH (19):** the 13 spurious-del
+  (qp_list_add_entry, esp_put_ent, padata_work_free, barn_put_full_sheaf,
+  klist add_tail, __bnep_link_session, xsk_map_sock_add,
+  __dlm_mle_attach_hb_events, dfl_fpga_cdev_add_port_data,
+  mtk_mdp_register_component, pinctrl_add_gpio_range, vduse_enqueue_msg,
+  vduse_enqueue_msg_head); net_unlink_todo + o2net_debug_del_nst +
+  ocfs2_resv_mark_lru (linked-dialect); acpi_scan_add_handler,
+  nfp_port_free, nand_ecc_unregister_on_host_hw_engine (arg-sentinel null
+  guards).
+- **Plus the 2 NEW null-row findings, repaired:** mmc_pwrseq_register,
+  nand_ecc_register_on_host_hw_engine.
