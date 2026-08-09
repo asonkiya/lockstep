@@ -93,6 +93,82 @@ function hard, not by hope.** The "unbounded" tail is ~94% attackable
   per-shared-library engineering. The first official rewrite: 8 boot-verified Rust
   fns in 8 min for **8¢**, 0 false passes (`dream/firstrun/`).
 
+## The census-shrinkage law (name it, budget by it)
+
+Stage populations shrink **2–5× on contact**, every time, and the shrinkage is
+the finding — each drop names a real semantic boundary:
+
+- or_null truthiness: census **25 → 18** surviving → **14** in-scope (14/14 MATCH).
+- tokf equality: census **22 → 16** conditional-iteration → 10 member-compare →
+  **7** in-scope (7/7 MATCH); the 3 break-variants refused for a real reason
+  (delete-first-and-stop ≠ delete-all under duplicate tokens).
+- weave eligibility: 289 realized → **44** defconfig-eligible (config linking, not
+  machinery).
+
+Corollary: price levers by the *post-shrinkage* number; pre-register the ladder
+(census → shape → in-scope → verified) so the shrinkage is disclosed, not hidden.
+
+## The workload-hole lessons (why coverage is now a gate precondition)
+
+One root cause produced every model-bank defect class: **the gate declared MATCH
+for functions whose predicates were never exercised on both sides.**
+
+- pnull models shipped dead null-guards and verified — the workload had **no null
+  row** (acpi_scan_add_handler; + 2 more only the new null rows caught:
+  mmc_pwrseq_register wrong-return-on-NULL, nand_ecc panic-on-NULL).
+- `id != 0` passed as a null check — the fresh pool **never held id 0**.
+- flip_guard **no-oped on one emission shape** — a vacuous negative control (the
+  vacuous-gate trap again, one level up: controls must be *seen to fail* per
+  emission shape, not per mechanism).
+
+The generalization (6ee6534): coverage counters in the C reference; **no MATCH
+with a single-polarity guard or dead op** — fail-closed. Proven by reconstructing
+the old bad workloads: the historical false-passers are refused by the coverage
+check *alone*. "Did we think of the case" became a measured precondition.
+
+Two codicils from the same repair (1512727, bank 344/344 clean, $0.08):
+- **10 of the 29 "model defects" were tooling** — the verifier couldn't parse the
+  correct answer (`del_m` dialect; over-strict `INIT_LIST_HEAD`). Before
+  re-synthesizing a "bad" model, check the checker.
+- **Some defects are workload-unkillable by construction** — spurious-del
+  (esp_put_ent): within the caller contract no input distinguishes it (an
+  already-linked node into `list_add` is corruption, not a differential). Caught
+  structurally by correspondence-in-the-verify-loop. Differential and structural
+  checks are complementary; neither subsumes the other.
+
+## The presence lessons (what the weave batches taught)
+
+- **`.o`-exists ≠ linked-into-vmlinux.** Our own probe passes force-build orphan
+  objects (cxgb4_mps.o existed with CONFIG_CHELSIO_T4 unset) → a weave can ship
+  into an object the kernel never links. Eligibility now checks the object's
+  first defined global against vmlinux; a batch-time **seam-reference check**
+  counts any unreferenced `_rs` as ABSENT. The stricter symbol-level fix was
+  tried and **rejected on evidence** — it would have dropped 21 boot-verified
+  inlined statics.
+- **Batched probe make needs `-k`.** One CONFIG-gated field's probe failure
+  aborted the whole `-j` make and *collaterally broke two previously
+  boot-verified priors*. The blind bar (all priors present) caught it same-day —
+  pre-registration is a regression detector, not ceremony.
+- **Batch honestly skipped is a result.** When the re-frozen denominator came
+  back identical (D=40), the batch was skipped per the pre-registered rule —
+  re-weaving the same set proves nothing.
+- **Config coverage is the presence wall, measured:** 843 realized vs 107
+  present (0.44% of the 24,194 census). The lever is more volumes, not more
+  verification.
+
+## The scale lessons (the sweep + wide run)
+
+- **The funnel is the honest headline** — 24,194 census / ~17% strongly-verifiable
+  / ~11% C-forever; banked ≠ realized ≠ present ≠ tier-b, each with provenance
+  (`ratchet/funnel.json`). Never quote one stage as another.
+- **Wall-clock multipliers are real and multiply:** HVF boot 216→5.3 s (41×),
+  2 workers = 1.99×, batched boots (4 leaves/1 boot/~292k comparisons).
+  Bottleneck is provisioning, not capability.
+- **Refusal taxonomy is the product.** The ledger (6af74ec) ranks refusal classes
+  by unlock; its first ranking independently reproduced the hand-picked campaign
+  queue. Scheduling is now data (`ledger.py levers`); new *oracle types* stay
+  hand-driven research.
+
 ## The operational lessons (things that bit us)
 
 - **Env/PATH traps cost a whole run.** Prepending `/opt/homebrew/bin` shadowed the
@@ -108,8 +184,25 @@ function hard, not by hope.** The "unbounded" tail is ~94% attackable
 - **Widening source ≠ more boot-woven fns.** The minimal `.config` links few symbols,
   so whole-tree leaves verify boot-free but get *dropped* from the weave. The lever
   for a bigger *booting-majority-Rust* kernel is a broader **config**, not corpus.
+- **Foreign-arch gating has an ABI trap.** Gating for an arm64 kernel on an x86
+  host flips plain-`char` signedness (arm64 unsigned, x86 signed). Fix: a `cc`
+  shim pinning `-funsigned-char` on every gate compile (`infra/gpu3080/`), plus a
+  fatal check that a stray ccache dir can't shadow it. Check host/target ABI
+  before trusting a differential run on borrowed hardware.
+- **Detached long-runs strand their agents.** Three sessions in a row, a worker
+  parked "waiting" on a batch/census process that could never wake it; the
+  coordinator hand-wired pid watchers each time. Long runs must be polled
+  synchronously, handed to a watcher that CAN wake the owner, or checkpointed.
+- **Don't pipe batch logs through `tail`.** It ate a full batch log once; capture
+  to a file, read the file.
+- **Shared docker volumes are exclusive.** A census run died colliding with
+  concurrently-running suites in the same kbuild volume; gate re-passes run solo.
+- **Check the substrate before trusting nulls.** A sparse KSRC checkout made a
+  test pin reference a function that didn't exist locally; earlier, a macOS-cc
+  header-lift "win" (57 fns) was a Darwin-vs-kernel type-collision artifact.
+  Rewrite-in-place + boot-gate beats lift-to-TU for kernel code.
 
-## The components this session added (the map)
+## The component map (by arc)
 
 - `dream/mirror/` — nested/bitmap mirroring, **in-kernel opaque-primitive sizing**
   (probe real `sizeof` from the ELF symbol table), multi-declarator fix.
@@ -127,6 +220,25 @@ function hard, not by hope.** The "unbounded" tail is ~94% attackable
 - `dream/family/` — GPIO family trace oracle + template synth.
 - `dream/firstrun/` — the autonomous runner (`overnight.py`, `ambitious.py`), the
   first official rewrite + the wide soundness test (`dream/widetest/`).
+
+Added since (2026-08):
+- `dream/realize/` — the deterministic $0 realize engine (efftrace v2 label-break
+  transpiler 549/635; container realization T1–T3 + the three conditional
+  classes, 289/344) + `CONTAINERS-FEASIBILITY.md`, the class-by-class ledger of
+  record.
+- `dream/container_adt/` (extended) — composed T3 gate (chain digest + ordered
+  free-log, strictly stronger than the ADT retire-log — UAF ordering visible),
+  executable predicates (list_empty / tokf / pnull at probed offsets),
+  coverage-gated MATCH, bank-wide `reverify.py`.
+- `dream/ratchet/` — `weave_containers.py` (whole-body weaves: real lock/kfree
+  symbols, address-arithmetic list surgery, in-tree `_Static_assert` +
+  LIST_POISON guards), `cweave_census.py` (frozen weave denominators + ORPHAN
+  detection), `funnel.json` + dashboard, `ledger.py` (the refusal-ledger
+  scheduler), PREREG-*/RUN-*-REPORT (blind bars + graded outcomes).
+- `dream/infra/` — grinder (always-on $0 box), hetzner burst fleet, HVF boot
+  (41×), gpu3080 (borrowed-GPU big pass, char-signedness shim).
+- `dream/localmodel/` + the synth ladder in `overnight.py` — measured $0 local
+  rung (qwen2.5-coder:14b = 62.5% first-pass, ~85% of Haiku on the battery).
 
 The through-line: **the entangled core is far more automatable than "research-months
 for all of it," but not almost-entirely — ~48% strongly, ~40% at coverage-gated
