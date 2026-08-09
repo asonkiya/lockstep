@@ -98,3 +98,32 @@ The safety-tier metric should be reported alongside unsafe-LOC% for
 literature comparability; the forbid-module tier itself is unclaimed in any
 published work, as is re-running a manufactured differential after a lift.
 The in-kernel acceptance-loop whitespace remains empty as of 2026-08.
+
+## 4. The scheduler rule (generalization slice, 2026-08-09)
+
+Case-by-casing classes was the right way to BUILD the machinery; it is the
+wrong way to RUN it at kernel scale. Two standing systems replace the ritual:
+
+**The coverage precondition.** Every realize-gate MATCH now requires that the
+C reference observed every guard at BOTH polarities and every op executing
+(`container_realize._cov_enforce`; refusals `coverage:unexercised_branch:*` /
+`coverage:dead_op:*`). The whole workload-hole defect class — pnull models
+verified without a null row, `id != 0` passing as a null check, flip_guard
+no-oping on one emission shape — is structurally impossible from here: a bad
+workload yields a named refusal, never a false MATCH. Measured proof: the
+historical holes, reconstructed via `run_gate(..., probe_flags=...)`, are
+refused by the coverage check alone (test_container_coverage.py).
+
+**The refusal ledger** (`ratchet/ledger.py`). Every stage refuses by name;
+the ledger aggregates the persisted tallies (container censuses, efftrace
+census.jsonl, cweave residuals) into one ranked table, estimates unlock per
+class (realize-stage: count toward REALIZED; weave-stage: count x the
+measured eligibility fraction toward PRESENT — currencies labeled, never
+summed), and the funnel dashboard prints the top three.
+
+**THE RULE: the campaign's next slice is the ledger's top lever unless a
+human overrides with a written reason.** New oracle TYPES (multi-member
+arena, break-variant semantics, Summit-3 state differentials) stay
+hand-driven research with a human reading the negative controls; everything
+around them — enumeration, freeze, re-pass, disposition, funnel — is the
+machinery above.

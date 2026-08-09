@@ -1,0 +1,397 @@
+{
+ "generated": "2026-08-09",
+ "eligibility_fraction": 0.1522491349480969,
+ "frac_src": "cweave_denominator: 44/289 weave-eligible",
+ "rule": "next slice = top lever unless a human overrides with a reason",
+ "rows": [
+  {
+   "stage": "realize/efftrace",
+   "refusal_class": "non_const_field_base",
+   "count": 37,
+   "fns": [
+    "drivers/clocksource/nomadik-mtu.c:nmdk_clkevt_set_oneshot",
+    "drivers/dma/ti/cppi41.c:cppi41_compute_td_desc",
+    "drivers/gpu/drm/i915/display/intel_bios.c:make_lfp_data_ptr",
+    "drivers/gpu/drm/vboxvideo/vbva_base.c:vbva_setup_buffer_context",
+    "drivers/infiniband/hw/bng_re/bng_dev.c:bng_re_init_hwrm_hdr",
+    "drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c:bnx2x_rx_mode_set_rdata_hdr_e2",
+    "drivers/net/ethernet/emulex/benet/be_cmds.c:be_mcc_compl_use",
+    "drivers/net/ethernet/freescale/fman/fman_memac.c:set_dflts",
+    "drivers/net/ethernet/freescale/fman/fman_tgec.c:set_dflts",
+    "drivers/net/ethernet/intel/ice/ice_ddp.c:ice_ddp_send_ctx_set_err",
+    "drivers/net/ethernet/mellanox/mlx5/core/en_fs.c:mlx5e_fs_set_state_destroy",
+    "drivers/net/ethernet/mellanox/mlx5/core/en_fs.c:mlx5e_fs_set_vlan_strip_disable",
+    "drivers/net/ethernet/mellanox/mlx5/core/fs_pool.c:mlx5_fs_bulk_init",
+    "drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c:dwmac4_clear",
+    "drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c:dwmac4_release_tx_desc",
+    "drivers/net/ethernet/stmicro/stmmac/dwxgmac2_descs.c:dwxgmac2_clear",
+    "drivers/net/ethernet/stmicro/stmmac/dwxgmac2_descs.c:dwxgmac2_init_tx_desc",
+    "drivers/net/ethernet/stmicro/stmmac/dwxgmac2_descs.c:dwxgmac2_release_tx_desc",
+    "drivers/net/ethernet/stmicro/stmmac/norm_desc.c:ndesc_clear",
+    "drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c:brcmf_init_conf",
+    "drivers/regulator/dbx500-prcmu.c:power_state_active_enable",
+    "drivers/thunderbolt/dma_test.c:packets_to_receive_set",
+    "drivers/video/fbdev/mmp/hw/mmp_ctrl.c:overlay_set_fetch",
+    "fs/btrfs/async-thread.c:btrfs_workqueue_set_max",
+    "fs/locks.c:assign_type",
+    "fs/nfs/dir.c:nfs_access_set_mask",
+    "fs/ocfs2/cluster/tcp.c:o2net_set_nst_msg_id",
+    "kernel/bpf/backtrack.c:bt_init",
+    "kernel/sched/fair.c:update_load_set",
+    "kernel/trace/ftrace.c:acquire_probe_locked",
+    "kernel/trace/trace_events_filter.c:parse_error",
+    "lib/rbtree.c:rb_set_black",
+    "mm/memory-failure.c:set_to_kill",
+    "mm/vma.c:unlink_file_vma_batch_init",
+    "net/core/flow_offload.c:flow_block_cb_incref",
+    "net/openvswitch/actions.c:action_fifo_init",
+    "sound/soc/codecs/tas2781-fmwlib.c:set_err_prg_cfg"
+   ],
+   "unlock_estimate": 37,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "realize/efftrace",
+   "refusal_class": "slot_not_own_param",
+   "count": 23,
+   "fns": [
+    "block/blk-rq-qos.c:rq_depth_scale_up",
+    "drivers/acpi/thermal.c:acpi_thermal_guess_offset",
+    "drivers/fpga/dfl-fme-perf.c:fabric_event_destroy",
+    "drivers/gpu/drm/bridge/synopsys/dw-hdmi.c:dw_hdmi_set_sample_iec958",
+    "drivers/gpu/drm/i915/display/intel_casf.c:convert_sharpness_coeff_binary",
+    "drivers/hid/bpf/progs/Huion__KeydialK20-Bluetooth.bpf.c:probe",
+    "drivers/memory/omap-gpmc.c:gpmc_convert_ps_to_ns",
+    "drivers/mmc/host/wmt-sdmmc.c:wmt_dma_init_descriptor",
+    "drivers/mtd/nand/raw/denali.c:denali_reset_irq",
+    "drivers/mtd/nand/spi/dosilicon.c:ds35xx_ooblayout_free",
+    "drivers/mtd/nand/spi/gigadevice.c:gd5fxgq4xa_ooblayout_ecc",
+    "drivers/mtd/nand/spi/winbond.c:w35n01jw_ooblayout_free",
+    "drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:disable_txq_db",
+    "drivers/net/ethernet/chelsio/cxgb4/sge.c:txq_advance",
+    "drivers/net/ethernet/cisco/enic/enic_rq.c:enic_intr_update_pkt_size",
+    "drivers/net/wireless/intel/ipw2x00/libipw_crypto.c:libipw_crypt_quiescing",
+    "drivers/s390/crypto/zcrypt_ep11misc.c:prep_head",
+    "drivers/staging/media/ipu7/ipu7-mmu.c:ipu7_mmu_hw_cleanup",
+    "drivers/virtio/virtio_balloon.c:process_wakeup_event",
+    "fs/ocfs2/ioctl.c:o2ffg_update_stats",
+    "fs/orangefs/orangefs-bufmap.c:mark_killed",
+    "mm/page-writeback.c:__bdi_set_min_ratio",
+    "mm/percpu.c:pcpu_block_update"
+   ],
+   "unlock_estimate": 23,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "realize/efftrace",
+   "refusal_class": "BUILD_FAIL_RS",
+   "count": 14,
+   "fns": [
+    "drivers/input/misc/kxtj9.c:kxtj9_update_g_range",
+    "drivers/media/dvb-frontends/dib0090.c:dib0090_set_boost",
+    "drivers/media/rc/img-ir/img-ir-jvc.c:img_ir_jvc_filter",
+    "drivers/media/rc/img-ir/img-ir-sanyo.c:img_ir_sanyo_filter",
+    "drivers/media/rc/rc-ir-raw.c:ir_raw_disable_protocols",
+    "drivers/media/usb/uvc/uvc_video.c:uvc_video_clock_reset",
+    "drivers/net/ethernet/faraday/ftmac100.c:ftmac100_rx_pointer_advance",
+    "drivers/net/ethernet/faraday/ftmac100.c:ftmac100_tx_clean_pointer_advance",
+    "drivers/net/ethernet/faraday/ftmac100.c:ftmac100_tx_pointer_advance",
+    "drivers/phy/xilinx/phy-zynqmp.c:xpsgtr_set_lane_type",
+    "drivers/usb/usbip/usbip_event.c:set_event",
+    "drivers/usb/usbip/usbip_event.c:unset_event",
+    "fs/ubifs/io.c:record_node_error",
+    "net/netfilter/nft_set_rbtree.c:nft_rbtree_maybe_reset_start_cookie"
+   ],
+   "unlock_estimate": 14,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "realize/efftrace",
+   "refusal_class": "unknown_const_token",
+   "count": 11,
+   "fns": [
+    "drivers/cpufreq/pxa2xx-cpufreq.c:pxa27x_guess_max_freq",
+    "drivers/gpu/drm/bridge/synopsys/dw-hdmi.c:dw_hdmi_set_sample_width",
+    "drivers/iio/adc/ti-ads1015.c:ads1015_event_channel_enable",
+    "drivers/net/ethernet/intel/i40e/i40e_txrx.c:i40e_rx_buffer_flip",
+    "drivers/pci/tph.c:pci_no_tph",
+    "kernel/trace/trace_events.c:__get_system",
+    "kernel/workqueue.c:work_offqd_enable",
+    "lib/vsprintf.c:set_field_width",
+    "lib/vsprintf.c:set_precision",
+    "mm/damon/core.c:damon_warn_fix_nr_accesses_corruption",
+    "sound/soc/codecs/tas2781-fmwlib.c:check_inblock_yram"
+   ],
+   "unlock_estimate": 11,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "realize/containers-t3",
+   "refusal_class": "plain_iteration_with_mutation",
+   "count": 8,
+   "fns": [
+    "block/sed-opal.c:add_suspend_info",
+    "drivers/dma/acpi-dma.c:acpi_dma_controller_free",
+    "drivers/dma/of-dma.c:of_dma_controller_free",
+    "drivers/pinctrl/core.c:pinctrl_unregister_mappings",
+    "drivers/tee/amdtee/call.c:put_ta_refcount",
+    "kernel/power/console.c:pm_vt_switch_unregister",
+    "net/mac80211/rate.c:ieee80211_rate_control_unregister",
+    "net/sched/act_api.c:tcf_pernet_del_id_list"
+   ],
+   "unlock_estimate": 8,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "realize/containers-t3",
+   "refusal_class": "tok_guard",
+   "count": 5,
+   "fns": [
+    "drivers/acpi/arm64/iort.c:iort_delete_fwnode",
+    "drivers/acpi/arm64/iort.c:iort_deregister_domain_token",
+    "drivers/net/ethernet/intel/iavf/iavf_main.c:iavf_clear_cloud_filters",
+    "drivers/pci/setup-bus.c:pci_dev_res_remove_from_list",
+    "kernel/kprobes.c:kprobe_remove_area_blacklist"
+   ],
+   "unlock_estimate": 5,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "realize/containers-t2",
+   "refusal_class": "conditional_body",
+   "count": 3,
+   "fns": [
+    "drivers/greybus/es2.c:arpc_del",
+    "drivers/mmc/core/pwrseq.c:mmc_pwrseq_register",
+    "drivers/mtd/nand/ecc.c:nand_ecc_register_on_host_hw_engine"
+   ],
+   "unlock_estimate": 3,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "realize/containers-t3",
+   "refusal_class": "conditional_body",
+   "count": 3,
+   "fns": [
+    "drivers/tty/ipwireless/hardware.c:pool_free",
+    "drivers/xen/xen-pciback/pci_stub.c:pcistub_device_id_add_list",
+    "lib/error-inject.c:module_unload_ei_list"
+   ],
+   "unlock_estimate": 3,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "realize/containers-t3",
+   "refusal_class": "multi_member_ops",
+   "count": 3,
+   "fns": [
+    "drivers/rapidio/devices/rio_mport_cdev.c:rio_mport_delete_db_filter",
+    "drivers/rapidio/devices/rio_mport_cdev.c:rio_mport_delete_pw_filter",
+    "kernel/cgroup/rdma.c:free_cg_rpool_locked"
+   ],
+   "unlock_estimate": 3,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:return",
+   "count": 17,
+   "fns": [],
+   "unlock_estimate": 2.6,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:if",
+   "count": 15,
+   "fns": [],
+   "unlock_estimate": 2.3,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "realize/containers-t3",
+   "refusal_class": "multi_head_iteration",
+   "count": 2,
+   "fns": [
+    "drivers/scsi/qla2xxx/qla_edif.c:qla_edif_sadb_release",
+    "drivers/vhost/vhost.c:vhost_clear_msg"
+   ],
+   "unlock_estimate": 2,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "realize/containers-t2",
+   "refusal_class": "cross_list_move",
+   "count": 1,
+   "fns": [
+    "security/device_cgroup.c:dev_exceptions_move"
+   ],
+   "unlock_estimate": 1,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "realize/containers-t3",
+   "refusal_class": "conditional_loop_body",
+   "count": 1,
+   "fns": [
+    "fs/fuse/dax.c:fuse_free_dax_mem_ranges"
+   ],
+   "unlock_estimate": 1,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "realize/efftrace",
+   "refusal_class": "unknown_global_const",
+   "count": 1,
+   "fns": [
+    "drivers/gpu/drm/i915/display/skl_watermark.c:skl_ddb_entry_init"
+   ],
+   "unlock_estimate": 1,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:++entry->usage_count",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:bre->start",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:bus_ops",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:coproc->chip_id",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:ctrlr->dirty",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:ctx->buffers_queued++",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:ctx->buffers_queued--",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:cur_string->invalid_string",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:dbuf->dbuf_cookie",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:item",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:msg",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:qedi_conn->active_cmd_count--",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:req",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:rwi",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:txn",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:vw->done",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:w",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  },
+  {
+   "stage": "weave/containers",
+   "refusal_class": "residual:zwplug",
+   "count": 1,
+   "fns": [],
+   "unlock_estimate": 0.2,
+   "metric": "present_fns"
+  }
+ ]
+}

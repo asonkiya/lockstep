@@ -262,6 +262,14 @@ def _print_funnel(manifest_rust: int) -> None:
     print(f"  PRESENT in booting vmlinux  : {present}  ({100*present/census:.2f}%)"
           f"  [{f['present_src']}]{note}")
     print(f"  machine-checked safe (b)    : {tier_b}  ({100*tier_b/census:.2f}%)  [{f['tier_b_src']}]")
+    try:
+        led = json.load(open(os.path.join(os.path.dirname(fp), "ledger.json")))
+        arrow = {"realized_fns": "→realized", "present_fns": "→present"}
+        top = "; ".join(f"{r['refusal_class']} ({r['unlock_estimate']} "
+                        f"{arrow[r['metric']]})" for r in led["rows"][:3])
+        print(f"  top levers (refusal ledger) : {top}  [ledger.py levers]")
+    except Exception:
+        pass
 
 
 def main() -> int:
