@@ -624,3 +624,28 @@ Worklist disposition, all 29 by name:
   guards).
 - **Plus the 2 NEW null-row findings, repaired:** mmc_pwrseq_register,
   nand_ecc_register_on_host_hw_engine.
+
+## Coverage as a gate precondition (2026-08-09, generalization slice A)
+
+The repair's three workload holes shared one root cause: the gate declared
+MATCH for functions whose predicates were never exercised on both sides. That
+class is now structural, not audited: the C reference TU carries per-op
+execution counters and per-guard taken/not-taken counters (never reset across
+the probe run), the probe dumps them after a clean run, and `run_gate`
+REFUSES any MATCH whose report shows a single-polarity guard or a dead op —
+`coverage:unexercised_branch:<pol>@<op>` / `coverage:dead_op:<op>`. A MATCH
+now certifies *behaviorally equal AND every branch/op exercised*.
+
+**The slice's negative control is the measured history itself**: the
+pre-repair workloads, reconstructed via `run_gate(..., probe_flags=...)`
+(PNULL_MODE=0 = no null row; COND_MODE=0 = no drained phase), are refused by
+the coverage check ALONE on the very fns that once false-passed
+(test_container_coverage.py). The loop-guard and tok rows are enforced too —
+the flip_guard-no-op emission shape can never verify vacuously again.
+
+Census re-pass with coverage armed: see container_census_t{2,3}.json
+(persisted per-fn dispositions — the refusal ledger's feed; totals below).
+Re-pass result (solo, 2026-08-09): **T2 180/184 MATCH, T3 109/131 MATCH,
+zero coverage refusals, zero diverges** — the strengthened workload already
+exercises every branch and op, exactly what the repair claimed; the coverage
+gate now guarantees it stays that way for every future class.

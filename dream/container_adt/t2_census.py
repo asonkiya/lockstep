@@ -6,11 +6,16 @@ what it accepts and why it refuses the rest. The refusal distribution is the
 ROI ranking for the next feature — it is what says whether conditional bodies
 (or splice, or rcu, or ...) are worth building.
 
+With --gate the run also persists dream/realize/container_census_t2.json —
+the machine-readable per-fn dispositions the refusal ledger (ratchet/ledger.py)
+aggregates. Measure-once: the ledger reads this file, never re-runs gates.
+
   t2_census.py            # tally + top refusal reasons
   t2_census.py --gate     # also RUN the chain-walking gate on every acceptee
 """
 from __future__ import annotations
 
+import datetime
 import importlib.util
 import json
 import os
@@ -41,15 +46,20 @@ def main():
     gate = "--gate" in sys.argv
     tg = targets()
     reasons, accepted = Counter(), []
+    front_named = {}               # refusal class -> [rel:fn] (ledger feed)
     for rel, fn in tg:
         try:
             cops, _text, it = CR.c_ops(rel, fn)
             CR.adt_ops(rel, fn)
             accepted.append((rel, fn, cops, it))
         except CR.Refused as e:
-            reasons[str(e).split(":")[0]] += 1
+            cls = str(e).split(":")[0]
+            reasons[cls] += 1
+            front_named.setdefault(cls, []).append(f"{rel}:{fn}")
         except Exception as e:
-            reasons["error/" + type(e).__name__] += 1
+            cls = "error/" + type(e).__name__
+            reasons[cls] += 1
+            front_named.setdefault(cls, []).append(f"{rel}:{fn}")
     n = len(tg)
     print(f"T2 population: {n}")
     print(f"  ACCEPTED by the v1 front gate : {len(accepted)} ({100*len(accepted)/n:.0f}%)")
@@ -63,21 +73,33 @@ def main():
 
     if gate and accepted:
         L = CR.LM.probe_layout()
-        v_ok = v_bad = 0
+        match, gate_named = [], {}
         bad = []
         for rel, fn, _c, _i in accepted:
             try:
                 v, out, d = CR.run_gate(rel, fn, L)
+            except CR.Refused as e:
+                # run_gate refusals (coverage:* included) are REFUSALS with a
+                # name, tallied like the front gate's — never "ERROR"
+                v = f"REFUSED:{e}"
             except Exception as e:
                 v = f"ERROR:{str(e)[:40]}"
             if v == "MATCH":
-                v_ok += 1
+                match.append(f"{rel}:{fn}")
             else:
-                v_bad += 1
+                cls = v.split(":")[1] if v.startswith("REFUSED:") else v.split(":")[0]
+                gate_named.setdefault(cls, []).append(f"{rel}:{fn}")
                 bad.append((fn, v))
-        print(f"\nCHAIN-WALKING GATE over all acceptees: {v_ok} MATCH, {v_bad} not")
+        print(f"\nCHAIN-WALKING GATE over all acceptees: {len(match)} MATCH, {len(bad)} not")
         for fn, v in bad[:15]:
             print(f"  ✗ {fn}: {v}")
+        outp = os.path.join(REPO, "dream", "realize", "container_census_t2.json")
+        json.dump({"population": n, "front_accepted": len(accepted),
+                   "front_refusals": front_named,
+                   "gate_match": len(match), "gate_refusals": gate_named,
+                   "provenance": f"t2_census --gate {datetime.date.today()}"},
+                  open(outp, "w"), indent=1)
+        print(f"persisted -> {outp}")
     return 0
 
 

@@ -1,0 +1,17 @@
+{
+ "population": 184,
+ "front_accepted": 180,
+ "front_refusals": {
+  "conditional_body": [
+   "drivers/greybus/es2.c:arpc_del",
+   "drivers/mmc/core/pwrseq.c:mmc_pwrseq_register",
+   "drivers/mtd/nand/ecc.c:nand_ecc_register_on_host_hw_engine"
+  ],
+  "cross_list_move": [
+   "security/device_cgroup.c:dev_exceptions_move"
+  ]
+ },
+ "gate_match": 180,
+ "gate_refusals": {},
+ "provenance": "t2_census --gate 2026-08-09"
+}

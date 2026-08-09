@@ -884,11 +884,17 @@ pub extern "C" fn realized_iter(head: *mut ListHead{sig_tok}) {{
 # ---------------------------------------------------------------------------
 
 def _ref_c(cops, L, it=None):
-    """Host C reference: the real ops, applied in the real order."""
+    """Host C reference: the real ops, applied in the real order. Every op
+    and every guard carries a COVERAGE counter (never reset across the probe
+    run): a MATCH whose report shows a guard at one polarity or an op that
+    never executed is REFUSED by run_gate — the workload-hole class (pnull
+    verified without a null row, 2026-08-09 repair) becomes a structural
+    refusal instead of an audit finding."""
     pop = bool(cops and cops[0].get("cond")
                and cops[0]["cond"][0] == "ornull")
+    n_ops = max(len(cops), 1)
     calls = []
-    for o in ([] if pop else cops):
+    for i, o in enumerate([] if pop else cops):
         if o["c_op"] == "kfree":
             core = ["cgir_free_ev(entry);"]
         elif o["c_op"] in ("list_add", "list_add_tail"):
@@ -902,15 +908,15 @@ def _ref_c(cops, L, it=None):
             pol, ct = o["cond"]
             if pol in ("nonnull", "null"):
                 neg = "" if pol == "nonnull" else "!"
-                calls.append(f"    if ({neg}entry) {{ "
-                             + " ".join(core) + " }")
+                pred = f"{neg}entry"
             else:
                 t = "entry" if ct == "entry" else "head"
                 neg = "" if pol == "empty" else "!"
-                calls.append(f"    if ({neg}list_empty({t})) {{ "
-                             + " ".join(core) + " }")
+                pred = f"{neg}list_empty({t})"
+            calls.append(f"    if ({pred}) {{ COVT[{i}]++; COVO[{i}]++; "
+                         + " ".join(core) + f" }} else COVF[{i}]++;")
         else:
-            calls += [f"    {c}" for c in core]
+            calls.append(f"    COVO[{i}]++; " + " ".join(core))
     if pop:
         calls = ["    (void)entry; (void)head;"]
     # the REAL list_first_entry_or_null expansion + truthiness guard,
@@ -919,32 +925,35 @@ def _ref_c(cops, L, it=None):
     POP_FN = (f"""
 long c_call_pop(void) {{
     struct cgir_node *x = C_HEAD.next != &C_HEAD ? lh_to_node(C_HEAD.next) : 0;
-    if (x)
+    if (x) {{ COVT[0]++; COVO[0]++;
         {cops[0]['c_op']}(&x->lh);
+    }} else COVF[0]++;
     return x ? normp(&x->lh) : -2;
 }}
 """ if pop else "")
     iter_calls = []
-    for o in cops:
+    for i, o in enumerate(cops):
         if o["c_op"] == "kfree":
-            iter_calls.append("        cgir_free_ev(&pos->lh);")
+            stmt = "cgir_free_ev(&pos->lh);"
         elif o["c_op"] in ("list_del", "list_del_init", "INIT_LIST_HEAD"):
-            iter_calls.append(f"        {o['c_op']}(&pos->lh);")
+            stmt = f"{o['c_op']}(&pos->lh);"
         elif o["c_op"] in ("list_add", "list_add_tail"):
-            iter_calls.append(f"        {o['c_op']}(&pos->lh, head);")
+            stmt = f"{o['c_op']}(&pos->lh, head);"
         else:
-            iter_calls.append(f"        {o['c_op']}(&pos->lh, &C_HEAD);")
+            stmt = f"{o['c_op']}(&pos->lh, &C_HEAD);"
+        iter_calls.append(f"        COVO[{i}]++; {stmt}")
     ITER_BODY = chr(10).join(iter_calls) if it else "        (void)pos;"
     if it and it.get("tok"):
         # the C side reads the REAL arena member and applies the C's operator
-        ITER_BODY = (f"        if (pos->payload {it['tok']['op']} tok) {{\n"
+        ITER_BODY = (f"        if (pos->payload {it['tok']['op']} tok) {{ COV_TOK[0]++;\n"
                      + "\n".join("    " + l for l in ITER_BODY.splitlines())
-                     + "\n        }")
+                     + "\n        } else COV_TOK[1]++;")
     ITER_SIG = "long tok" if (it and it.get("tok")) else "void"
-    ITER_GUARD = ("    if (list_empty(&C_HEAD)) return;\n"
+    ITER_GUARD = ("    if (list_empty(&C_HEAD)) { COV_LG[0]++; return; } COV_LG[1]++;\n"
                   if (it and it.get("guard")) else "")
     return f"""
 #include <stddef.h>
+#include <stdio.h>
 #define WRITE_ONCE(x, v) (*(volatile typeof(x) *)&(x) = (v))
 #define LIST_POISON1 ((void *) {L['poison1']:#x}UL)
 #define LIST_POISON2 ((void *) {L['poison2']:#x}UL)
@@ -974,6 +983,17 @@ static struct list_head C_HEAD;
  * gate is an EVENT, not a memory op — the digest captures WHEN in the op
  * sequence the free fired, so free-before-unlink != unlink-then-free. */
 static long FLOG[4096]; static int FN;
+/* branch/op coverage over the WHOLE probe run (never reset): the probe dumps
+ * these after a clean run and run_gate refuses a MATCH whose guards were seen
+ * at one polarity or whose ops never executed */
+static long COVO[{n_ops}], COVT[{n_ops}], COVF[{n_ops}];
+static long COV_LG[2], COV_TOK[2];
+void c_cov_report(void) {{
+    for (int i = 0; i < {n_ops}; i++)
+        printf("CGCOV i=%d exec=%ld t=%ld f=%ld\\n", i, COVO[i], COVT[i], COVF[i]);
+    printf("CGCOV lg t=%ld f=%ld\\n", COV_LG[0], COV_LG[1]);
+    printf("CGCOV tok t=%ld f=%ld\\n", COV_TOK[0], COV_TOK[1]);
+}}
 static void cgir_free_ev(struct list_head *p);
 void c_reset(void) {{
     FN = 0;
@@ -1146,6 +1166,7 @@ _PROBE = """#include <stdio.h>
 extern void c_reset(void); extern int c_snapshot(long*); extern int r_snapshot(long*);
 extern void r_reset(void);
 extern int c_freelog(long*); extern int r_freelog(long*);
+extern void c_cov_report(void);
 #if POP_MODE
 extern long c_call_pop(void); extern long r_call_pop(void);
 #elif ITER_MODE
@@ -1224,12 +1245,43 @@ int main(void) {
 #endif
     printf("CREALIZE verdict=MATCH calls=%d frees=%d\\n", NNODES, c_freelog(CB)/2);
 #endif
+    c_cov_report();   /* only reached on a clean run — coverage rides the MATCH */
     return 0;
 }
 """
 
 
-def run_gate(rel, fn, L, sabotage=None, adt_only=False):
+def _cov_enforce(out, cops, it):
+    """The coverage PRECONDITION on a MATCH (slice 2026-08-09): parse the C
+    ref's CGCOV dump and refuse any verdict whose guards were observed at a
+    single polarity or whose ops never executed. This is what makes the
+    workload-hole class structural: a bad workload no longer yields a false
+    MATCH — it yields `coverage:*`, named and tallied like any refusal."""
+    rows = {int(m.group(1)): tuple(int(m.group(k)) for k in (2, 3, 4))
+            for m in re.finditer(r"CGCOV i=(\d+) exec=(\d+) t=(\d+) f=(\d+)", out)}
+    lg = re.search(r"CGCOV lg t=(\d+) f=(\d+)", out)
+    tok = re.search(r"CGCOV tok t=(\d+) f=(\d+)", out)
+    if len(rows) < len(cops) or not lg or not tok:
+        raise Refused("coverage:report_missing")
+    for i, o in enumerate(cops):
+        ex, t, f = rows[i]
+        # guard polarity first: a guarded op whose taken side never fired is
+        # dead too, but the GUARD is the root cause — name that
+        if o.get("cond") and (t == 0 or f == 0):
+            raise Refused(f"coverage:unexercised_branch:{o['cond'][0]}@{i}:"
+                          + ("nottaken_never" if f == 0 else "taken_never"))
+        if ex == 0:
+            raise Refused(f"coverage:dead_op:{o['c_op']}@{i}")
+    if it and it.get("guard") and (int(lg.group(1)) == 0 or int(lg.group(2)) == 0):
+        raise Refused("coverage:unexercised_branch:loop_guard")
+    if it and it.get("tok") and (int(tok.group(1)) == 0 or int(tok.group(2)) == 0):
+        raise Refused("coverage:unexercised_branch:tok")
+
+
+def run_gate(rel, fn, L, sabotage=None, adt_only=False, probe_flags=None):
+    """probe_flags overrides the probe's -D flag dict — TEST-ONLY, for
+    reconstructing historical workloads (e.g. PNULL_MODE=0 = the pre-repair
+    probe with no null row); never pass it on a verification path."""
     realized, cops, aops, it = emit_realized(rel, fn, L, sabotage)
     pop = bool(cops and cops[0].get("cond") and cops[0]["cond"][0] == "ornull")
     pnull = any((o.get("cond") or ("",))[0] == "nonnull" for o in cops)
@@ -1242,12 +1294,16 @@ def run_gate(rel, fn, L, sabotage=None, adt_only=False):
                        capture_output=True, text=True)
     if r.returncode:
         return "BUILD_FAIL_RS", r.stderr[-900:], d
-    r = subprocess.run(["cc", "-O2", "-w", f"-DNNODES={NN}",
-                        f"-DADT_ONLY={1 if adt_only else 0}", f"-DITER_MODE={1 if it else 0}",
-                        f"-DPOP_MODE={1 if pop else 0}",
-                        f"-DPNULL_MODE={1 if pnull else 0}",
-                        f"-DCOND_MODE={1 if (any(o.get('cond') for o in cops) or (it or {}).get('guard')) else 0}",
-                        f"-DTOK_MODE={1 if (it or {}).get('tok') else 0}",
+    flags = {"NNODES": NN, "ADT_ONLY": 1 if adt_only else 0,
+             "ITER_MODE": 1 if it else 0, "POP_MODE": 1 if pop else 0,
+             "PNULL_MODE": 1 if pnull else 0,
+             "COND_MODE": 1 if (any(o.get("cond") for o in cops)
+                                or (it or {}).get("guard")) else 0,
+             "TOK_MODE": 1 if (it or {}).get("tok") else 0}
+    if probe_flags:
+        flags.update(probe_flags)
+    r = subprocess.run(["cc", "-O2", "-w",
+                        *[f"-D{k}={v}" for k, v in flags.items()],
                         os.path.join(d, "probe.c"), os.path.join(d, "ref.c"),
                         os.path.join(d, "libcand.a"), "-o", os.path.join(d, "run")],
                        capture_output=True, text=True)
@@ -1261,6 +1317,8 @@ def run_gate(rel, fn, L, sabotage=None, adt_only=False):
     out = (r.stdout + r.stderr).strip()
     m = re.search(r"verdict=(\w+)", out)
     if m:
+        if m.group(1) == "MATCH":
+            _cov_enforce(out, cops, it)   # no MATCH without full coverage
         return m.group(1), out, d
     # No verdict line => the candidate died mid-run. For list code that is the
     # REAL failure mode, not a harness defect: walking a plain (non-cached)

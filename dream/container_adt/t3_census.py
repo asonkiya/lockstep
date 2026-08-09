@@ -170,11 +170,13 @@ def main():
             print(f"  {rel}:{fn}\n      C  : {k}\n      ADT: {a}")
 
     if "--gate" in sys.argv:
+        import datetime
+        import json
         _spec2 = importlib.util.spec_from_file_location(
             "container_realize_t3c", os.path.join(HERE, "container_realize.py"))
         CR = importlib.util.module_from_spec(_spec2)
         _spec2.loader.exec_module(CR)
-        reasons, accepted = Counter(), []
+        reasons, accepted, front_named = Counter(), [], {}
         for rel, fn, _b in tg:
             try:
                 cops, _t, it = CR.c_ops(rel, fn)
@@ -183,27 +185,42 @@ def main():
                     CR.correspond(cops, aops)
                 accepted.append((rel, fn, it))
             except CR.Refused as e:
-                reasons[str(e).split(":")[0]] += 1
+                cls = str(e).split(":")[0]
+                reasons[cls] += 1
+                front_named.setdefault(cls, []).append(f"{rel}:{fn}")
             except Exception as e:
-                reasons["error/" + type(e).__name__] += 1
+                cls = "error/" + type(e).__name__
+                reasons[cls] += 1
+                front_named.setdefault(cls, []).append(f"{rel}:{fn}")
         print(f"\nfront gate: {len(accepted)}/{len(tg)} accepted")
         for r, c in reasons.most_common():
             print(f"  {c:4d}  {r}")
         L = CR.LM.probe_layout()
-        v_ok, bad = 0, []
+        v_ok, bad, gate_named = 0, [], {}
         for rel, fn, _it in accepted:
             try:
                 v, out, _d = CR.run_gate(rel, fn, L)
+            except CR.Refused as e:
+                v = f"REFUSED:{e}"     # coverage:* and friends — named, not ERROR
             except Exception as e:
                 v = f"ERROR:{str(e)[:40]}"
             if v == "MATCH":
                 v_ok += 1
             else:
+                cls = v.split(":")[1] if v.startswith("REFUSED:") else v.split(":")[0]
+                gate_named.setdefault(cls, []).append(f"{rel}:{fn}")
                 bad.append((rel, fn, v))
         print(f"\nCOMPOSED GATE (chain + free log) over acceptees: "
               f"{v_ok} MATCH, {len(bad)} not")
         for rel, fn, v in bad[:20]:
             print(f"  ✗ {rel}:{fn}: {v}")
+        outp = os.path.join(REPO, "dream", "realize", "container_census_t3.json")
+        json.dump({"population": len(tg), "front_accepted": len(accepted),
+                   "front_refusals": front_named,
+                   "gate_match": v_ok, "gate_refusals": gate_named,
+                   "provenance": f"t3_census --gate {datetime.date.today()}"},
+                  open(outp, "w"), indent=1)
+        print(f"persisted -> {outp}")
     return 0
 
 

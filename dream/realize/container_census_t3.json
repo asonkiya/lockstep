@@ -1,0 +1,43 @@
+{
+ "population": 131,
+ "front_accepted": 109,
+ "front_refusals": {
+  "plain_iteration_with_mutation": [
+   "block/sed-opal.c:add_suspend_info",
+   "drivers/dma/acpi-dma.c:acpi_dma_controller_free",
+   "drivers/dma/of-dma.c:of_dma_controller_free",
+   "drivers/pinctrl/core.c:pinctrl_unregister_mappings",
+   "drivers/tee/amdtee/call.c:put_ta_refcount",
+   "kernel/power/console.c:pm_vt_switch_unregister",
+   "net/mac80211/rate.c:ieee80211_rate_control_unregister",
+   "net/sched/act_api.c:tcf_pernet_del_id_list"
+  ],
+  "tok_guard": [
+   "drivers/acpi/arm64/iort.c:iort_delete_fwnode",
+   "drivers/acpi/arm64/iort.c:iort_deregister_domain_token",
+   "drivers/net/ethernet/intel/iavf/iavf_main.c:iavf_clear_cloud_filters",
+   "drivers/pci/setup-bus.c:pci_dev_res_remove_from_list",
+   "kernel/kprobes.c:kprobe_remove_area_blacklist"
+  ],
+  "multi_member_ops": [
+   "drivers/rapidio/devices/rio_mport_cdev.c:rio_mport_delete_db_filter",
+   "drivers/rapidio/devices/rio_mport_cdev.c:rio_mport_delete_pw_filter",
+   "kernel/cgroup/rdma.c:free_cg_rpool_locked"
+  ],
+  "multi_head_iteration": [
+   "drivers/scsi/qla2xxx/qla_edif.c:qla_edif_sadb_release",
+   "drivers/vhost/vhost.c:vhost_clear_msg"
+  ],
+  "conditional_body": [
+   "drivers/tty/ipwireless/hardware.c:pool_free",
+   "drivers/xen/xen-pciback/pci_stub.c:pcistub_device_id_add_list",
+   "lib/error-inject.c:module_unload_ei_list"
+  ],
+  "conditional_loop_body": [
+   "fs/fuse/dax.c:fuse_free_dax_mem_ranges"
+  ]
+ },
+ "gate_match": 109,
+ "gate_refusals": {},
+ "provenance": "t3_census --gate 2026-08-09"
+}
