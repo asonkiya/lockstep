@@ -75,6 +75,20 @@ def load_body(file, fn):
     return m.group(1)
 
 
+def load_fconsts(file, fn):
+    """value -> F-const name, from the model's OWN `const F0_X: usize = N;`
+    decls. Used to resolve a literal field base (the model inlined the const's
+    value). Cell indexes are unique in the flat vector; a duplicated value is
+    dropped so resolution stays unambiguous (fail-closed at use)."""
+    key = f"efftrace_{file.replace('/', '__')}_{fn}.rs"
+    src = open(os.path.join(VERIFIED, key)).read()
+    out = {}
+    for m in re.finditer(r"const (F\d+_[A-Za-z0-9_]+): usize = (\d+);", src):
+        v = int(m.group(2))
+        out[v] = None if v in out else m.group(1)
+    return {v: n for v, n in out.items() if n}
+
+
 # ---------------------------------------------------------------------------
 # type mapping (host LP64, same table the harness normalizes with)
 # ---------------------------------------------------------------------------
@@ -269,7 +283,57 @@ def _split_args(text, start):
     raise Refused("unbalanced_parens")
 
 
-def transpile(rec, body):
+_F_CONST = re.compile(r"^F\d+_[A-Za-z0-9_]+$")
+_SLOT_TOK = re.compile(r"^a\d+$")
+_INT_TOK = re.compile(r"^\d+$")
+_G_CONST = re.compile(r"^G_[A-Za-z0-9_]+$")
+
+
+def _peel(a):
+    """Strip the measured no-op decorations off a helper arg: trailing
+    `as usize|i64|u64|i32|u32` casts and `.try_into().unwrap()`. Conservative —
+    the caller only ACTS on the peeled form when it fully matches a known token
+    shape; anything else refuses downstream."""
+    s = a.strip()
+    while True:
+        if s.endswith(".try_into().unwrap()"):
+            s = s[: -len(".try_into().unwrap()")].strip()
+            continue
+        m = re.match(r"^(.*?)\s+as\s+(?:usize|i64|u64|i32|u32)$", s)
+        if m:
+            s = m.group(1).strip()
+            continue
+        return s
+
+
+def _canon_helper(h, args, fconsts):
+    """Canonicalize the field-helper DIALECTS the bank actually contains. The
+    model arena's helper is `S[base + slot]` — commutative — so the
+    synthesizer emitted both argument orders (and cast/`try_into` decorations,
+    globals through the field helper, literal bases). Every dialect here was
+    measured in the non_const_field_base census; anything else stays refused.
+    Returns (h, args) with args[0]=F-const, args[1]=slot for field/set_field —
+    or reroutes to (g/set_g) for the global-cell shape."""
+    if h not in ("field", "set_field"):
+        return h, args
+    b, s = _peel(args[0]), _peel(args[1])
+    fb, fs = bool(_F_CONST.match(b)), bool(_F_CONST.match(s))
+    if fb and fs:
+        raise Refused("non_const_field_base")      # ambiguous — never guess
+    if fb:
+        return h, [b, s] + args[2:]                # canonical (peeled)
+    if fs and _SLOT_TOK.match(b):                  # swapped dialect
+        return h, [s, b] + args[2:]
+    if _G_CONST.match(b) and s == "0":             # global cell via field()
+        return ("g" if h == "field" else "set_g"), [b] + args[2:]
+    if _INT_TOK.match(b) and fconsts and int(b) in fconsts:
+        if _SLOT_TOK.match(s):                     # model inlined the F-const
+            return h, [fconsts[int(b)], s] + args[2:]
+        raise Refused("literal_base_foreign_slot")
+    raise Refused("non_const_field_base")
+
+
+def transpile(rec, body, fconsts=None):
     """Rewrite the verified body's helper calls into real-struct accesses.
 
     Returns {body, sig_params, ret, node_params, uses_globals, uses_outp}.
@@ -306,7 +370,7 @@ def transpile(rec, body):
             out_s += text[i:m.start()]
             args, nxt = _split_args(text, m.end() - 1)
             args = [rw(a, safe) for a in args]    # nested helper calls
-            h = m.group(1)
+            h, args = _canon_helper(m.group(1), args, fconsts)
             if h in ("field", "set_field"):
                 cm = re.match(r"\s*F(\d+)_([A-Za-z0-9_]+?)\s*$", args[0])
                 if not cm:
@@ -609,7 +673,7 @@ def realize(file, fn):
     prep = harness.prepare(rec)
     prep = harness.with_directed(prep)
     body = load_body(file, fn)
-    tr = transpile(rec, body)
+    tr = transpile(rec, body, load_fconsts(file, fn))
     return rec, prep, tr
 
 
@@ -617,7 +681,7 @@ def realize_light(file, fn):
     """rec + transpile only — for weave-time artifact generation of candidates
     the census ALREADY re-verified (no differential re-run needed)."""
     rec = reach.gate(file, fn)
-    tr = transpile(rec, load_body(file, fn))
+    tr = transpile(rec, load_body(file, fn), load_fconsts(file, fn))
     return rec, tr
 
 
@@ -758,7 +822,7 @@ def _census_one(pair):
     except Exception as e:
         return {"key": key, "stage": "prepare", "result": f"PREP_FAIL:{str(e)[:80]}"}
     try:
-        tr = transpile(rec, body)
+        tr = transpile(rec, body, load_fconsts(file, fn))
     except Refused as e:
         return {"key": key, "stage": "transpile", "result": f"REFUSED:{e}"}
     except Exception as e:

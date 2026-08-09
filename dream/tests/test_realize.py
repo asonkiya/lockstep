@@ -117,3 +117,89 @@ def test_v2_no_return_emission_is_unchanged(realized):
     # census results stay byte-stable.
     _, _, tr = realized
     assert "'cgir" not in tr["fn_src"]
+
+
+# ---------------------------------------------------------------------------
+# v2: field-helper DIALECT canonicalization (the `non_const_field_base` class,
+# 37 fns). The model arena's helper is `S[base + slot]` — commutative — so the
+# synthesizer emitted BOTH argument orders and both verified. The transpiler
+# canonicalizes the measured dialects (swapped args, `as`-casts,
+# `.try_into().unwrap()` decoration, globals written through the field helper,
+# literal field bases resolved via the model's own F-const decls) and stays
+# fail-closed on everything else.
+# ---------------------------------------------------------------------------
+
+def test_dialect_swapped_args_realizes_and_passes_differential():
+    # `set_field(a0 as usize, F0___RB_PARENT_COLOR as i64, ...)` — handle
+    # first, field-const second. Must transpile to the SAME real-struct store
+    # as the canonical order and re-certify through the differential.
+    rec, prep, tr = _R.realize("lib/rbtree.c", "rb_set_black")
+    assert "__rb_parent_color" in tr["fn_src"]
+    assert "set_field" not in tr["fn_src"]
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_dialect_swap_diverges_on_wrong_field():
+    # negative control ON THE NEW PATH: realize a swapped-dialect fn with two
+    # fields (update_load_set writes .weight=a1 and .inv_weight=0), then
+    # corrupt the canonicalized output by swapping the VALUES routed to the
+    # two fields — type-correct wrong-cell routing, the exact failure a bad
+    # dialect canonicalization would produce. The same differential must
+    # DIVERGE (the gate sees through the dialect).
+    rec, prep, tr = _R.realize("kernel/sched/fair.c", "update_load_set")
+    src = tr["fn_src"]
+    mw = re.search(r"\.weight = \((.+?)\) as (\w+);", src)
+    mi = re.search(r"\.inv_weight = \((.+?)\) as (\w+);", src)
+    assert mw and mi, src
+    sab = dict(tr)
+    sab["fn_src"] = (src
+        .replace(mw.group(0), f".weight = ({mi.group(1)}) as {mw.group(2)};")
+        .replace(mi.group(0), f".inv_weight = ({mw.group(1)}) as {mi.group(2)};"))
+    assert sab["fn_src"] != src
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, sab))
+    assert r["verdict"].startswith("DIVERGE"), r
+
+
+def test_dialect_try_into_decoration(realized):
+    # `F0_X.try_into().unwrap()` on the field const (the stmmac family shape)
+    rec, _, _ = realized
+    tr = _R.transpile(
+        rec, "set_field(a0 as usize, F0_BD_WRITERS.try_into().unwrap(), 1);\n0")
+    assert re.search(r"\(\*bdev\)\.bd_writers\s*=", tr["fn_src"])
+
+
+def test_dialect_global_via_field_helper():
+    # `set_field(G_X, 0, v)` writes global cell G_X+0 — reroutes to set_g.
+    rec, prep, tr = _R.realize("drivers/clocksource/nomadik-mtu.c",
+                               "nmdk_clkevt_set_oneshot")
+    assert "GV_clkevt_periodic" in tr["fn_src"] or "GV_" in tr["fn_src"]
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_dialect_literal_field_base():
+    # `set_field(0, a0, ...)` — the model inlined the F-const's VALUE. Resolved
+    # against the model's own `const F0_X: usize = 0;` decls (unambiguous: cell
+    # indexes are unique in the flat vector). acquire_probe_locked is the one
+    # census instance.
+    rec, prep, tr = _R.realize("kernel/trace/ftrace.c", "acquire_probe_locked")
+    assert "set_field" not in tr["fn_src"] and "field(" not in tr["fn_src"]
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_dialect_stays_fail_closed(realized):
+    rec, _, _ = realized
+    for bad in (
+        # both args field consts — genuinely ambiguous, refuse
+        "set_field(F0_BD_WRITERS, F0_BD_WRITERS, 1);\n0",
+        # neither arg a recognizable const/slot — computed base, refuse
+        "set_field(a0 + 1, F0_BD_WRITERS, 1);\n0",
+        # literal base with no fconsts context — refuse, never guess
+        "set_field(0, a0, 1);\n0",
+        # swapped dialect but the slot is not the param's own handle
+        "set_field(a5 as usize, F0_BD_WRITERS as i64, 1);\n0",
+    ):
+        with pytest.raises(_R.Refused):
+            _R.transpile(rec, bad)

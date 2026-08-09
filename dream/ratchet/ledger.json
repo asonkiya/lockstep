@@ -6,52 +6,6 @@
  "rows": [
   {
    "stage": "realize/efftrace",
-   "refusal_class": "non_const_field_base",
-   "count": 37,
-   "fns": [
-    "drivers/clocksource/nomadik-mtu.c:nmdk_clkevt_set_oneshot",
-    "drivers/dma/ti/cppi41.c:cppi41_compute_td_desc",
-    "drivers/gpu/drm/i915/display/intel_bios.c:make_lfp_data_ptr",
-    "drivers/gpu/drm/vboxvideo/vbva_base.c:vbva_setup_buffer_context",
-    "drivers/infiniband/hw/bng_re/bng_dev.c:bng_re_init_hwrm_hdr",
-    "drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c:bnx2x_rx_mode_set_rdata_hdr_e2",
-    "drivers/net/ethernet/emulex/benet/be_cmds.c:be_mcc_compl_use",
-    "drivers/net/ethernet/freescale/fman/fman_memac.c:set_dflts",
-    "drivers/net/ethernet/freescale/fman/fman_tgec.c:set_dflts",
-    "drivers/net/ethernet/intel/ice/ice_ddp.c:ice_ddp_send_ctx_set_err",
-    "drivers/net/ethernet/mellanox/mlx5/core/en_fs.c:mlx5e_fs_set_state_destroy",
-    "drivers/net/ethernet/mellanox/mlx5/core/en_fs.c:mlx5e_fs_set_vlan_strip_disable",
-    "drivers/net/ethernet/mellanox/mlx5/core/fs_pool.c:mlx5_fs_bulk_init",
-    "drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c:dwmac4_clear",
-    "drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c:dwmac4_release_tx_desc",
-    "drivers/net/ethernet/stmicro/stmmac/dwxgmac2_descs.c:dwxgmac2_clear",
-    "drivers/net/ethernet/stmicro/stmmac/dwxgmac2_descs.c:dwxgmac2_init_tx_desc",
-    "drivers/net/ethernet/stmicro/stmmac/dwxgmac2_descs.c:dwxgmac2_release_tx_desc",
-    "drivers/net/ethernet/stmicro/stmmac/norm_desc.c:ndesc_clear",
-    "drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c:brcmf_init_conf",
-    "drivers/regulator/dbx500-prcmu.c:power_state_active_enable",
-    "drivers/thunderbolt/dma_test.c:packets_to_receive_set",
-    "drivers/video/fbdev/mmp/hw/mmp_ctrl.c:overlay_set_fetch",
-    "fs/btrfs/async-thread.c:btrfs_workqueue_set_max",
-    "fs/locks.c:assign_type",
-    "fs/nfs/dir.c:nfs_access_set_mask",
-    "fs/ocfs2/cluster/tcp.c:o2net_set_nst_msg_id",
-    "kernel/bpf/backtrack.c:bt_init",
-    "kernel/sched/fair.c:update_load_set",
-    "kernel/trace/ftrace.c:acquire_probe_locked",
-    "kernel/trace/trace_events_filter.c:parse_error",
-    "lib/rbtree.c:rb_set_black",
-    "mm/memory-failure.c:set_to_kill",
-    "mm/vma.c:unlink_file_vma_batch_init",
-    "net/core/flow_offload.c:flow_block_cb_incref",
-    "net/openvswitch/actions.c:action_fifo_init",
-    "sound/soc/codecs/tas2781-fmwlib.c:set_err_prg_cfg"
-   ],
-   "unlock_estimate": 37,
-   "metric": "realized_fns"
-  },
-  {
-   "stage": "realize/efftrace",
    "refusal_class": "slot_not_own_param",
    "count": 23,
    "fns": [
@@ -85,8 +39,9 @@
   {
    "stage": "realize/efftrace",
    "refusal_class": "BUILD_FAIL_RS",
-   "count": 14,
+   "count": 16,
    "fns": [
+    "drivers/infiniband/hw/bng_re/bng_dev.c:bng_re_init_hwrm_hdr",
     "drivers/input/misc/kxtj9.c:kxtj9_update_g_range",
     "drivers/media/dvb-frontends/dib0090.c:dib0090_set_boost",
     "drivers/media/rc/img-ir/img-ir-jvc.c:img_ir_jvc_filter",
@@ -96,13 +51,14 @@
     "drivers/net/ethernet/faraday/ftmac100.c:ftmac100_rx_pointer_advance",
     "drivers/net/ethernet/faraday/ftmac100.c:ftmac100_tx_clean_pointer_advance",
     "drivers/net/ethernet/faraday/ftmac100.c:ftmac100_tx_pointer_advance",
+    "drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c:brcmf_init_conf",
     "drivers/phy/xilinx/phy-zynqmp.c:xpsgtr_set_lane_type",
     "drivers/usb/usbip/usbip_event.c:set_event",
     "drivers/usb/usbip/usbip_event.c:unset_event",
     "fs/ubifs/io.c:record_node_error",
     "net/netfilter/nft_set_rbtree.c:nft_rbtree_maybe_reset_start_cookie"
    ],
-   "unlock_estimate": 14,
+   "unlock_estimate": 16,
    "metric": "realized_fns"
   },
   {
@@ -235,6 +191,16 @@
    "count": 1,
    "fns": [
     "fs/fuse/dax.c:fuse_free_dax_mem_ranges"
+   ],
+   "unlock_estimate": 1,
+   "metric": "realized_fns"
+  },
+  {
+   "stage": "realize/efftrace",
+   "refusal_class": "literal_base_foreign_slot",
+   "count": 1,
+   "fns": [
+    "sound/soc/codecs/tas2781-fmwlib.c:set_err_prg_cfg"
    ],
    "unlock_estimate": 1,
    "metric": "realized_fns"

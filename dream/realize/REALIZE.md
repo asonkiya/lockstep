@@ -36,20 +36,40 @@ no model re-synthesis, no new trust.
 
 ## Census over the 635-candidate bank (census.jsonl, resumable)
 
+2026-08-09, after v2 early-return (+69) and field-dialect canonicalization (+34):
+
 | outcome | n |
 |---|---|
-| **REALIZED + RE-VERIFIED (MATCH)** | **480 (75.6%)** |
-| refused: early `return` in body | 79 |
-| refused: non-const field base | 36 |
-| refused: cross-slot access | 18 |
-| refused: unknown const token | 10 |
+| **REALIZED + RE-VERIFIED (MATCH)** | **583 (91.8%)** |
+| refused: slot not own param (cross-slot) | 23 |
+| refused: unknown const token | 11 |
 | refused: unknown global const | 1 |
-| residual BUILD_FAIL_RS (tail) | 11 |
+| refused: literal base, foreign slot | 1 |
+| residual BUILD_FAIL_RS (tail) | 16 |
 
-**Zero DIVERGEs** across 480 full differentials — every candidate that
-transpiles and compiles passes. The refusal classes are the v2 worklist
-(early-return needs a labeled-block transform; non-const bases are computed
-field indices; cross-slot is multi-instance access).
+**Zero DIVERGEs** across 583 full differentials — every candidate that
+transpiles and compiles passes. Remaining classes: cross-slot is
+multi-instance access (the ledger's next lever); BUILD_FAIL_RS is dominated
+by negative-literal narrowing (`-1` into an unsigned field).
+
+### Field-dialect canonicalization (the `non_const_field_base` class, 2026-08-09)
+
+The census's "computed field base" class turned out on contact to be
+**dialect, not computation**: the model arena's helper is `S[base + slot]` —
+commutative — so the synthesizer emitted both argument orders and both
+verified. Sub-shape census of the 37: 27 swapped-args
+(`set_field(a0 as usize, F0_X as i64, v)`), 6 swapped + `.try_into().unwrap()`
+decoration (the stmmac desc family), 2 globals written through the field
+helper (`set_field(G_X, 0, v)` → `set_g`), 1 literal field base resolved via
+the model's own F-const decls (`set_field(0, a0, ...)`, acquire_probe_locked),
+1 refused by name (`literal_base_foreign_slot`: set_err_prg_cfg indexes an
+array of sub-structs by a scalar param — genuinely out of scope). Ladder:
+**37 → 36 in-scope → 34 MATCH** (2 moved past transpile into the
+BUILD_FAIL_RS tail). Canonicalization is fail-closed: both-args-const,
+computed expressions, and unresolvable literals still refuse. Negative
+control measured: swapping the values routed to update_load_set's two fields
+(type-correct wrong-cell routing — exactly a bad canonicalization) →
+**DIVERGE**.
 
 ## Boot capstone (defconfig base)
 
