@@ -1,5 +1,5 @@
 {
- "total_verified": 242,
+ "total_verified": 289,
  "weave_eligible": [
   {
    "rel": "drivers/base/syscore.c",
@@ -9,7 +9,8 @@
    "bare_objs": [
     "syscore_list",
     "syscore_lock"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/base/syscore.c",
@@ -18,7 +19,8 @@
    "locks": "mutex",
    "bare_objs": [
     "syscore_lock"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/clk/clkdev.c",
@@ -28,7 +30,8 @@
    "bare_objs": [
     "clocks",
     "clocks_mutex"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "drivers/dma-buf/dma-buf.c",
@@ -38,21 +41,24 @@
    "bare_objs": [
     "dmabuf_list",
     "dmabuf_list_mutex"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "drivers/firmware/arm_scpi.c",
    "fn": "put_scpi_xfer",
    "tier": "T2",
    "locks": "mutex",
-   "bare_objs": []
+   "bare_objs": [],
+   "sym_in_obj": false
   },
   {
    "rel": "drivers/iio/industrialio-core.c",
    "fn": "iio_device_ioctl_handler_unregister",
    "tier": "T2",
    "locks": "none",
-   "bare_objs": []
+   "bare_objs": [],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/leds/led-class.c",
@@ -62,7 +68,8 @@
    "bare_objs": [
     "leds_lookup_list",
     "leds_lookup_lock"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/mtd/chips/chipreg.c",
@@ -72,7 +79,8 @@
    "bare_objs": [
     "chip_drvs_list",
     "chip_drvs_lock"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/mtd/chips/chipreg.c",
@@ -81,7 +89,8 @@
    "locks": "spin",
    "bare_objs": [
     "chip_drvs_lock"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/mtd/mtdpart.c",
@@ -90,28 +99,40 @@
    "locks": "spin",
    "bare_objs": [
     "part_parser_lock"
-   ]
+   ],
+   "sym_in_obj": true
+  },
+  {
+   "rel": "drivers/pinctrl/core.c",
+   "fn": "pinctrl_add_gpio_range",
+   "tier": "T2",
+   "locks": "mutex",
+   "bare_objs": [],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/remoteproc/remoteproc_core.c",
    "fn": "rproc_add_carveout",
    "tier": "T2",
    "locks": "none",
-   "bare_objs": []
+   "bare_objs": [],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/remoteproc/remoteproc_core.c",
    "fn": "rproc_add_subdev",
    "tier": "T2",
    "locks": "none",
-   "bare_objs": []
+   "bare_objs": [],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/remoteproc/remoteproc_core.c",
    "fn": "rproc_remove_subdev",
    "tier": "T2",
    "locks": "none",
-   "bare_objs": []
+   "bare_objs": [],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/scsi/scsi_error.c",
@@ -120,7 +141,8 @@
    "locks": "none",
    "bare_objs": [
     "done_q"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/tty/vt/vt_ioctl.c",
@@ -130,14 +152,16 @@
    "bare_objs": [
     "flags",
     "vt_event_lock"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "drivers/video/fbdev/core/fb_defio.c",
    "fn": "fb_deferred_io_pageref_put",
    "tier": "T2",
    "locks": "none",
-   "bare_objs": []
+   "bare_objs": [],
+   "sym_in_obj": false
   },
   {
    "rel": "fs/lockd/clntlock.c",
@@ -147,21 +171,42 @@
    "bare_objs": [
     "nlm_blocked",
     "nlm_blocked_lock"
-   ]
+   ],
+   "sym_in_obj": true
+  },
+  {
+   "rel": "kernel/padata.c",
+   "fn": "padata_work_free",
+   "tier": "T2",
+   "locks": "none",
+   "bare_objs": [
+    "padata_free_works"
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "kernel/stop_machine.c",
    "fn": "__cpu_stop_queue_work",
    "tier": "T2",
    "locks": "none",
-   "bare_objs": []
+   "bare_objs": [],
+   "sym_in_obj": false
   },
   {
    "rel": "lib/klist.c",
    "fn": "add_head",
    "tier": "T2",
    "locks": "spin",
-   "bare_objs": []
+   "bare_objs": [],
+   "sym_in_obj": false
+  },
+  {
+   "rel": "lib/klist.c",
+   "fn": "add_tail",
+   "tier": "T2",
+   "locks": "spin",
+   "bare_objs": [],
+   "sym_in_obj": false
   },
   {
    "rel": "net/core/dev.c",
@@ -170,7 +215,18 @@
    "locks": "none",
    "bare_objs": [
     "net_todo_list"
-   ]
+   ],
+   "sym_in_obj": false
+  },
+  {
+   "rel": "net/core/dev.c",
+   "fn": "net_unlink_todo",
+   "tier": "T2",
+   "locks": "none",
+   "bare_objs": [
+    "net_unlink_list"
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "net/netfilter/nf_sockopt.c",
@@ -179,7 +235,8 @@
    "locks": "mutex",
    "bare_objs": [
     "nf_sockopt_mutex"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "net/sunrpc/svc_xprt.c",
@@ -188,7 +245,8 @@
    "locks": "spin",
    "bare_objs": [
     "svc_xprt_class_lock"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/acpi/apei/apei-base.c",
@@ -197,7 +255,8 @@
    "locks": "none",
    "bare_objs": [
     "res"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "drivers/acpi/mipi-disco-img.c",
@@ -206,7 +265,8 @@
    "locks": "none",
    "bare_objs": [
     "conn"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "drivers/acpi/power.c",
@@ -215,7 +275,8 @@
    "locks": "none",
    "bare_objs": [
     "entry"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/acpi/scan.c",
@@ -224,7 +285,8 @@
    "locks": "none",
    "bare_objs": [
     "dep"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "drivers/clk/clkdev.c",
@@ -234,7 +296,8 @@
    "bare_objs": [
     "cl",
     "clocks_mutex"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/hid/hid-core.c",
@@ -243,7 +306,8 @@
    "locks": "spin",
    "bare_objs": [
     "dynid"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "drivers/iio/industrialio-buffer.c",
@@ -252,7 +316,8 @@
    "locks": "none",
    "bare_objs": [
     "p"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "drivers/mtd/spi-nor/core.c",
@@ -261,7 +326,8 @@
    "locks": "none",
    "bare_objs": [
     "cmd"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "drivers/pci/setup-bus.c",
@@ -270,7 +336,8 @@
    "locks": "none",
    "bare_objs": [
     "dev_res"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "drivers/pnp/core.c",
@@ -279,7 +346,8 @@
    "locks": "none",
    "bare_objs": [
     "pnp_res"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/pnp/resource.c",
@@ -288,7 +356,8 @@
    "locks": "none",
    "bare_objs": [
     "option"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/remoteproc/remoteproc_coredump.c",
@@ -297,7 +366,8 @@
    "locks": "none",
    "bare_objs": [
     "entry"
-   ]
+   ],
+   "sym_in_obj": true
   },
   {
    "rel": "drivers/vfio/vfio_iommu_type1.c",
@@ -306,7 +376,8 @@
    "locks": "none",
    "bare_objs": [
     "n"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "drivers/vfio/vfio_iommu_type1.c",
@@ -315,7 +386,8 @@
    "locks": "none",
    "bare_objs": [
     "n"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "fs/ext4/fsmap.c",
@@ -324,7 +396,8 @@
    "locks": "none",
    "bare_objs": [
     "p"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "kernel/cgroup/cgroup.c",
@@ -333,7 +406,8 @@
    "locks": "none",
    "bare_objs": [
     "link"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "kernel/power/snapshot.c",
@@ -342,7 +416,8 @@
    "locks": "none",
    "bare_objs": [
     "ext"
-   ]
+   ],
+   "sym_in_obj": false
   },
   {
    "rel": "net/unix/garbage.c",
@@ -351,31 +426,36 @@
    "locks": "none",
    "bare_objs": [
     "vertex"
-   ]
+   ],
+   "sym_in_obj": false
   }
  ],
  "locks_tally": {
-  "mutex": 43,
-  "none": 146,
-  "spin_irq": 29,
-  "spin": 24
+  "spin_irq": 40,
+  "none": 173,
+  "mutex": 48,
+  "spin": 28
  },
  "residual_leaders": {
   "return": 17,
+  "if": 15,
+  "zwplug": 1,
+  "w": 1,
+  "req": 1,
   "coproc->chip_id": 1,
+  "txn": 1,
   "dbuf->dbuf_cookie": 1,
+  "ctx->buffers_queued--": 1,
   "ctx->buffers_queued++": 1,
   "rwi": 1,
   "cur_string->invalid_string": 1,
+  "msg": 1,
   "++entry->usage_count": 1,
   "bre->start": 1,
+  "bus_ops": 1,
+  "item": 1,
   "qedi_conn->active_cmd_count--": 1,
   "ctrlr->dirty": 1,
-  "vw->done": 1,
-  "t->nr_regions++": 1,
-  "barn->nr_empty++": 1,
-  "upr_list->pending": 1,
-  "adapter->num_cloud_filters--": 1,
-  "priv->check_tdls_tx": 1
+  "vw->done": 1
  }
 }

@@ -101,11 +101,16 @@ def probe_many(items):
     nms = " ; ".join(
         f"echo '==={rel}===' ; nm -S {rel[:-2]}.o 2>/dev/null | grep cgir_ || true"
         for rel in items)
+    # -k so one file's failing probe TU (a field #ifdef'd out of this config)
+    # cannot abort the batched make and collaterally sink UNRELATED files'
+    # probes — measured 2026-08-09: net_unlink_todo's CONFIG_LOCKDEP field
+    # aborted the -j make and cost net_set_todo + unix_free_vertices their
+    # (previously boot-verified) probes.
     r = subprocess.run(
         ["docker", "run", "--rm", "-v", f"{WR.VOL}:/build", "-v", f"{tmp}:/w:ro",
          WR.IMG, "bash", "-c",
          f"{cps} && cd /build/linux && rm -f {rms} && "
-         f"make -s -j$(nproc) {objs} 2>&1 | tail -5 ; {nms}"],
+         f"make -s -k -j$(nproc) {objs} 2>&1 | tail -5 ; {nms}"],
         capture_output=True, text=True)
     WR._reset_stock(list(items))
     out = {}
@@ -118,17 +123,49 @@ def probe_many(items):
         m = re.match(r"([0-9a-f]+)\s+([0-9a-f]+)\s+\w\s+(cgir_\w+)", ln)
         if m and cur:
             out[(cur, m.group(3))] = int(m.group(2), 16)
+    # salvage pass: a failed probe TU means SOME field in that file doesn't
+    # exist in this config — retry that file one FIELD at a time so the good
+    # fields (other fns in the same file) survive and only the truly-missing
+    # field's fns skip. Sequential but rare (only failed files).
+    failed = [rel for rel in items if not any(k[0] == rel for k in out)]
+    for rel in failed:
+        stock = open(os.path.join(KSRC, rel), errors="ignore").read()
+        for struct, fields in items[rel].items():
+            for f in sorted(fields):
+                probe = (f"\nchar cgir_z_{struct}[sizeof(struct {struct})];\n"
+                         f"char cgir_o_{struct}__{f}"
+                         f"[__builtin_offsetof(struct {struct}, {f}) + 1];\n"
+                         f"char cgir_s_{struct}__{f}"
+                         f"[sizeof(((struct {struct} *)0)->{f})];\n")
+                pname = names[rel]
+                open(os.path.join(tmp, pname), "w").write(stock + probe)
+                rr = subprocess.run(
+                    ["docker", "run", "--rm", "-v", f"{WR.VOL}:/build",
+                     "-v", f"{tmp}:/w:ro", WR.IMG, "bash", "-c",
+                     f"cp /w/{pname} /build/linux/{rel} && cd /build/linux && "
+                     f"rm -f {rel[:-2]}.o && make -s {rel[:-2]}.o 2>/dev/null; "
+                     f"nm -S {rel[:-2]}.o 2>/dev/null | grep cgir_ || true"],
+                    capture_output=True, text=True)
+                for ln in rr.stdout.splitlines():
+                    m = re.match(r"([0-9a-f]+)\s+([0-9a-f]+)\s+\w\s+(cgir_\w+)", ln)
+                    if m:
+                        out[(rel, m.group(3))] = int(m.group(2), 16)
+        WR._reset_stock([rel])
     res = {}
     for rel, structs in items.items():
         for struct, fields in structs.items():
             if (rel, f"cgir_z_{struct}") not in out:
                 continue
-            try:
-                layout = {f: (out[(rel, f"cgir_o_{struct}__{f}")] - 1,
-                              out[(rel, f"cgir_s_{struct}__{f}")]) for f in fields}
-            except KeyError:
-                continue
-            res[(rel, struct)] = (layout, out[(rel, f"cgir_z_{struct}")])
+            # per-field, not all-or-nothing: a field #ifdef'd out of this
+            # config must only skip the fns that NEED it, not every fn
+            # sharing the struct (consumers key-check their own fields)
+            layout = {f: (out[(rel, f"cgir_o_{struct}__{f}")] - 1,
+                          out[(rel, f"cgir_s_{struct}__{f}")])
+                      for f in fields
+                      if (rel, f"cgir_o_{struct}__{f}") in out
+                      and (rel, f"cgir_s_{struct}__{f}") in out}
+            if layout:
+                res[(rel, struct)] = (layout, out[(rel, f"cgir_z_{struct}")])
     return res
 
 
@@ -442,6 +479,26 @@ def cmd_batch(lift=False, extra=None):
     z_seams = {a["seam"]: (f, fn) for (f, fn), a in survivors.items()}
     r_present = [s for s in sorted(r_seams) if f" {s}" in nm.stdout]
     z_present = [s for s in sorted(z_seams) if f" {s}" in nm.stdout]
+    # seam-reference check: presence of <fn>_rs in vmlinux is vacuous if the
+    # woven file's own .o never references it — the fn was #ifdef'd out of
+    # this config (net_unlink_todo/CONFIG_LOCKDEP class), so the Rust object
+    # linked but nothing can ever call it. Inlined statics PASS this check
+    # (the seam body is what got inlined, so callers reference _rs).
+    ref_script = "\n".join(
+        f'nm /build/linux/{f[:-2]}.o 2>/dev/null | grep -q " U {a["seam"]}$" '
+        f'&& echo "REF {a["seam"]}" || echo "NOREF {a["seam"]}"'
+        for (f, fn), a in sorted(survivors.items()))
+    refs = subprocess.run(
+        ["docker", "run", "--rm", "-v", f"{WR.VOL}:/build", WR.IMG,
+         "bash", "-c", ref_script], capture_output=True, text=True)
+    unref = {ln.split()[1] for ln in refs.stdout.splitlines()
+             if ln.startswith("NOREF ")}
+    vacuous = sorted(s for s in z_present if s in unref)
+    if vacuous:
+        print(f"  VACUOUS weave ({len(vacuous)}) — seam linked but never "
+              f"referenced by its .o (fn compiled out of this config), "
+              f"counted NOT present: {', '.join(vacuous)}")
+        z_present = [s for s in z_present if s not in unref]
     tier_b = sum(1 for a in survivors.values() if a["tier"] == "b-safe-core")
     # readers woven LIFTED (A3, LIFT_READERS=1) carry a forbid core too — count
     # them so the tier dashboard reflects the whole woven set, not just realized

@@ -855,7 +855,11 @@ pub extern "C" fn realized_pop(head: *mut ListHead) -> *mut ListHead {{
         }}"""
         loop_guard = None if sabotage == "drop_guard" else it.get("guard")
         if loop_guard:                       # the early-return-before-walk form
-            walk = ("        if (*head).next != head {\n"
+            # flip_guard must reach THIS shape too — without it the sabotage
+            # silently no-ops and the negative control is vacuous (measured:
+            # cxgb4 flip_guard -> MATCH before this branch existed)
+            g_cmp = "==" if sabotage == "flip_guard" else "!="
+            walk = (f"        if (*head).next {g_cmp} head {{\n"
                     + walk + "\n        }")
         sig_tok = ", tok: i64" if it.get("tok") else ""
         return f"""

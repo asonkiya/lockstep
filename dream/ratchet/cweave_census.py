@@ -160,19 +160,46 @@ def classify(rel, fn):
     return row
 
 
-def built_map(rels):
-    """ONE docker call: which files produced .o in the defconfig volume."""
-    script = "\n".join(
-        f'test -f /build/linux/{rel[:-2]}.o && echo "BUILT {rel}" || echo "NOT {rel}"'
-        for rel in sorted(set(rels)))
+def built_map(pairs):
+    """ONE docker call: file built + is the fn's own symbol in the .o.
+    ELIGIBILITY is file-level (BUILT or NOSYM): a static fn's symbol is
+    routinely inlined away while its woven seam still calls _rs (21 of the
+    boot-verified 40 are NOSYM statics). But NOSYM also covers the vacuous
+    case — a fn #ifdef'd out of the object (net_unlink_todo under
+    CONFIG_LOCKDEP) whose _rs would link with no caller. The two are
+    distinguished at BATCH time by the seam-reference check (the woven .o
+    must reference <fn>_rs); sym_in_obj is recorded here so that check has
+    its prediction list.
+
+    .o existence is NOT proof the file is in this config's vmlinux: our own
+    probe/census passes force-build orphan objects (`make path/x.o` succeeds
+    for files the config never links — cxgb4_mps.o existed with
+    CONFIG_CHELSIO_T4 entirely unset, measured 2026-08-09, and its woven _rs
+    was correctly caught absent by the batch nm gate). Linkage test: the .o's
+    first defined global symbol must be defined in vmlinux -> else ORPHAN."""
+    lines = ["nm /build/linux/vmlinux 2>/dev/null | awk '{print $NF}' "
+             "| sort -u > /tmp/vml.txt"]
+    for rel, fn in sorted(set(pairs)):
+        obj = f"/build/linux/{rel[:-2]}.o"
+        lines.append(
+            f'if test -f {obj}; then '
+            f'g=$(nm -g --defined-only {obj} 2>/dev/null | awk \'NR==1{{print $NF}}\'); '
+            f'if [ -n "$g" ] && ! grep -qx "$g" /tmp/vml.txt; '
+            f'then echo "ORPHAN {rel} {fn}"; '
+            f'elif nm {obj} 2>/dev/null | grep -q " [tT] {fn}$"; '
+            f'then echo "BUILT {rel} {fn}"; else echo "NOSYM {rel} {fn}"; fi; '
+            f'else echo "NOT {rel} {fn}"; fi')
+    # script via STDIN, not -c: 289 generated lines exceed the kernel's
+    # 128 KiB single-argument cap and execve silently truncates the run
     r = subprocess.run(
-        ["docker", "run", "--rm", "-v", f"{VOL}:/build", "cgir-kernel-gate",
-         "bash", "-c", script], capture_output=True, text=True, timeout=300)
+        ["docker", "run", "--rm", "-i", "-v", f"{VOL}:/build",
+         "cgir-kernel-gate", "bash", "-s"], input="\n".join(lines),
+        capture_output=True, text=True, timeout=600)
     out = {}
     for ln in r.stdout.splitlines():
-        parts = ln.split(None, 1)
-        if len(parts) == 2 and parts[0] in ("BUILT", "NOT"):
-            out[parts[1]] = parts[0] == "BUILT"
+        parts = ln.split()
+        if len(parts) == 3 and parts[0] in ("BUILT", "NOSYM", "NOT", "ORPHAN"):
+            out[(parts[1], parts[2])] = parts[0]
     return out
 
 
@@ -185,19 +212,26 @@ def main():
         row = classify(rel, fn)
         row.update(rel=rel, fn=fn, tier=tier)
         rows.append(row)
-    built = built_map([r["rel"] for r in rows])
+    built = built_map([(r["rel"], r["fn"]) for r in rows])
     for r in rows:
-        r["built"] = built.get(r["rel"], False)
+        r["built_state"] = built.get((r["rel"], r["fn"]), "NOT")
+        r["built"] = r["built_state"] in ("BUILT", "NOSYM")
+        r["sym_in_obj"] = r["built_state"] == "BUILT"
+    orphan_n = sum(1 for r in rows if r["built_state"] == "ORPHAN")
 
     lock_t = Counter(r["locks"] for r in rows)
     resid_n = sum(1 for r in rows if r["residual"])
     built_n = sum(1 for r in rows if r["built"])
+    nosym_n = sum(1 for r in rows if r["built_state"] == "NOSYM")
     full = [r for r in rows if not r["residual"]
             and r["locks"] in ("none", "mutex", "spin", "spin_irq")]
     weaveable = [r for r in full if r["built"]]
     print(f"\nlocks: {dict(lock_t)}")
     print(f"full-coverage bodies (no residual): {len(rows)-resid_n}/{len(rows)}")
-    print(f"built in {VOL}: {built_n}/{len(rows)}")
+    print(f"file linked in {VOL} vmlinux: {built_n}/{len(rows)}"
+          f"  (fn symbol inlined/absent in obj: {nosym_n} — "
+          f"batch seam-reference check adjudicates; "
+          f"orphan .o never linked: {orphan_n})")
     print(f"\nWEAVE-ELIGIBLE (full-coverage AND built): {len(weaveable)}")
     print("  by tier:", Counter(r["tier"] for r in weaveable))
     print("  by locks:", Counter(r["locks"] for r in weaveable))
@@ -216,7 +250,8 @@ def main():
     out = os.path.join(HERE, "cweave_denominator.json")
     json.dump({"total_verified": len(pairs),
                "weave_eligible": [
-                   {k: r[k] for k in ("rel", "fn", "tier", "locks", "bare_objs")}
+                   {k: r[k] for k in ("rel", "fn", "tier", "locks",
+                                      "bare_objs", "sym_in_obj")}
                    for r in weaveable],
                "locks_tally": dict(lock_t),
                "residual_leaders": dict(resid_top.most_common(20))},
