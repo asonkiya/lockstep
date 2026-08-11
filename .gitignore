@@ -96,3 +96,6 @@ dream/campaign/runs/**/*.log
 dream/campaign/state.json
 dream/campaign/.locks/
 dream/campaign/__pycache__/
+dream/efftrace/m1_names.json
+dream/efftrace/m3_leftovers.json
+dream/efftrace/interproc31_leftover_names.json

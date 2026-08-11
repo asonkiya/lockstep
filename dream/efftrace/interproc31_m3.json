@@ -1,0 +1,27 @@
+{
+ "baseline": {
+  "unbounded": 7664,
+  "bounded": 1230,
+  "unresolved": 5339
+ },
+ "headers": {
+  "unbounded": 8531,
+  "bounded": 1496,
+  "unresolved": 4206
+ },
+ "headers_annot_pure": {
+  "unbounded": 8531,
+  "bounded": 1605,
+  "unresolved": 4097
+ },
+ "headers_annot_diag": {
+  "unbounded": 8427,
+  "bounded": 2037,
+  "unresolved": 3769
+ },
+ "header_bodies_added": 19394,
+ "newly_bounded_strict": 375,
+ "newly_bounded_with_diag": 807,
+ "unbounded_rerouted": 21,
+ "leftover_unresolved": 3689
+}

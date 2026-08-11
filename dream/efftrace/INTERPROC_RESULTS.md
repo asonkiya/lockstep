@@ -58,3 +58,63 @@ effect-trace oracle — substantial, nearly half — but **not ~81%**. The hones
 is the transitively-unbounded state (~52%), which is the in-kernel-differential /
 research frontier. The effect-trace oracle is a real ~1–2k-function tool, not the
 core-majority unlock I overstated.
+
+## Summit 3.1 — the opaque-callee discharge measurement (2026-08-11)
+
+Run per `PREREG-INTERPROC31.md` (bars frozen at 1e8426a; measured by
+`interproc31.py`; baseline reproduced bit-identical: 1,230 / 5,339 / 7,664).
+
+**M1 (attribution):** 5,223 of the 5,339 unresolved fns attribute to 4,969
+distinct missing callee names (116 = depth-cap only). Zipf confirmed: the
+top-100 names touch **57.3%** of blocked fns. The head is two classes:
+header inlines (atomic_read, test_bit, rcu_*) and **macros** (WARN_ON*,
+IS_ENABLED, ARRAY_SIZE, pr_*) — macros are invisible to ANY non-preprocessing
+parser, ours or CGIR's.
+
+**Validator (the control):** poison entry `kmalloc`-annotated-pure was CAUGHT
+(pointer-graph/alloc). 43 draft entries dropped fail-closed on footprint
+disagreement — including test_bit/atomic reads whose header bodies route into
+debug-instrumentation branches; the strict self-consistency contract keeps
+them out even though their real semantics are pure. Shipped: 39 pure +
+21 diag-tier (diag = bounded side effects outside the modeled state — printk,
+WARN-once flags, RCU brackets — a documented assurance-tier claim, reported
+as its own ladder step, never silently merged).
+
+**M3 (the ladder):**
+
+```
+bounded 1,230 -> +header corpus (19,394 bodies)  1,496  (+266)
+             -> +pure annotations                 1,605  (+109)
+             -> +diag-tier annotations            2,037  (+432)
+```
+
+Header completeness also moved 867 fns unresolved->**unbounded** — corpus
+completeness mostly reveals real unboundedness (census-shrinkage law).
+Secondary: 21 baseline-UNBOUNDED rerouted to bounded (expectation was ~none;
+cause: annotations prune instrumented callee paths) — recorded.
+
+**(c) the CGIR marginal:** of the top-100 post-(a)(b) missing names: **66
+macros** (equally opaque to CGIR's tree-sitter ingest — no preprocessing),
+21 parser-gap/scope, 13 no-definition. Force-annotating the entire gap bucket
+pure — a deliberately generous ceiling, since its members include atomics and
+rwsem ops that would really resolve unbounded — yields **+89**. CGIR indexes
+3/5 of a sampled gap subset (reachability confirmed), but the ceiling is the
+story: **(c) <= +89, ~10-24% of the total — far below the >= half share the
+prereg requires for wiring.**
+
+**Verdict vs the frozen bars (newly-bounded, baseline 1,230):**
+
+| contract | (a)+(b) | +(c) ceiling | grade |
+|---|---|---|---|
+| strict (pure table only) | +375 | <= +464 | **PARTIAL** |
+| with diag tier | +807 | <= +896 | nominal SUCCESS, by 7 — only under the relaxed tier |
+
+Per the pre-registered PARTIAL rule: **ship the annotation table alone; CGIR
+wiring DECLINED (LEVER-THIN)** — its marginal is bounded at +89 and the macro
+wall blinds it exactly as it blinds us. The prereg's closing question is
+answered: **CGIR stays a separate product, honestly retired from the dream's
+critical path**; the contract-as-oracle lesson closes (LESSONS.md).
+
+Bounded ≠ realized: these ~375–807 fns are ROUTING recoveries — they still
+need harvest + zero-trust verification before they bank. funnel.json is
+deliberately untouched by this measurement.
