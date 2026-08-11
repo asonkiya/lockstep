@@ -6,33 +6,6 @@
  "rows": [
   {
    "stage": "realize/efftrace",
-   "refusal_class": "BUILD_FAIL_RS",
-   "count": 17,
-   "fns": [
-    "drivers/fpga/dfl-fme-perf.c:fabric_event_destroy",
-    "drivers/infiniband/hw/bng_re/bng_dev.c:bng_re_init_hwrm_hdr",
-    "drivers/input/misc/kxtj9.c:kxtj9_update_g_range",
-    "drivers/media/dvb-frontends/dib0090.c:dib0090_set_boost",
-    "drivers/media/rc/img-ir/img-ir-jvc.c:img_ir_jvc_filter",
-    "drivers/media/rc/img-ir/img-ir-sanyo.c:img_ir_sanyo_filter",
-    "drivers/media/rc/rc-ir-raw.c:ir_raw_disable_protocols",
-    "drivers/media/usb/uvc/uvc_video.c:uvc_video_clock_reset",
-    "drivers/net/ethernet/faraday/ftmac100.c:ftmac100_rx_pointer_advance",
-    "drivers/net/ethernet/faraday/ftmac100.c:ftmac100_tx_clean_pointer_advance",
-    "drivers/net/ethernet/faraday/ftmac100.c:ftmac100_tx_pointer_advance",
-    "drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c:brcmf_init_conf",
-    "drivers/phy/xilinx/phy-zynqmp.c:xpsgtr_set_lane_type",
-    "drivers/usb/usbip/usbip_event.c:set_event",
-    "drivers/usb/usbip/usbip_event.c:unset_event",
-    "fs/ubifs/io.c:record_node_error",
-    "net/netfilter/nft_set_rbtree.c:nft_rbtree_maybe_reset_start_cookie"
-   ],
-   "unlock_estimate": 17,
-   "metric": "realized_fns",
-   "tier": "agent"
-  },
-  {
-   "stage": "realize/efftrace",
    "refusal_class": "unknown_const_token",
    "count": 11,
    "fns": [

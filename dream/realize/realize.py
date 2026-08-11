@@ -131,6 +131,15 @@ def store_cast(ctype):
     return f"({{v}}) as {'i' if signed else 'u'}{bits}"
 
 
+def anchor_neg(v):
+    """A bare negative integer literal takes its type from a following `as`
+    cast target: `(-1) as u16` is E0600 (rustc types `1` as u16, then can't
+    negate it). Anchor it to i64 so the cast has a signed source (`(-1i64) as
+    u16` = 0xffff = the C `(u16)-1`). No-op on every non-negative-literal
+    value, so all prior emissions stay byte-identical."""
+    return f"{v.strip()}i64" if re.fullmatch(r"-\d+", v.strip()) else v
+
+
 # ---------------------------------------------------------------------------
 # the transpile
 # ---------------------------------------------------------------------------
@@ -256,7 +265,15 @@ def _labelize(body):
     n_returns == 0 -> caller emits the v1 plain block, byte-identical."""
     if re.search(r"(?<![\w])return\s*;", body):
         raise Refused("bare_return")
-    return re.subn(r"(?<![\w])return\b\s*([^;]*);", r"break 'cgir (\1);", body)
+    # A `return` inside a match ARM is comma-terminated (`_ => return X,`), not
+    # `;`. Lower it FIRST so the statement regex below can't over-capture across
+    # the arm's `,` and the match's closing `}` (which produced a delimiter
+    # mismatch). Bounded to a single arm value: no `,` `;` `{` `}` inside.
+    body, n_arm = re.subn(r"=>\s*return\s+([^,;{}]+?)\s*,",
+                          r"=> break 'cgir (\1),", body)
+    body, n_stmt = re.subn(r"(?<![\w])return\b\s*([^;]*);",
+                           r"break 'cgir (\1);", body)
+    return body, n_arm + n_stmt
 
 
 def _split_args(text, start):
@@ -418,6 +435,27 @@ def transpile(rec, body, fconsts=None):
                 raise Refused("field_case_collision")
             up[f.upper()] = f
         fmap[pi] = up
+    # Rust name for each node param's `*mut Mirror` binding. Normally the real C
+    # name (byte-identical), but two things force a rename: (1) the name is a
+    # Rust keyword (`priv`, `in` — the netdev-private idiom), an illegal param
+    # ident; (2) a model body `let <name>` rebinds it to an i64, shadowing the
+    # pointer so a later `(*name).field` derefs a scalar (E0614). Both are fatal
+    # only for fns that ALREADY fail to build, so the rename never perturbs a
+    # passing fn's emission. `__n{pi}` is non-keyword and never in a model body.
+    node_rname = {}
+    for pi, p in enumerate(node_ps):
+        nm = p["name"]
+        # A `let <name> = a<k>` is a cross-slot HANDLE alias (stripped during
+        # resolution — it never shadows the pointer), so it must NOT trigger a
+        # rename. Only a VALUE shadow (`let <name> = <non-slot>`) rebinds the
+        # ident to an i64 and breaks a later `(*name)` deref.
+        shadow = any(
+            not re.fullmatch(r"a\d+", m.group(1).strip())
+            for m in re.finditer(
+                rf"(?<![\w])let\s+{re.escape(nm)}\s*=\s*([^\n;]+)", body))
+        if nm in _RS_KEYWORDS or shadow:
+            nm = f"__n{pi}"
+        node_rname[pi] = nm
     gtypes = {n: g["ctype"] for n, g in rec["globals"].items()}
     otypes = {p["name"]: p["ctype"] for p in outs}
     used = {"globals": False, "outp": False}
@@ -477,7 +515,7 @@ def transpile(rec, body, fconsts=None):
                     if re.search(r"\ba\d+\b", res) and re.search(r"[-+*/%<>|&^]", res):
                         raise Refused("slot_handle_arithmetic")
                     raise Refused("slot_not_own_param")
-                pname = node_ps[pi]["name"]
+                pname = node_rname[pi]
                 t = node_ps[pi]["scalar_fields"][fname]
                 accessed.setdefault(node_ps[pi]["struct"], set()).add(fname)
                 # safe mode is FIELD-GRANULAR: the core takes one `&mut TY` per
@@ -489,7 +527,7 @@ def transpile(rec, body, fconsts=None):
                 if h == "field":
                     out_s += f"({lv} as i64)"
                 else:
-                    cast = store_cast(t).replace("{v}", wrapify(args[2].strip()))
+                    cast = store_cast(t).replace("{v}", anchor_neg(wrapify(args[2].strip())))
                     out_s += f"{{ {lv} = {cast}; }}"
             elif h in ("g", "set_g"):
                 cm = re.match(r"\s*G_([A-Za-z0-9_]+?)\s*$", args[0])
@@ -504,7 +542,7 @@ def transpile(rec, body, fconsts=None):
                 if h == "g":
                     out_s += f"(GV_{gname} as i64)"
                 else:
-                    cast = store_cast(t).replace("{v}", wrapify(args[1].strip()))
+                    cast = store_cast(t).replace("{v}", anchor_neg(wrapify(args[1].strip())))
                     out_s += f"{{ GV_{gname} = {cast}; }}"
             else:                                  # out / set_out
                 cm = re.match(r"\s*OUT_([A-Za-z0-9_]+?)\s*$", args[0])
@@ -519,7 +557,7 @@ def transpile(rec, body, fconsts=None):
                 if h == "out":
                     out_s += f"((*{oname}) as i64)"
                 else:
-                    cast = store_cast(t).replace("{v}", wrapify(args[1].strip()))
+                    cast = store_cast(t).replace("{v}", anchor_neg(wrapify(args[1].strip())))
                     out_s += f"{{ *{oname} = {cast}; }}"
             i = 0
             text = text[nxt:]
@@ -551,7 +589,7 @@ def transpile(rec, body, fconsts=None):
     sig, binds = [], []
     for i, p in enumerate(rec["params"]):
         if p["kind"] == "node":
-            sig.append(f"{p['name']}: *mut {p['struct'].capitalize()}Mirror")
+            sig.append(f"{node_rname[node_ps.index(p)]}: *mut {p['struct'].capitalize()}Mirror")
         elif p["kind"] == "outp":
             sig.append(f"{p['name']}: *mut {rust_ty(p['ctype'])}")
         else:
@@ -603,7 +641,7 @@ def transpile(rec, body, fconsts=None):
         liftable = True
         realized_safe = rw(body, safe=True)
         struct = node_ps[0]["struct"]
-        pname = node_ps[0]["name"]
+        pname = node_rname[0]
         fld_order = sorted(accessed[struct])       # deterministic
         core_sig, call_args = [], []
         for fn in fld_order:

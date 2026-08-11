@@ -284,3 +284,102 @@ def test_xslot_alias_resolves_only_to_own_slot(realized):
     with pytest.raises(_R.Refused):
         # a7 is no param's node slot -> resolves to a7 != a0 -> refused
         _R.transpile(rec, "let h = a7;\nset_field(F0_BD_WRITERS, h, 1);\n0")
+
+
+# ---- BUILD_FAIL_RS emission-correctness class (16 fns, 5 rustc-error shapes) ----
+
+def test_bfr_negative_literal_store_realizes():
+    # E0600: `(-1) as u16` types the literal from the cast target and can't be
+    # negated. The store value must anchor the negative literal to i64.
+    rec, prep, tr = _R.realize("drivers/infiniband/hw/bng_re/bng_dev.c",
+                               "bng_re_init_hwrm_hdr")
+    src = tr["fn_src"]
+    assert "(-1) as u16" not in src           # the broken form is gone
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_bfr_negative_literal_diverges_on_corruption():
+    # negative control on the anchored store: +1 the negative literal -> DIVERGE.
+    rec, prep, tr = _R.realize("drivers/infiniband/hw/bng_re/bng_dev.c",
+                               "bng_re_init_hwrm_hdr")
+    src = tr["fn_src"]
+    m = re.search(r"= \((-1i64)\) as (\w+);", src)
+    assert m, src
+    sab = dict(tr)
+    sab["fn_src"] = src.replace(m.group(0), f"= (({m.group(1)}) + 1) as {m.group(2)};", 1)
+    assert sab["fn_src"] != src
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, sab))
+    assert r["verdict"].startswith("DIVERGE"), r
+
+
+def test_bfr_param_name_collision_realizes():
+    # E0614: the node-param real name (`ud`) collides with a model body
+    # `let ud = ...`, shadowing the pointer -> `(*ud)` derefs an i64. The param
+    # is renamed to a collision-proof binding.
+    rec, prep, tr = _R.realize("drivers/usb/usbip/usbip_event.c", "set_event")
+    src = tr["fn_src"]
+    assert "fn set_event_rs(ud:" not in src   # param no longer named `ud`
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_bfr_keyword_param_name_realizes():
+    # reserved keyword `priv` as the node-param name -> `fn ..._rs(priv: ...)`
+    # is a parse error. Renamed to a non-keyword binding.
+    rec, prep, tr = _R.realize("drivers/net/ethernet/faraday/ftmac100.c",
+                               "ftmac100_rx_pointer_advance")
+    src = tr["fn_src"]
+    assert "(priv:" not in src and "(*priv)" not in src
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_bfr_keyword_in_param_realizes():
+    # keyword `in` as the node-param name (2-node fn).
+    rec, prep, tr = _R.realize("drivers/media/rc/img-ir/img-ir-jvc.c",
+                               "img_ir_jvc_filter")
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_bfr_param_rename_diverges_on_wrong_store():
+    # negative control on the renamed-param path: the rename is behavior-
+    # preserving alpha-renaming, so a corrupted store must still DIVERGE.
+    rec, prep, tr = _R.realize("drivers/usb/usbip/usbip_event.c", "set_event")
+    src = tr["fn_src"]
+    m = re.search(r"= \((.+?)\) as (\w+);", src)
+    assert m, src
+    sab = dict(tr)
+    sab["fn_src"] = src.replace(m.group(0), f"= (({m.group(1)}) + 1) as {m.group(2)};", 1)
+    assert sab["fn_src"] != src
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, sab))
+    assert r["verdict"].startswith("DIVERGE"), r
+
+
+def test_bfr_match_arm_return_realizes():
+    # _labelize over-captured `=> return -EINVAL,` across the match's closing
+    # brace (delimiter mismatch). The match-arm form lowers to a bounded
+    # `break 'cgir (...)`.
+    rec, prep, tr = _R.realize("drivers/input/misc/kxtj9.c",
+                               "kxtj9_update_g_range")
+    src = tr["fn_src"]
+    assert "break 'cgir (-EINVAL)" in src
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_bfr_match_arm_return_diverges_on_corruption():
+    # negative control on the match-arm break path: corrupt the returned error
+    # constant (compile-clean) -> the differential must DIVERGE on the branch
+    # that hits the arm.
+    rec, prep, tr = _R.realize("drivers/input/misc/kxtj9.c",
+                               "kxtj9_update_g_range")
+    src = tr["fn_src"]
+    assert "break 'cgir (-EINVAL)" in src
+    sab = dict(tr)
+    sab["fn_src"] = src.replace("break 'cgir (-EINVAL)",
+                                "break 'cgir (-EINVAL + 1)", 1)
+    assert sab["fn_src"] != src
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, sab))
+    assert r["verdict"].startswith("DIVERGE"), r
