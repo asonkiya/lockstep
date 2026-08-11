@@ -1,0 +1,34 @@
+{
+ "class": "unknown_const_token",
+ "stage": "realize/efftrace",
+ "tier": "agent",
+ "count": 11,
+ "unlock_estimate": 11,
+ "metric": "realized_fns",
+ "frozen_denominator": 11,
+ "frozen_at": "2026-08-11",
+ "fns": [
+  "drivers/cpufreq/pxa2xx-cpufreq.c:pxa27x_guess_max_freq",
+  "drivers/gpu/drm/bridge/synopsys/dw-hdmi.c:dw_hdmi_set_sample_width",
+  "drivers/iio/adc/ti-ads1015.c:ads1015_event_channel_enable",
+  "drivers/net/ethernet/intel/i40e/i40e_txrx.c:i40e_rx_buffer_flip",
+  "drivers/pci/tph.c:pci_no_tph",
+  "kernel/trace/trace_events.c:__get_system",
+  "kernel/workqueue.c:work_offqd_enable",
+  "lib/vsprintf.c:set_field_width",
+  "lib/vsprintf.c:set_precision",
+  "mm/damon/core.c:damon_warn_fix_nr_accesses_corruption",
+  "sound/soc/codecs/tas2781-fmwlib.c:check_inblock_yram"
+ ],
+ "prereg_skeleton": {
+  "ladder": "census 11 -> <shapes on contact> -> <in-scope> -> <verified>",
+  "blind_bars": [
+   "<n>/<in-scope> MATCH",
+   "zero unexplained diverges",
+   "all prior census totals non-decreasing"
+  ],
+  "sabotages": [
+   "<class-specific, must DIVERGE, compile-clean>"
+  ]
+ }
+}

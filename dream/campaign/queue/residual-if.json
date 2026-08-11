@@ -1,0 +1,22 @@
+{
+ "class": "residual:if",
+ "stage": "weave/containers",
+ "tier": "agent",
+ "count": 15,
+ "unlock_estimate": 2.3,
+ "metric": "present_fns",
+ "frozen_denominator": 15,
+ "frozen_at": "2026-08-11",
+ "fns": [],
+ "prereg_skeleton": {
+  "ladder": "census 15 -> <shapes on contact> -> <in-scope> -> <verified>",
+  "blind_bars": [
+   "<n>/<in-scope> MATCH",
+   "zero unexplained diverges",
+   "all prior census totals non-decreasing"
+  ],
+  "sabotages": [
+   "<class-specific, must DIVERGE, compile-clean>"
+  ]
+ }
+}

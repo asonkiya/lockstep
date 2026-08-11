@@ -1,0 +1,28 @@
+{
+ "class": "tok_guard",
+ "stage": "realize/containers-t3",
+ "tier": "agent",
+ "count": 5,
+ "unlock_estimate": 5,
+ "metric": "realized_fns",
+ "frozen_denominator": 5,
+ "frozen_at": "2026-08-11",
+ "fns": [
+  "drivers/acpi/arm64/iort.c:iort_delete_fwnode",
+  "drivers/acpi/arm64/iort.c:iort_deregister_domain_token",
+  "drivers/net/ethernet/intel/iavf/iavf_main.c:iavf_clear_cloud_filters",
+  "drivers/pci/setup-bus.c:pci_dev_res_remove_from_list",
+  "kernel/kprobes.c:kprobe_remove_area_blacklist"
+ ],
+ "prereg_skeleton": {
+  "ladder": "census 5 -> <shapes on contact> -> <in-scope> -> <verified>",
+  "blind_bars": [
+   "<n>/<in-scope> MATCH",
+   "zero unexplained diverges",
+   "all prior census totals non-decreasing"
+  ],
+  "sabotages": [
+   "<class-specific, must DIVERGE, compile-clean>"
+  ]
+ }
+}
