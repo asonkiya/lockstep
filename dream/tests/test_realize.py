@@ -203,3 +203,84 @@ def test_dialect_stays_fail_closed(realized):
     ):
         with pytest.raises(_R.Refused):
             _R.transpile(rec, bad)
+
+
+# ---------------------------------------------------------------------------
+# slot-handle ALIASING (the `slot_not_own_param` class, 23 fns). The
+# synthesizer binds a node handle to a readable local — `let rqd = a0;` — and
+# uses the LOCAL as the field slot: `field(F0_X, rqd)`. That is trivial
+# aliasing (immutable `let` => NAME === aK), not a foreign access. The
+# transpiler resolves the alias, then STRIPS the consumed binding (it
+# references the unbound handle aK and usually collides with the real pointer
+# param name). 22 of the 23 are this shape; 1 (`a0 + F0_RDESC_SIZE`) is genuine
+# slot arithmetic and stays refused by name. Every genuine foreign/scalar slot
+# still fails the own-slot check (fail-closed).
+# ---------------------------------------------------------------------------
+
+def test_xslot_alias_realizes_and_passes_differential():
+    # 1-node: `let rqd = a0;` then all field ops on `rqd`. The consumed binding
+    # is stripped (no `let rqd = a0;`, no bare node handle survives) and the
+    # real pointer param is dereferenced directly.
+    rec, prep, tr = _R.realize("block/blk-rq-qos.c", "rq_depth_scale_up")
+    src = tr["fn_src"]
+    assert "let rqd = a0" not in src
+    assert re.search(r"\(\*rqd\)\.\w+", src)          # derefs the real param
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_xslot_alias_two_node_realizes():
+    # 2 node params (a0, a2); the alias `region = a2` resolves to node 1's OWN
+    # slot — cross-NODE misrouting is impossible here because the two mirrors
+    # are distinct #[repr(C)] types (a wrong-node deref would not compile).
+    rec, prep, tr = _R.realize("drivers/mtd/nand/spi/dosilicon.c",
+                               "ds35xx_ooblayout_free")
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_xslot_differential_is_load_bearing():
+    # negative control ON THE RESOLVED OUTPUT: realize an alias fn, then corrupt
+    # one alias-resolved store by +1 (compile-clean). The SAME differential must
+    # DIVERGE — the alias resolution produced live code, not an inert body.
+    rec, prep, tr = _R.realize("mm/percpu.c", "pcpu_block_update")
+    src = tr["fn_src"]
+    m = re.search(r"= \((.+?)\) as (\w+);", src)
+    assert m, src
+    sab = dict(tr)
+    sab["fn_src"] = src.replace(m.group(0), f"= (({m.group(1)}) + 1) as {m.group(2)};", 1)
+    assert sab["fn_src"] != src
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, sab))
+    assert r["verdict"].startswith("DIVERGE"), r
+
+
+def test_xslot_arithmetic_stays_refused():
+    # the 1 genuine slot-arithmetic fn: `field(F0_RDESC_SIZE, a0 + ...)` — an
+    # address computation on the handle, never realized.
+    with pytest.raises(_R.Refused) as e:
+        _R.realize("drivers/hid/bpf/progs/Huion__KeydialK20-Bluetooth.bpf.c",
+                   "probe")
+    assert "slot_handle_arithmetic" in str(e.value)
+
+
+def test_xslot_alias_fail_closed(realized):
+    rec, _, _ = realized     # bdev_block_writes: 1 node (a0), field BD_WRITERS
+    for bad in (
+        # `let mut` alias — reassignable, never resolved
+        "let mut h = a0;\nset_field(F0_BD_WRITERS, h, 1);\n0",
+        # shadowed alias (bound twice) — ambiguous, never resolved
+        "let h = a0;\nlet h = a0;\nset_field(F0_BD_WRITERS, h, 1);\n0",
+        # alias used as a VALUE (not only as a slot) — handle-as-value
+        "let h = a0;\nlet keep = h;\nset_field(F0_BD_WRITERS, h, 1);\nkeep",
+    ):
+        with pytest.raises(_R.Refused):
+            _R.transpile(rec, bad)
+
+
+def test_xslot_alias_resolves_only_to_own_slot(realized):
+    # a resolved alias that points at a FOREIGN slot (not the F-const's own
+    # node) is still refused — resolution never launders a cross-node access.
+    rec, _, _ = realized
+    with pytest.raises(_R.Refused):
+        # a7 is no param's node slot -> resolves to a7 != a0 -> refused
+        _R.transpile(rec, "let h = a7;\nset_field(F0_BD_WRITERS, h, 1);\n0")

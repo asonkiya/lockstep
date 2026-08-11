@@ -6,42 +6,10 @@
  "rows": [
   {
    "stage": "realize/efftrace",
-   "refusal_class": "slot_not_own_param",
-   "count": 23,
-   "fns": [
-    "block/blk-rq-qos.c:rq_depth_scale_up",
-    "drivers/acpi/thermal.c:acpi_thermal_guess_offset",
-    "drivers/fpga/dfl-fme-perf.c:fabric_event_destroy",
-    "drivers/gpu/drm/bridge/synopsys/dw-hdmi.c:dw_hdmi_set_sample_iec958",
-    "drivers/gpu/drm/i915/display/intel_casf.c:convert_sharpness_coeff_binary",
-    "drivers/hid/bpf/progs/Huion__KeydialK20-Bluetooth.bpf.c:probe",
-    "drivers/memory/omap-gpmc.c:gpmc_convert_ps_to_ns",
-    "drivers/mmc/host/wmt-sdmmc.c:wmt_dma_init_descriptor",
-    "drivers/mtd/nand/raw/denali.c:denali_reset_irq",
-    "drivers/mtd/nand/spi/dosilicon.c:ds35xx_ooblayout_free",
-    "drivers/mtd/nand/spi/gigadevice.c:gd5fxgq4xa_ooblayout_ecc",
-    "drivers/mtd/nand/spi/winbond.c:w35n01jw_ooblayout_free",
-    "drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c:disable_txq_db",
-    "drivers/net/ethernet/chelsio/cxgb4/sge.c:txq_advance",
-    "drivers/net/ethernet/cisco/enic/enic_rq.c:enic_intr_update_pkt_size",
-    "drivers/net/wireless/intel/ipw2x00/libipw_crypto.c:libipw_crypt_quiescing",
-    "drivers/s390/crypto/zcrypt_ep11misc.c:prep_head",
-    "drivers/staging/media/ipu7/ipu7-mmu.c:ipu7_mmu_hw_cleanup",
-    "drivers/virtio/virtio_balloon.c:process_wakeup_event",
-    "fs/ocfs2/ioctl.c:o2ffg_update_stats",
-    "fs/orangefs/orangefs-bufmap.c:mark_killed",
-    "mm/page-writeback.c:__bdi_set_min_ratio",
-    "mm/percpu.c:pcpu_block_update"
-   ],
-   "unlock_estimate": 23,
-   "metric": "realized_fns",
-   "tier": "agent"
-  },
-  {
-   "stage": "realize/efftrace",
    "refusal_class": "BUILD_FAIL_RS",
-   "count": 16,
+   "count": 17,
    "fns": [
+    "drivers/fpga/dfl-fme-perf.c:fabric_event_destroy",
     "drivers/infiniband/hw/bng_re/bng_dev.c:bng_re_init_hwrm_hdr",
     "drivers/input/misc/kxtj9.c:kxtj9_update_g_range",
     "drivers/media/dvb-frontends/dib0090.c:dib0090_set_boost",
@@ -59,7 +27,7 @@
     "fs/ubifs/io.c:record_node_error",
     "net/netfilter/nft_set_rbtree.c:nft_rbtree_maybe_reset_start_cookie"
    ],
-   "unlock_estimate": 16,
+   "unlock_estimate": 17,
    "metric": "realized_fns",
    "tier": "agent"
   },
@@ -214,6 +182,17 @@
    "count": 1,
    "fns": [
     "sound/soc/codecs/tas2781-fmwlib.c:set_err_prg_cfg"
+   ],
+   "unlock_estimate": 1,
+   "metric": "realized_fns",
+   "tier": "agent"
+  },
+  {
+   "stage": "realize/efftrace",
+   "refusal_class": "slot_handle_arithmetic",
+   "count": 1,
+   "fns": [
+    "drivers/hid/bpf/progs/Huion__KeydialK20-Bluetooth.bpf.c:probe"
    ],
    "unlock_estimate": 1,
    "metric": "realized_fns",

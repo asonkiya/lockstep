@@ -333,6 +333,69 @@ def _canon_helper(h, args, fconsts):
     raise Refused("non_const_field_base")
 
 
+# ---------------------------------------------------------------------------
+# slot-handle aliasing (the `slot_not_own_param` class). The synthesizer often
+# binds a node handle to a readable local — `let rqd = a0;` — and then uses the
+# LOCAL as the field-helper slot: `field(F0_X, rqd)`. That slot token is not the
+# param's own canonical `a{k}`, so the raw check below rejected it. It is trivial
+# aliasing, not a foreign access: an immutable `let NAME = aK;` means NAME === aK
+# for its whole scope. We resolve such aliases before the own-slot check, then
+# STRIP the (now consumed) binding — otherwise the unbound node handle aK would
+# survive `handle_arg_used_as_value`, and worse, NAME frequently EQUALS the real
+# pointer param name, so an un-stripped `let NAME = aK;` (an i64) would shadow
+# the `*mut Mirror` param. Genuine foreign/arithmetic slots never resolve to the
+# param's own aK, so every real refusal is preserved (fail-closed).
+_SLOT_ALIAS_LET = re.compile(r"\blet\s+(mut\s+)?([A-Za-z_]\w*)\s*=\s*([^;]+);")
+
+
+def _slot_alias_map(body):
+    """NAME -> bare slot token `aK`, for every immutable, singly-bound
+    `let NAME = aK;` (aK possibly `as`/`try_into`-decorated). `let mut` and
+    shadowed (bound >1x) names are EXCLUDED — a reassignable or ambiguous alias
+    stays unresolved, so a slot using it refuses downstream (fail-closed)."""
+    binds, counts, mut = {}, {}, set()
+    for m in _SLOT_ALIAS_LET.finditer(body):
+        nm, rhs = m.group(2), _peel(m.group(3).strip())
+        counts[nm] = counts.get(nm, 0) + 1
+        if m.group(1):
+            mut.add(nm)
+        if _SLOT_TOK.match(rhs):
+            binds[nm] = rhs
+    return {n: s for n, s in binds.items() if counts[n] == 1 and n not in mut}
+
+
+def _resolve_slot(tok, amap, depth=0):
+    """Follow an alias chain to its ultimate bare slot token (bounded walk)."""
+    tok = tok.strip()
+    if _SLOT_TOK.match(tok):
+        return tok
+    if depth < 8 and tok in amap:
+        return _resolve_slot(amap[tok], amap, depth + 1)
+    return tok
+
+
+def _strip_comments(text):
+    text = re.sub(r"/\*.*?\*/", " ", text, flags=re.DOTALL)
+    return re.sub(r"//[^\n]*", " ", text)
+
+
+def _blank_helpers(text):
+    """Replace every helper-call span (field/set_field/...) with a space, so a
+    residual scan sees only NON-slot-position tokens."""
+    out, i = "", 0
+    while True:
+        m = _HELPER_RE.search(text, i)
+        if not m:
+            return out + text[i:]
+        out += text[i:m.start()]
+        try:
+            _args, nxt = _split_args(text, m.end() - 1)
+        except Refused:
+            return out + text[i:]
+        out += " "
+        i = nxt
+
+
 def transpile(rec, body, fconsts=None):
     """Rewrite the verified body's helper calls into real-struct accesses.
 
@@ -360,6 +423,36 @@ def transpile(rec, body, fconsts=None):
     used = {"globals": False, "outp": False}
     accessed = {}          # struct -> set(fields), recorded during rewrite
 
+    # resolve + consume slot-handle aliases (`let rqd = a0;`) before rewriting.
+    # Engage ONLY for aliases that a field/set_field call actually uses in slot
+    # position — a body with no such use (every prior-passing candidate) is left
+    # untouched, so its emission stays byte-identical.
+    amap = _slot_alias_map(body)
+    node_slot_vals = set(node_slot.values())
+    node_aliases = {n: s for n, s in amap.items() if s in node_slot_vals}
+    _clean = _strip_comments(body)
+    helper_args = []
+    for m in _HELPER_RE.finditer(_clean):
+        try:
+            a, _n = _split_args(_clean, m.end() - 1)
+        except Refused:
+            continue
+        helper_args += [x.strip() for x in a]
+    node_aliases = {n: s for n, s in node_aliases.items()
+                    if any(re.search(rf"(?<![\w]){n}(?![\w])", a) for a in helper_args)}
+    if node_aliases:
+        # a node handle alias may appear ONLY in slot position — a bare value
+        # use of it is `handle used as value`. Blank the helper spans (slot
+        # positions live inside them) and its own binding; any residual is a
+        # value use.
+        probe = _blank_helpers(_strip_comments(body))
+        for n in node_aliases:
+            p2 = re.sub(rf"\blet\s+{n}\b[^;]*;", " ", probe, count=1)
+            if re.search(rf"(?<![\w]){n}(?![\w])", p2):
+                raise Refused("handle_alias_used_as_value")
+        for n in node_aliases:            # consume the binding
+            body = re.sub(rf"\blet\s+{n}\b[^;]*;\s*", "", body, count=1)
+
     def rw(text, safe=False):
         out_s = ""
         i = 0
@@ -379,7 +472,10 @@ def transpile(rec, body, fconsts=None):
                 fname = fmap.get(pi, {}).get(cm.group(2))
                 if fname is None:
                     raise Refused("unknown_field_const")
-                if args[1].strip() != node_slot[pi]:
+                res = _resolve_slot(args[1].strip(), amap)
+                if res != node_slot[pi]:
+                    if re.search(r"\ba\d+\b", res) and re.search(r"[-+*/%<>|&^]", res):
+                        raise Refused("slot_handle_arithmetic")
                     raise Refused("slot_not_own_param")
                 pname = node_ps[pi]["name"]
                 t = node_ps[pi]["scalar_fields"][fname]
