@@ -136,6 +136,45 @@ Two codicils from the same repair (1512727, bank 344/344 clean, $0.08):
   structurally by correspondence-in-the-verify-loop. Differential and structural
   checks are complementary; neither subsumes the other.
 
+## The taxonomy lessons (refusal names are hypotheses)
+
+- **A refusal class name encodes a guess; the sub-shape census is the test.**
+  `non_const_field_base` (37 fns, ledger rank-1) predicted computed addressing;
+  on contact it was **dialect** — the arena's field helper is commutative
+  (`S[base+slot]`), so the synthesizer had emitted both argument orders and both
+  verified. The fix was canonicalization (34/36 MATCH, 5f6c45c), not transpiler
+  machinery. Always sub-shape-census a class before building for its name.
+- **Negative controls must compile clean.** The naive wrong-field sabotage for
+  the new emission path only produced BUILD_FAIL_RS — a control that dies
+  before the gate exercises nothing. Redesigned as *type-correct wrong-cell
+  routing* (the exact failure a bad canonicalization would produce) → DIVERGE,
+  measured. Corollary to the vacuous-gate trap: a control proves the gate only
+  if the gate is what kills it.
+- **The scheduler's first closed loop held.** The ledger picked the slice, the
+  slice ran, the class went extinct, the predicted next lever (cross-slot)
+  took rank-1, and the realized delta equaled the class delta exactly — no
+  collateral movement. Scheduling by refusal taxonomy is now validated, not
+  just designed.
+
+## The contract lesson (contract-as-oracle, not contract-as-prompt)
+
+The founding vision was contracts the *model* consumes: give it each function
+as (input vector, ops, output tuple) via CGIR's ComponentSpec so translation
+becomes mechanical. What shipped is the same shape enforced one level down:
+**the gate holds the contract, the model never sees it.** The efftrace
+footprint IS the (read-set, effect-sequence, write-set+return) tuple, compared
+per-call between C and Rust; the ADT op-sequences, free-logs, and MMIO traces
+are the same idea per class. The synthesis prompt stayed C source + signature
++ gate counterexamples — sufficient *because* the contract is checked, not
+trusted, and this is precisely why synth quality is a wall-clock knob.
+
+Measured status of the seam (2026-08-11): lockstep's dream pipeline has **zero
+functional CGIR imports** — every "cgir" occurrence is image/volume naming,
+symbol-prefix branding, or a comment. CGIR's one live re-entry path is the
+Summit-3.1 measurement: 5,339 fns are refused on opaque callees, and CGIR's
+call-graph/interprocedural effects are the named lever — measure how many
+refusals its edges actually discharge before building anything on it.
+
 ## The presence lessons (what the weave batches taught)
 
 - **`.o`-exists ≠ linked-into-vmlinux.** Our own probe passes force-build orphan
