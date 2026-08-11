@@ -1,5 +1,5 @@
 {
- "generated": "2026-08-09",
+ "generated": "2026-08-11",
  "eligibility_fraction": 0.1522491349480969,
  "frac_src": "cweave_denominator: 44/289 weave-eligible",
  "rule": "next slice = top lever unless a human overrides with a reason",
@@ -34,7 +34,8 @@
     "mm/percpu.c:pcpu_block_update"
    ],
    "unlock_estimate": 23,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "agent"
   },
   {
    "stage": "realize/efftrace",
@@ -59,7 +60,8 @@
     "net/netfilter/nft_set_rbtree.c:nft_rbtree_maybe_reset_start_cookie"
    ],
    "unlock_estimate": 16,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "agent"
   },
   {
    "stage": "realize/efftrace",
@@ -79,7 +81,8 @@
     "sound/soc/codecs/tas2781-fmwlib.c:check_inblock_yram"
    ],
    "unlock_estimate": 11,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "agent"
   },
   {
    "stage": "realize/containers-t3",
@@ -96,7 +99,8 @@
     "net/sched/act_api.c:tcf_pernet_del_id_list"
    ],
    "unlock_estimate": 8,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "research"
   },
   {
    "stage": "realize/containers-t3",
@@ -110,7 +114,8 @@
     "kernel/kprobes.c:kprobe_remove_area_blacklist"
    ],
    "unlock_estimate": 5,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "agent"
   },
   {
    "stage": "realize/containers-t2",
@@ -122,7 +127,8 @@
     "drivers/mtd/nand/ecc.c:nand_ecc_register_on_host_hw_engine"
    ],
    "unlock_estimate": 3,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "agent"
   },
   {
    "stage": "realize/containers-t3",
@@ -134,7 +140,8 @@
     "lib/error-inject.c:module_unload_ei_list"
    ],
    "unlock_estimate": 3,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "agent"
   },
   {
    "stage": "realize/containers-t3",
@@ -146,7 +153,8 @@
     "kernel/cgroup/rdma.c:free_cg_rpool_locked"
    ],
    "unlock_estimate": 3,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "research"
   },
   {
    "stage": "weave/containers",
@@ -154,7 +162,8 @@
    "count": 17,
    "fns": [],
    "unlock_estimate": 2.6,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -162,7 +171,8 @@
    "count": 15,
    "fns": [],
    "unlock_estimate": 2.3,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "realize/containers-t3",
@@ -173,7 +183,8 @@
     "drivers/vhost/vhost.c:vhost_clear_msg"
    ],
    "unlock_estimate": 2,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "research"
   },
   {
    "stage": "realize/containers-t2",
@@ -183,7 +194,8 @@
     "security/device_cgroup.c:dev_exceptions_move"
    ],
    "unlock_estimate": 1,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "research"
   },
   {
    "stage": "realize/containers-t3",
@@ -193,7 +205,8 @@
     "fs/fuse/dax.c:fuse_free_dax_mem_ranges"
    ],
    "unlock_estimate": 1,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "agent"
   },
   {
    "stage": "realize/efftrace",
@@ -203,7 +216,8 @@
     "sound/soc/codecs/tas2781-fmwlib.c:set_err_prg_cfg"
    ],
    "unlock_estimate": 1,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "agent"
   },
   {
    "stage": "realize/efftrace",
@@ -213,7 +227,8 @@
     "drivers/gpu/drm/i915/display/skl_watermark.c:skl_ddb_entry_init"
    ],
    "unlock_estimate": 1,
-   "metric": "realized_fns"
+   "metric": "realized_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -221,7 +236,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -229,7 +245,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -237,7 +254,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -245,7 +263,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -253,7 +272,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -261,7 +281,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -269,7 +290,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -277,7 +299,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -285,7 +308,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -293,7 +317,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -301,7 +326,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -309,7 +335,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -317,7 +344,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -325,7 +353,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -333,7 +362,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -341,7 +371,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -349,7 +380,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   },
   {
    "stage": "weave/containers",
@@ -357,7 +389,8 @@
    "count": 1,
    "fns": [],
    "unlock_estimate": 0.2,
-   "metric": "present_fns"
+   "metric": "present_fns",
+   "tier": "agent"
   }
  ]
 }

@@ -127,3 +127,12 @@ arena, break-variant semantics, Summit-3 state differentials) stay
 hand-driven research with a human reading the negative controls; everything
 around them — enumeration, freeze, re-pass, disposition, funnel — is the
 machinery above.
+
+**Override recorded 2026-08-11:** the ledger's top lever was
+`slot_not_own_param` (23 realized_fns). Overridden in favor of building the
+playbook + campaign runner (`dream/campaign/`) first. Written reason: the
+runner makes every subsequent lever cheaper — it ends hand-written briefs for
+mechanical slices, executes maintenance cycles unattended, and emits the
+frozen slice packet for `slot_not_own_param` itself as its first artifact
+(dream/campaign/queue/). Tier rules and liturgy: dream/campaign/CAMPAIGN.md.
+

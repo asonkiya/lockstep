@@ -26,6 +26,15 @@ the fraction is measured, not assumed). The two currencies are not summed.
 
 THE RULE (STRATEGY.md): the campaign's next slice is the ledger's top lever
 unless a human overrides with a written reason.
+
+Every row carries a `tier` for the campaign runner (dream/campaign/runner.py):
+  auto     — unlocked by re-running existing code (no row is; auto cycles are
+             the runner's maintenance registry, kept there)
+  agent    — realizer/gate EXTENSION: an agent session writes novel code, the
+             playbook harness does everything around it
+  research — a new oracle TYPE (new arena shapes, new differential semantics);
+             stays human-driven per STRATEGY.md §4 — the runner must refuse
+             to auto-dispatch these.
 """
 from __future__ import annotations
 
@@ -36,6 +45,21 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(os.path.dirname(HERE))
+
+# refusal classes that need a NEW ORACLE TYPE (arena shapes / differential
+# semantics that don't exist yet) — human-driven research per STRATEGY §4.
+TIER_RESEARCH = {
+    "multi_member_ops",              # needs a multi-member arena
+    "multi_head_iteration",          # needs a multi-head arena
+    "plain_iteration_with_mutation", # cursor-over-mutated-list semantics
+    "cross_list_move",               # needs a two-list arena move oracle
+}
+
+
+def classify_tier(stage: str, refusal_class: str) -> str:
+    if refusal_class in TIER_RESEARCH:
+        return "research"
+    return "agent"    # realize/weave extensions: agent-in-the-loop slices
 
 
 def _load(path):
@@ -97,7 +121,8 @@ def collect(repo=REPO):
         rows.append({"stage": stage, "refusal_class": cls, "count": r["count"],
                      "fns": sorted(set(r["fns"]))[:200],
                      "unlock_estimate": est,
-                     "metric": "realized_fns" if realize else "present_fns"})
+                     "metric": "realized_fns" if realize else "present_fns",
+                     "tier": classify_tier(stage, cls)})
     rows.sort(key=lambda r: (-r["unlock_estimate"], r["stage"], r["refusal_class"]))
     return {"generated": str(datetime.date.today()),
             "eligibility_fraction": frac, "frac_src": frac_src,
@@ -108,10 +133,11 @@ def collect(repo=REPO):
 def levers(led, top=12):
     print(f"=== refusal ledger — ranked levers ({led['generated']}; "
           f"eligibility {led['frac_src']}) ===")
-    print(f"{'unlock':>8}  {'metric':<13} {'count':>5}  {'stage':<24} class")
+    print(f"{'unlock':>8}  {'metric':<13} {'count':>5}  {'tier':<9} "
+          f"{'stage':<24} class")
     for r in led["rows"][:top]:
         print(f"{r['unlock_estimate']:>8}  {r['metric']:<13} {r['count']:>5}  "
-              f"{r['stage']:<24} {r['refusal_class']}")
+              f"{r.get('tier', '?'):<9} {r['stage']:<24} {r['refusal_class']}")
     rest = led["rows"][top:]
     if rest:
         print(f"  ... tail: {len(rest)} more classes, "
