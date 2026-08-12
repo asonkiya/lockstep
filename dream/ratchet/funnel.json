@@ -5,11 +5,11 @@
  "strongly_verifiable_pct": 17,
  "c_forever_pct": 11,
  "realized": {
-  "efftrace": 621,
+  "efftrace": 632,
   "containers_t1": 5,
   "containers_t2": 180,
   "containers_t3": 109,
-  "src": "realize census v2 621/635 incl. BUILD_FAIL_RS emission fixes (+17: anchor negative-literal casts to i64 [E0600], rename node params that are Rust keywords or shadowed by a model let [E0614], lower match-arm `return` bounded [delimiter]; 0 diverges, 3 compile-clean negctls DIVERGE, 2026-08-11) + slot-handle-alias resolution (2026-08-11) + field-dialect canonicalization (2026-08-09); containers T2 180/184 + T3 109/131 after banked-model repair — 344/344 bank behaviorally+structurally clean (2026-08-09)"
+  "src": "realize census v2 632/635 incl. unknown_const_token comment/string-strip (+11: the ALL-CAPS guard scanned comments + string literals, failing fns on prose tokens — WARN_ONCE narration, println! kernel logs; now _strip_noncode before the scan, live-code tokens still fail closed; 11/11 MATCH, 0 diverge, injected-live-token control still refuses, 2026-08-11) + BUILD_FAIL_RS emission fixes (+17: anchor negative-literal casts to i64 [E0600], rename node params that are Rust keywords or shadowed by a model let [E0614], lower match-arm `return` bounded [delimiter]; 2026-08-11) + slot-handle-alias resolution (2026-08-11) + field-dialect canonicalization (2026-08-09); containers T2 180/184 + T3 109/131 after banked-model repair — 344/344 bank behaviorally+structurally clean (2026-08-09)"
  },
  "present_vmlinux": 107,
  "present_src": "post-repair re-freeze batch: 43/44 containers (net_unlink_todo probe-refused: CONFIG_LOCKDEP field) + 54 realized + 10 readers, defconfig boot green, negctl fail-closed (2026-08-09)",

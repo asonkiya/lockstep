@@ -396,6 +396,21 @@ def _strip_comments(text):
     return re.sub(r"//[^\n]*", " ", text)
 
 
+def _strip_noncode(text):
+    """Comments AND string/char literals blanked. Used only by the
+    unknown-const-token guard: its target — an unresolved path that becomes a
+    silent catch-all in a Rust MATCH PATTERN — is always LIVE CODE, never a
+    comment or a string. A model body narrates the C it stands in for
+    (`// WARN_ONCE would be...`) and logs kernel messages
+    (`println!("PXA CPU ...")`); those ALL-CAPS words are prose, not consts,
+    and must not fail the fn closed. Live-code tokens survive the strip and
+    still fail closed."""
+    text = _strip_comments(text)
+    text = re.sub(r'"(?:[^"\\]|\\.)*"', ' "" ', text)
+    text = re.sub(r"'(?:[^'\\]|\\.)*'", " '' ", text)
+    return text
+
+
 def _blank_helpers(text):
     """Replace every helper-call span (field/set_field/...) with a space, so a
     residual scan sees only NON-slot-position tokens."""
@@ -573,7 +588,8 @@ def transpile(rec, body, fconsts=None):
     # live on __cxl_access_coordinate_set — compiled clean, first arm matched
     # everything, differential caught it). Fail closed instead.
     known_consts = set(rec["defines"])
-    for tok in set(re.findall(r"(?<![\w])([A-Z][A-Z0-9_]{2,})(?![\w])", realized)):
+    scan = _strip_noncode(realized)
+    for tok in set(re.findall(r"(?<![\w])([A-Z][A-Z0-9_]{2,})(?![\w])", scan)):
         if tok not in known_consts:
             raise Refused(f"unknown_const_token:{tok}")
 

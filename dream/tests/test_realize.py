@@ -383,3 +383,63 @@ def test_bfr_match_arm_return_diverges_on_corruption():
     assert sab["fn_src"] != src
     r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, sab))
     assert r["verdict"].startswith("DIVERGE"), r
+
+
+# --- unknown_const_token: comment/string false positives vs genuine live consts ---
+
+def test_uct_strip_noncode_keeps_live_drops_comment_and_string():
+    # the guard's job is catching an unresolved token in a Rust MATCH PATTERN
+    # (live code); a token in a comment or string literal is not live and must
+    # not trip it. This pins the mechanism: strip removes comment/string tokens,
+    # retains live-code tokens.
+    s = 'let x = LIVE_TOK; // COMMENT_TOK\nprintln!("STRING_TOK");'
+    stripped = _R._strip_noncode(s)
+    assert "LIVE_TOK" in stripped
+    assert "COMMENT_TOK" not in stripped
+    assert "STRING_TOK" not in stripped
+
+
+def test_uct_comment_token_realizes():
+    # WARN_ONCE appears ONLY in a narration comment -> was a false refusal.
+    rec, prep, tr = _R.realize("kernel/workqueue.c", "work_offqd_enable")
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_uct_string_token_realizes():
+    # PXA appears ONLY inside a println! string literal -> was a false refusal.
+    rec, prep, tr = _R.realize("drivers/cpufreq/pxa2xx-cpufreq.c",
+                               "pxa27x_guess_max_freq")
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, tr))
+    assert r["verdict"] == "MATCH", r
+
+
+def test_uct_guard_still_fires_on_live_token():
+    # soundness floor: the strip removes ONLY comment/string tokens. An
+    # unresolved ALL-CAPS token in LIVE code (the catch-all-in-a-match-pattern
+    # hazard the guard exists for) must STILL fail closed; the SAME token in a
+    # comment must not. Injected end-to-end through the real transpile.
+    file, fn = "kernel/workqueue.c", "work_offqd_enable"
+    rec = _R.reach.gate(file, fn)
+    fc = _R.load_fconsts(file, fn)
+    body = _R.load_body(file, fn)
+    live = body.replace("{", "{ let _z: i64 = ZZZBOGUSCONST as i64;", 1)
+    with pytest.raises(_R.Refused) as e:
+        _R.transpile(rec, live, fc)
+    assert "unknown_const_token:ZZZBOGUSCONST" in str(e.value)
+    commented = body.replace("{", "{ // ZZZBOGUSCONST here\n", 1)
+    _R.transpile(rec, commented, fc)   # must NOT raise
+
+
+def test_uct_diverges_on_wrong_store():
+    # negative control: a realized (formerly-false-refused) fn is genuinely
+    # gated -- a compile-clean corrupted store must DIVERGE.
+    rec, prep, tr = _R.realize("kernel/workqueue.c", "work_offqd_enable")
+    src = tr["fn_src"]
+    m = re.search(r"= \((.+?)\) as (\w+);", src)
+    assert m, src
+    sab = dict(tr)
+    sab["fn_src"] = src.replace(m.group(0), f"= (({m.group(1)}) + 1) as {m.group(2)};", 1)
+    assert sab["fn_src"] != src
+    r = _R.close_realized(prep, _R.rust_host_tu(rec, prep, sab))
+    assert r["verdict"].startswith("DIVERGE"), r
