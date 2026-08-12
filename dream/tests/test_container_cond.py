@@ -328,3 +328,34 @@ def test_truthiness_out_of_class_stays_refused():
         _CR.c_ops(*_MEMBER)
     with pytest.raises(_CR.Refused, match="conditional_body"):
         _CR.c_ops(*_COMPOUND)
+
+
+# ---------------------------------------------------------------------------
+# queue-drain hygiene (2026-08-12): the last two campaign packets, both
+# 0-realized / all-refused-by-name. These pins LOCK the taxonomy so a future
+# realizer change cannot silently start mis-handling a break-variant (e.g.
+# modeling delete-first-and-stop as delete-all = a soundness regression).
+# ---------------------------------------------------------------------------
+
+# tok_guard packet (5): each refuses with a SOUND reason.
+_TG_HYGIENE = [
+    # genuine break-variants: delete-first-and-stop != delete-all under
+    # duplicate tokens (the arena assigns dups), so delete-all modeling would
+    # DIVERGE — refusal is load-bearing, not conservatism.
+    (("drivers/acpi/arm64/iort.c", "iort_delete_fwnode"), "tok_guard:break"),
+    (("drivers/acpi/arm64/iort.c", "iort_deregister_domain_token"), "tok_guard:break"),
+    (("drivers/pci/setup-bus.c", "pci_dev_res_remove_from_list"), "tok_guard:break"),
+    # flag-truthiness (cf->add) guarding an else-branch member WRITE
+    # (cf->del=true) + a counter decrement — out of ADT vocabulary.
+    (("drivers/net/ethernet/intel/iavf/iavf_main.c", "iavf_clear_cloud_filters"), "tok_guard:else_branch"),
+    # compound range predicate (start_addr < start || >= end) + continue;
+    # refusal fires on the `continue` (sound, fail-closed) though the precise
+    # blocker is the compound range predicate — documented in the report.
+    (("kernel/kprobes.c", "kprobe_remove_area_blacklist"), "tok_guard:break"),
+]
+
+
+@pytest.mark.parametrize("spec,reason", _TG_HYGIENE)
+def test_tok_guard_packet_refused_by_name(spec, reason):
+    with pytest.raises(_CR.Refused, match=reason):
+        _CR.c_ops(*spec)
