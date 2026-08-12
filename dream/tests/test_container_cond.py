@@ -359,3 +359,31 @@ _TG_HYGIENE = [
 def test_tok_guard_packet_refused_by_name(spec, reason):
     with pytest.raises(_CR.Refused, match=reason):
         _CR.c_ops(*spec)
+
+
+# conditional_body packet (6): each refuses with a SOUND reason.
+_CB_HYGIENE = [
+    # member-flag truthiness (rpc->active) guarding a member WRITE — not a
+    # list_empty/param predicate, and the write is out of ADT vocab.
+    (("drivers/greybus/es2.c", "arpc_del"), "conditional_body:non_list_empty_pred"),
+    # compound 3-way null guard (!pwrseq||!pwrseq->ops||!pwrseq->dev) early
+    # return, then list_add — nested-member compound the arena can't execute.
+    (("drivers/mmc/core/pwrseq.c", "mmc_pwrseq_register"), "conditional_body:non_list_empty_pred"),
+    # null-check + in-loop dedup early-return + add: multiple guards.
+    (("drivers/mtd/nand/ecc.c", "nand_ecc_register_on_host_hw_engine"), "conditional_body:multi_guard"),
+    # range compare (rx_pool_size>6) with list ops in BOTH branches.
+    (("drivers/tty/ipwireless/hardware.c", "pool_free"), "conditional_body:else_branch_ops"),
+    # found-flag + break + member writes + guarded add + guarded free: multi.
+    (("drivers/xen/xen-pciback/pci_stub.c", "pcistub_device_id_add_list"), "conditional_body:multi_guard"),
+    # scalar-count preamble guard (!mod->num_ei_funcs return) BEFORE a clean
+    # tokf delete-all loop: refused multi_guard. NEAR-MISS — the loop body is
+    # realizable; only the preamble (whose count<->list invariant the arena
+    # does not model) blocks it. See REPORT.
+    (("lib/error-inject.c", "module_unload_ei_list"), "conditional_body:multi_guard"),
+]
+
+
+@pytest.mark.parametrize("spec,reason", _CB_HYGIENE)
+def test_conditional_body_packet_refused_by_name(spec, reason):
+    with pytest.raises(_CR.Refused, match=reason):
+        _CR.c_ops(*spec)
