@@ -1,0 +1,1367 @@
+{
+ "realized_total": 921,
+ "eligible_files": 115,
+ "ineligible_files": 586,
+ "eligible_fns": 160,
+ "ineligible_fns": 761,
+ "config_unlock": {
+  "COMPLEX_OR_PARENT": {
+   "fns": 471,
+   "files": [
+    "block/blk-zoned.c",
+    "block/sed-opal.c",
+    "drivers/accel/habanalabs/common/command_submission.c",
+    "drivers/accel/habanalabs/common/memory.c",
+    "drivers/accessibility/speakup/synth.c",
+    "drivers/acpi/acpi_tad.c",
+    "drivers/acpi/dock.c",
+    "drivers/acpi/sleep.c",
+    "drivers/android/binder.c",
+    "drivers/block/ataflop.c",
+    "drivers/block/brd.c",
+    "drivers/char/ipmi/ipmi_msghandler.c",
+    "drivers/char/toshiba.c",
+    "drivers/clk/sunxi/clk-sunxi.c",
+    "drivers/clocksource/nomadik-mtu.c",
+    "drivers/comedi/drivers/comedi_8254.c",
+    "drivers/cpufreq/intel_pstate.c",
+    "drivers/cpufreq/pxa2xx-cpufreq.c",
+    "drivers/crypto/caam/debugfs.c",
+    "drivers/crypto/cavium/nitrox/nitrox_reqmgr.c",
+    "drivers/crypto/intel/qat/qat_common/adf_cfg.c",
+    "drivers/crypto/intel/qat/qat_common/adf_gen4_vf_mig.c",
+    "drivers/crypto/intel/qat/qat_common/adf_init.c",
+    "drivers/crypto/intel/qat/qat_common/adf_mstate_mgr.c",
+    "drivers/crypto/intel/qat/qat_common/qat_uclo.c",
+    "drivers/crypto/marvell/octeontx2/otx2_cptvf_algs.c",
+    "drivers/dax/kmem.c",
+    "drivers/dma-buf/sync_debug.c",
+    "drivers/dma/nbpfaxi.c",
+    "drivers/dma/sh/usb-dmac.c",
+    "drivers/dma/ste_dma40.c",
+    "drivers/dma/ti/cppi41.c",
+    "drivers/edac/i7core_edac.c",
+    "drivers/edac/sb_edac.c",
+    "drivers/firmware/arm_ffa/driver.c",
+    "drivers/firmware/memmap.c",
+    "drivers/firmware/qemu_fw_cfg.c",
+    "drivers/fpga/dfl.c",
+    "drivers/gpu/drm/amd/amdkfd/kfd_crat.c",
+    "drivers/gpu/drm/amd/display/dc/dsc/dc_dsc.c",
+    "drivers/gpu/drm/amd/display/dc/sspl/dc_spl.c",
+    "drivers/gpu/drm/amd/ras/rascore/ras_aca.c",
+    "drivers/gpu/drm/amd/ras/rascore/ras_core.c",
+    "drivers/gpu/drm/bridge/analogix/anx7625.c",
+    "drivers/gpu/drm/bridge/sii9234.c",
+    "drivers/gpu/drm/bridge/synopsys/dw-dp.c",
+    "drivers/gpu/drm/bridge/synopsys/dw-hdmi.c",
+    "drivers/gpu/drm/bridge/tc358762.c",
+    "drivers/gpu/drm/display/drm_dp_helper.c",
+    "drivers/gpu/drm/drm_flip_work.c",
+    "drivers/gpu/drm/drm_panel.c",
+    "drivers/gpu/drm/drm_privacy_screen.c",
+    "drivers/gpu/drm/exynos/exynos_drm_g2d.c",
+    "drivers/gpu/drm/imagination/pvr_free_list.c",
+    "drivers/gpu/drm/mediatek/mtk_dsi.c",
+    "drivers/gpu/drm/panel/panel-samsung-ld9040.c",
+    "drivers/gpu/drm/panel/panel-samsung-s6e63m0.c",
+    "drivers/gpu/drm/panel/panel-samsung-s6e8aa0.c",
+    "drivers/gpu/drm/radeon/mkregtable.c",
+    "drivers/gpu/drm/radeon/radeon_ring.c",
+    "drivers/gpu/drm/sti/sti_vtg.c",
+    "drivers/gpu/drm/tegra/dc.c",
+    "drivers/gpu/drm/tegra/dp.c",
+    "drivers/gpu/drm/tests/drm_damage_helper_test.c",
+    "drivers/gpu/drm/virtio/virtgpu_vq.c",
+    "drivers/gpu/drm/vmwgfx/vmwgfx_fence.c",
+    "drivers/gpu/drm/vmwgfx/vmwgfx_msg.c",
+    "drivers/gpu/drm/xe/xe_guc_relay.c",
+    "drivers/gpu/drm/xe/xe_preempt_fence.c",
+    "drivers/gpu/host1x/cdma.c",
+    "drivers/gpu/host1x/syncpt.c",
+    "drivers/gpu/ipu-v3/ipu-dp.c",
+    "drivers/greybus/connection.c",
+    "drivers/greybus/manifest.c",
+    "drivers/hid/bpf/progs/HP__Elite-Presenter.bpf.c",
+    "drivers/hid/bpf/progs/Huion__Dial-2.bpf.c",
+    "drivers/hid/bpf/progs/Huion__Inspiroy-2-M.bpf.c",
+    "drivers/hid/bpf/progs/Huion__Inspiroy-2-S.bpf.c",
+    "drivers/hid/bpf/progs/Huion__Kamvas13Gen3.bpf.c",
+    "drivers/hid/bpf/progs/Huion__Kamvas16Gen3.bpf.c",
+    "drivers/hid/bpf/progs/Huion__KeydialK20.bpf.c",
+    "drivers/hid/bpf/progs/IOGEAR__Kaliber-MMOmentum.bpf.c",
+    "drivers/hid/bpf/progs/Mistel__MD770.bpf.c",
+    "drivers/hid/bpf/progs/Rapoo__M50-Plus-Silent.bpf.c",
+    "drivers/hid/bpf/progs/Trust__Philips-SPK6327.bpf.c",
+    "drivers/hid/bpf/progs/WALTOP__Batteryless-Tablet.bpf.c",
+    "drivers/hid/bpf/progs/XPPen__Deco01V3.bpf.c",
+    "drivers/hid/bpf/progs/XPPen__Deco02.bpf.c",
+    "drivers/hid/bpf/progs/XPPen__DecoMini4.bpf.c",
+    "drivers/hid/hid-haptic.c",
+    "drivers/hid/hid-sensor-hub.c",
+    "drivers/hid/hid-uclogic-params.c",
+    "drivers/hid/hidraw.c",
+    "drivers/hwtracing/coresight/coresight-tmc-etr.c",
+    "drivers/i2c/busses/i2c-hisi.c",
+    "drivers/i3c/master/dw-i3c-master.c",
+    "drivers/iio/adc/ti-ads1015.c",
+    "drivers/iio/buffer/industrialio-buffer-dma.c",
+    "drivers/infiniband/core/mad.c",
+    "drivers/infiniband/core/sa_query.c",
+    "drivers/infiniband/hw/hns/hns_roce_hw_v2.c",
+    "drivers/infiniband/hw/irdma/verbs.c",
+    "drivers/infiniband/hw/mlx5/macsec.c",
+    "drivers/infiniband/hw/mthca/mthca_cq.c",
+    "drivers/infiniband/hw/mthca/mthca_qp.c",
+    "drivers/infiniband/hw/usnic/usnic_fwd.c",
+    "drivers/input/misc/ims-pcu.c",
+    "drivers/input/misc/kxtj9.c",
+    "drivers/input/mousedev.c",
+    "drivers/iommu/irq_remapping.c",
+    "drivers/ipack/devices/ipoctal.c",
+    "drivers/md/dm-bufio.c",
+    "drivers/md/dm-stats.c",
+    "drivers/md/dm-vdo/physical-zone.c",
+    "drivers/md/persistent-data/dm-space-map-metadata.c",
+    "drivers/media/dvb-frontends/af9013.c",
+    "drivers/media/dvb-frontends/af9033.c",
+    "drivers/media/dvb-frontends/as102_fe.c",
+    "drivers/media/dvb-frontends/atbm8830.c",
+    "drivers/media/dvb-frontends/au8522_dig.c",
+    "drivers/media/dvb-frontends/bcm3510.c",
+    "drivers/media/dvb-frontends/cx22700.c",
+    "drivers/media/dvb-frontends/cx22702.c",
+    "drivers/media/dvb-frontends/dib0090.c",
+    "drivers/media/dvb-frontends/dib3000mb.c",
+    "drivers/media/dvb-frontends/dib3000mc.c",
+    "drivers/media/dvb-frontends/dib7000m.c",
+    "drivers/media/dvb-frontends/dib7000p.c",
+    "drivers/media/dvb-frontends/dib8000.c",
+    "drivers/media/dvb-frontends/dib9000.c",
+    "drivers/media/dvb-frontends/ec100.c",
+    "drivers/media/dvb-frontends/gp8psk-fe.c",
+    "drivers/media/dvb-frontends/l64781.c",
+    "drivers/media/dvb-frontends/lgs8gxx.c",
+    "drivers/media/dvb-frontends/m88ds3103.c",
+    "drivers/media/dvb-frontends/mn88472.c",
+    "drivers/media/dvb-frontends/mn88473.c",
+    "drivers/media/dvb-frontends/mt312.c",
+    "drivers/media/dvb-frontends/mt352.c",
+    "drivers/media/dvb-frontends/nxt200x.c",
+    "drivers/media/dvb-frontends/nxt6000.c",
+    "drivers/media/dvb-frontends/or51132.c",
+    "drivers/media/dvb-frontends/or51211.c",
+    "drivers/media/dvb-frontends/s5h1409.c",
+    "drivers/media/dvb-frontends/s5h1411.c",
+    "drivers/media/dvb-frontends/si2165.c",
+    "drivers/media/dvb-frontends/si2168.c",
+    "drivers/media/dvb-frontends/sp887x.c",
+    "drivers/media/dvb-frontends/stv0367.c",
+    "drivers/media/dvb-frontends/tda10048.c",
+    "drivers/media/dvb-frontends/tda1004x.c",
+    "drivers/media/dvb-frontends/tda10071.c",
+    "drivers/media/dvb-frontends/ves1820.c",
+    "drivers/media/dvb-frontends/zl10353.c",
+    "drivers/media/pci/intel/ipu6/ipu6-mmu.c",
+    "drivers/media/pci/saa7164/saa7164-encoder.c",
+    "drivers/media/platform/amphion/vdec.c",
+    "drivers/media/platform/amphion/venc.c",
+    "drivers/media/platform/amphion/vpu_windsor.c",
+    "drivers/media/platform/atmel/atmel-isi.c",
+    "drivers/media/platform/qcom/camss/camss-vfe.c",
+    "drivers/media/platform/renesas/rcar_fdp1.c",
+    "drivers/media/platform/xilinx/xilinx-vtc.c",
+    "drivers/media/rc/img-ir/img-ir-hw.c",
+    "drivers/media/rc/img-ir/img-ir-jvc.c",
+    "drivers/media/rc/img-ir/img-ir-sanyo.c",
+    "drivers/media/test-drivers/vivid/vivid-cec.c",
+    "drivers/media/usb/dvb-usb-v2/mxl111sf-demod.c",
+    "drivers/media/usb/pvrusb2/pvrusb2-io.c",
+    "drivers/media/usb/ttusb-dec/ttusbdecfe.c",
+    "drivers/media/v4l2-core/v4l2-async.c",
+    "drivers/media/v4l2-core/v4l2-ctrls-core.c",
+    "drivers/memory/omap-gpmc.c",
+    "drivers/mfd/ab8500-core.c",
+    "drivers/mfd/abx500-core.c",
+    "drivers/misc/eeprom/idt_89hpesx.c",
+    "drivers/misc/fastrpc.c",
+    "drivers/misc/ibmasm/command.c",
+    "drivers/misc/ibmasm/ibmasmfs.c",
+    "drivers/misc/ibmvmc.c",
+    "drivers/misc/kgdbts.c",
+    "drivers/misc/lkdtm/bugs.c",
+    "drivers/misc/sram-exec.c",
+    "drivers/misc/vmw_vmci/vmci_queue_pair.c",
+    "drivers/misc/xilinx_sdfec.c",
+    "drivers/misc/xilinx_tmr_manager.c",
+    "drivers/mmc/core/mmc_test.c",
+    "drivers/mmc/host/wmt-sdmmc.c",
+    "drivers/mtd/devices/docg3.c",
+    "drivers/mtd/nand/raw/davinci_nand.c",
+    "drivers/mtd/nand/raw/diskonchip.c",
+    "drivers/mtd/nand/raw/hisi504_nand.c",
+    "drivers/mtd/nand/raw/lpc32xx_slc.c",
+    "drivers/mtd/nand/raw/sh_flctl.c",
+    "drivers/mtd/nand/raw/sm_common.c",
+    "drivers/net/can/dev/bittiming.c",
+    "drivers/net/can/usb/gs_usb.c",
+    "drivers/net/ethernet/actions/owl-emac.c",
+    "drivers/net/ethernet/alacritech/slicoss.c",
+    "drivers/net/ethernet/calxeda/xgmac.c",
+    "drivers/net/ethernet/chelsio/cxgb3/cxgb3_offload.c",
+    "drivers/net/ethernet/chelsio/cxgb3/sge.c",
+    "drivers/net/ethernet/chelsio/cxgb3/xgmac.c",
+    "drivers/net/ethernet/chelsio/cxgb4/cudbg_common.c",
+    "drivers/net/ethernet/cisco/enic/enic_rq.c",
+    "drivers/net/ethernet/faraday/ftmac100.c",
+    "drivers/net/ethernet/huawei/hinic/hinic_hw_mbox.c",
+    "drivers/net/ethernet/huawei/hinic3/hinic3_filter.c",
+    "drivers/net/ethernet/ibm/ibmvnic.c",
+    "drivers/net/ethernet/intel/fm10k/fm10k_common.c",
+    "drivers/net/ethernet/intel/fm10k/fm10k_mbx.c",
+    "drivers/net/ethernet/intel/fm10k/fm10k_pf.c",
+    "drivers/net/ethernet/intel/i40e/i40e_txrx.c",
+    "drivers/net/ethernet/intel/ice/ice_ddp.c",
+    "drivers/net/ethernet/intel/ice/ice_dpll.c",
+    "drivers/net/ethernet/intel/ice/ice_ethtool.c",
+    "drivers/net/ethernet/marvell/octeon_ep_vf/octep_vf_rx.c",
+    "drivers/net/ethernet/marvell/octeon_ep_vf/octep_vf_tx.c",
+    "drivers/net/ethernet/marvell/prestera/prestera_acl.c",
+    "drivers/net/ethernet/marvell/prestera/prestera_pci.c",
+    "drivers/net/ethernet/marvell/prestera/prestera_span.c",
+    "drivers/net/ethernet/mellanox/mlx5/core/en_fs.c",
+    "drivers/net/ethernet/mellanox/mlx5/core/esw/bridge.c",
+    "drivers/net/ethernet/mellanox/mlx5/core/esw/qos.c",
+    "drivers/net/ethernet/mellanox/mlx5/core/fs_pool.c",
+    "drivers/net/ethernet/mellanox/mlx5/core/steering/hws/bwc.c",
+    "drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_actions.c",
+    "drivers/net/ethernet/mellanox/mlxsw/spectrum_router.c",
+    "drivers/net/ethernet/microchip/lan966x/lan966x_fdb.c",
+    "drivers/net/ethernet/microchip/lan966x/lan966x_mdb.c",
+    "drivers/net/ethernet/microchip/lan966x/lan966x_vlan.c",
+    "drivers/net/ethernet/microchip/vcap/vcap_api_kunit.c",
+    "drivers/net/ethernet/mscc/ocelot_flower.c",
+    "drivers/net/ethernet/netronome/nfp/nfp_port.c",
+    "drivers/net/ethernet/qlogic/qed/qed_mcp.c",
+    "drivers/net/ethernet/qlogic/qed/qed_ooo.c",
+    "drivers/net/ethernet/sis/sis190.c",
+    "drivers/net/ethernet/stmicro/stmmac/dwmac-rk.c",
+    "drivers/net/ethernet/stmicro/stmmac/dwmac4_descs.c",
+    "drivers/net/ethernet/stmicro/stmmac/dwxgmac2_descs.c",
+    "drivers/net/ethernet/stmicro/stmmac/enh_desc.c",
+    "drivers/net/ethernet/stmicro/stmmac/norm_desc.c",
+    "drivers/net/ieee802154/atusb.c",
+    "drivers/net/netdevsim/fib.c",
+    "drivers/net/netdevsim/tc.c",
+    "drivers/net/phy/microchip_rds_ptp.c",
+    "drivers/net/wireless/ath/ar5523/ar5523.c",
+    "drivers/net/wireless/ath/ath10k/debug.c",
+    "drivers/net/wireless/ath/ath12k/reg.c",
+    "drivers/net/wireless/broadcom/b43/lo.c",
+    "drivers/net/wireless/broadcom/brcm80211/brcmfmac/cfg80211.c",
+    "drivers/net/wireless/broadcom/brcm80211/brcmfmac/commonring.c",
+    "drivers/net/wireless/intel/ipw2x00/libipw_crypto.c",
+    "drivers/net/wireless/realtek/rtw89/phy.c",
+    "drivers/net/wireless/realtek/rtw89/ser.c",
+    "drivers/net/wireless/silabs/wfx/data_tx.c",
+    "drivers/net/wireless/st/cw1200/sta.c",
+    "drivers/net/wwan/t7xx/t7xx_state_monitor.c",
+    "drivers/ntb/ntb_transport.c",
+    "drivers/pci/hotplug/ibmphp_hpc.c",
+    "drivers/pci/pcie/aer_inject.c",
+    "drivers/pci/tph.c",
+    "drivers/perf/riscv_pmu_legacy.c",
+    "drivers/phy/xilinx/phy-zynqmp.c",
+    "drivers/platform/x86/acerhdf.c",
+    "drivers/platform/x86/intel_ips.c",
+    "drivers/platform/x86/lenovo/thinkpad_acpi.c",
+    "drivers/powercap/dtpm_devfreq.c",
+    "drivers/regulator/dbx500-prcmu.c",
+    "drivers/rtc/rtc-m41t93.c",
+    "drivers/s390/char/con3270.c",
+    "drivers/s390/char/sclp_sd.c",
+    "drivers/s390/scsi/zfcp_fsf.c",
+    "drivers/s390/scsi/zfcp_scsi.c",
+    "drivers/scsi/dc395x.c",
+    "drivers/scsi/esp_scsi.c",
+    "drivers/scsi/fnic/fnic_fcs.c",
+    "drivers/scsi/ibmvscsi/ibmvfc.c",
+    "drivers/scsi/libfc/fc_rport.c",
+    "drivers/scsi/mpi3mr/mpi3mr_transport.c",
+    "drivers/scsi/mvsas/mv_sas.c",
+    "drivers/soc/fsl/qe/qmc.c",
+    "drivers/soc/ti/wkup_m3_ipc.c",
+    "drivers/spi/spi-fsi.c",
+    "drivers/spi/spi-pic32-sqi.c",
+    "drivers/staging/media/av7110/av7110_ipack.c",
+    "drivers/staging/media/av7110/sp8870.c",
+    "drivers/staging/media/imx/imx-media-utils.c",
+    "drivers/staging/media/ipu7/ipu7-mmu.c",
+    "drivers/staging/vme_user/vme.c",
+    "drivers/target/iscsi/iscsi_target.c",
+    "drivers/target/iscsi/iscsi_target_datain_values.c",
+    "drivers/target/iscsi/iscsi_target_erl2.c",
+    "drivers/target/iscsi/iscsi_target_util.c",
+    "drivers/target/target_core_user.c",
+    "drivers/thunderbolt/dma_test.c",
+    "drivers/tty/serial/icom.c",
+    "drivers/tty/serial/max310x.c",
+    "drivers/usb/serial/ti_usb_3410_5052.c",
+    "drivers/usb/serial/whiteheat.c",
+    "drivers/vdpa/solidrun/snet_main.c",
+    "drivers/video/fbdev/mmp/hw/mmp_ctrl.c",
+    "drivers/video/fbdev/omap2/omapfb/dss/output.c",
+    "drivers/video/fbdev/via/via-core.c",
+    "drivers/w1/masters/omap_hdq.c",
+    "drivers/watchdog/bcm47xx_wdt.c",
+    "drivers/watchdog/bcm_kona_wdt.c",
+    "drivers/watchdog/moxart_wdt.c",
+    "drivers/watchdog/pnx4008_wdt.c",
+    "drivers/watchdog/rti_wdt.c",
+    "drivers/watchdog/sun4v_wdt.c",
+    "drivers/watchdog/twl4030_wdt.c",
+    "drivers/watchdog/w83627hf_wdt.c",
+    "drivers/xen/xen-pciback/conf_space_capability.c",
+    "drivers/xen/xen-pciback/conf_space_quirks.c",
+    "fs/btrfs/async-thread.c",
+    "fs/btrfs/extent-io-tree.c",
+    "fs/btrfs/extent_io.c",
+    "fs/btrfs/tree-log.c",
+    "fs/ext2/super.c",
+    "fs/gfs2/log.c",
+    "fs/gfs2/lops.c",
+    "fs/nfsd/nfs4acl.c",
+    "fs/ntfs/runlist.c",
+    "fs/ocfs2/cluster/netdebug.c",
+    "fs/ocfs2/cluster/tcp.c",
+    "fs/ocfs2/dlm/dlmmaster.c",
+    "fs/ocfs2/extent_map.c",
+    "fs/ocfs2/ioctl.c",
+    "fs/ocfs2/reservations.c",
+    "fs/orangefs/orangefs-bufmap.c",
+    "fs/resctrl/rdtgroup.c",
+    "fs/smb/server/oplock.c",
+    "kernel/cgroup/rdma.c",
+    "kernel/dma/debug.c",
+    "kernel/gcov/clang.c",
+    "kernel/kallsyms_selftest.c",
+    "kernel/kcsan/kcsan_test.c",
+    "kernel/kprobes.c",
+    "kernel/locking/lockdep.c",
+    "kernel/sched/psi.c",
+    "kernel/static_call_inline.c",
+    "kernel/trace/ring_buffer.c",
+    "kernel/trace/trace_benchmark.c",
+    "kernel/trace/trace_events.c",
+    "kernel/trace/trace_events_filter.c",
+    "kernel/trace/trace_events_hist.c",
+    "kernel/trace/trace_events_trigger.c",
+    "kernel/trace/trace_selftest.c",
+    "lib/dynamic_debug.c",
+    "lib/tests/overflow_kunit.c",
+    "mm/memcontrol-v1.c",
+    "net/9p/mod.c",
+    "net/9p/protocol.c",
+    "net/bluetooth/hci_codec.c",
+    "net/bluetooth/hci_sock.c",
+    "net/bluetooth/hci_sync.c",
+    "net/bluetooth/lib.c",
+    "net/bridge/netfilter/ebtables.c",
+    "net/dsa/dsa.c",
+    "net/dsa/tag.c",
+    "net/ieee802154/pan.c",
+    "net/ipv4/tcp_westwood.c",
+    "net/netfilter/nfnetlink.c",
+    "net/netfilter/nft_set_rbtree.c",
+    "net/openvswitch/actions.c",
+    "net/psample/psample.c",
+    "net/sched/act_gate.c",
+    "net/sched/sch_cake.c",
+    "net/sched/sch_qfq.c",
+    "net/tipc/discover.c",
+    "net/tipc/link.c",
+    "net/tipc/name_table.c",
+    "net/xdp/xskmap.c",
+    "net/xfrm/xfrm_iptfs.c",
+    "sound/core/seq/seq_ump_convert.c",
+    "sound/core/ump_convert.c",
+    "sound/firewire/tascam/tascam-transaction.c",
+    "sound/oss/dmasound/dmasound_atari.c",
+    "sound/pci/asihpi/hpifunc.c",
+    "sound/usb/line6/midibuf.c",
+    "sound/usb/mixer.c"
+   ]
+  },
+  "NO_MAKEFILE": {
+   "fns": 31,
+   "files": [
+    "drivers/gpu/drm/i915/display/intel_audio.c",
+    "drivers/gpu/drm/i915/display/intel_bios.c",
+    "drivers/gpu/drm/i915/display/intel_casf.c",
+    "drivers/gpu/drm/i915/display/intel_color.c",
+    "drivers/gpu/drm/i915/display/skl_watermark.c",
+    "drivers/gpu/drm/i915/gem/i915_gem_ttm_move.c",
+    "drivers/gpu/drm/msm/dsi/phy/dsi_phy_10nm.c",
+    "drivers/gpu/drm/msm/dsi/phy/dsi_phy_7nm.c",
+    "drivers/gpu/drm/omapdrm/dss/base.c",
+    "drivers/hid/amd-sfh-hid/hid_descriptor/amd_sfh_hid_desc.c",
+    "drivers/hid/intel-ish-hid/ishtp/bus.c",
+    "drivers/hid/intel-ish-hid/ishtp/client.c",
+    "drivers/hid/intel-ish-hid/ishtp/loader.c",
+    "drivers/hid/intel-thc-hid/intel-thc/intel-thc-dev.c",
+    "drivers/net/ethernet/hisilicon/hns3/hns3vf/hclgevf_main.c",
+    "drivers/net/ethernet/mellanox/mlx5/core/diag/fw_tracer.c",
+    "drivers/net/ethernet/mellanox/mlx5/core/en/selq.c",
+    "drivers/net/ethernet/mellanox/mlx5/core/lib/hv_vhca.c",
+    "drivers/net/ethernet/mellanox/mlx5/core/steering/sws/dr_arg.c",
+    "drivers/net/ethernet/netronome/nfp/bpf/main.c",
+    "drivers/net/ethernet/netronome/nfp/nfpcore/nfp_cppcore.c",
+    "drivers/net/ethernet/netronome/nfp/nfpcore/nfp_nsp.c",
+    "drivers/staging/media/atomisp/pci/isp/kernels/anr/anr_1.0/ia_css_anr.host.c"
+   ]
+  },
+  "MTD_SPI_NAND": {
+   "fns": 28,
+   "files": [
+    "drivers/mtd/nand/spi/ato.c",
+    "drivers/mtd/nand/spi/core.c",
+    "drivers/mtd/nand/spi/dosilicon.c",
+    "drivers/mtd/nand/spi/fmsh.c",
+    "drivers/mtd/nand/spi/foresee.c",
+    "drivers/mtd/nand/spi/gigadevice.c",
+    "drivers/mtd/nand/spi/paragon.c",
+    "drivers/mtd/nand/spi/winbond.c",
+    "drivers/mtd/nand/spi/xtx.c"
+   ]
+  },
+  "__obj-y__": {
+   "fns": 12,
+   "files": [
+    "drivers/base/syscore.c",
+    "mm/damon/core.c",
+    "net/dcb/dcbnl.c"
+   ]
+  },
+  "DM_CACHE_SMQ": {
+   "fns": 5,
+   "files": [
+    "drivers/md/dm-cache-policy-smq.c"
+   ]
+  },
+  "MTD_ONENAND": {
+   "fns": 5,
+   "files": [
+    "drivers/mtd/nand/onenand/onenand_base.c"
+   ]
+  },
+  "SND_SOC_TSCS454": {
+   "fns": 5,
+   "files": [
+    "sound/soc/codecs/tscs454.c"
+   ]
+  },
+  "SMS_SIANO_MDTV": {
+   "fns": 3,
+   "files": [
+    "drivers/media/common/siano/smscoreapi.c",
+    "drivers/media/common/siano/smsdvb-main.c"
+   ]
+  },
+  "VIDEO_IMX8_JPEG": {
+   "fns": 3,
+   "files": [
+    "drivers/media/platform/nxp/imx-jpeg/mxc-jpeg-hw.c"
+   ]
+  },
+  "RC_CORE": {
+   "fns": 3,
+   "files": [
+    "drivers/media/rc/rc-ir-raw.c",
+    "drivers/media/rc/rc-main.c"
+   ]
+  },
+  "FSL_FMAN": {
+   "fns": 3,
+   "files": [
+    "drivers/net/ethernet/freescale/fman/fman_dtsec.c",
+    "drivers/net/ethernet/freescale/fman/fman_memac.c",
+    "drivers/net/ethernet/freescale/fman/fman_tgec.c"
+   ]
+  },
+  "MLXSW_CORE": {
+   "fns": 3,
+   "files": [
+    "drivers/net/ethernet/mellanox/mlxsw/core.c",
+    "drivers/net/ethernet/mellanox/mlxsw/core_acl_flex_keys.c"
+   ]
+  },
+  "ATH11K": {
+   "fns": 3,
+   "files": [
+    "drivers/net/wireless/ath/ath11k/core.c"
+   ]
+  },
+  "ATH12K": {
+   "fns": 3,
+   "files": [
+    "drivers/net/wireless/ath/ath12k/core.c"
+   ]
+  },
+  "MWIFIEX": {
+   "fns": 3,
+   "files": [
+    "drivers/net/wireless/marvell/mwifiex/tdls.c",
+    "drivers/net/wireless/marvell/mwifiex/uap_cmd.c",
+    "drivers/net/wireless/marvell/mwifiex/util.c"
+   ]
+  },
+  "ZCRYPT": {
+   "fns": 3,
+   "files": [
+    "drivers/s390/crypto/zcrypt_api.c",
+    "drivers/s390/crypto/zcrypt_ep11misc.c"
+   ]
+  },
+  "USB4": {
+   "fns": 3,
+   "files": [
+    "drivers/thunderbolt/icm.c",
+    "drivers/thunderbolt/property.c",
+    "drivers/thunderbolt/xdomain.c"
+   ]
+  },
+  "USBIP_CORE": {
+   "fns": 3,
+   "files": [
+    "drivers/usb/usbip/usbip_common.c",
+    "drivers/usb/usbip/usbip_event.c"
+   ]
+  },
+  "UBIFS_FS": {
+   "fns": 3,
+   "files": [
+    "fs/ubifs/io.c"
+   ]
+  },
+  "BT": {
+   "fns": 3,
+   "files": [
+    "net/bluetooth/hci_core.c"
+   ]
+  },
+  "NF_TABLES": {
+   "fns": 3,
+   "files": [
+    "net/netfilter/nf_tables_api.c"
+   ]
+  },
+  "SND_SOC": {
+   "fns": 3,
+   "files": [
+    "sound/soc/soc-dapm.c",
+    "sound/soc/soc-pcm.c"
+   ]
+  },
+  "COMEDI": {
+   "fns": 2,
+   "files": [
+    "drivers/comedi/comedi_fops.c"
+   ]
+  },
+  "DRM_MALI_DISPLAY": {
+   "fns": 2,
+   "files": [
+    "drivers/gpu/drm/arm/malidp_drv.c"
+   ]
+  },
+  "IMX_IPUV3_CORE": {
+   "fns": 2,
+   "files": [
+    "drivers/gpu/ipu-v3/ipu-csi.c",
+    "drivers/gpu/ipu-v3/ipu-di.c"
+   ]
+  },
+  "INFINIBAND_VMWARE_PVRDMA": {
+   "fns": 2,
+   "files": [
+    "drivers/infiniband/hw/vmw_pvrdma/pvrdma_misc.c"
+   ]
+  },
+  "MEDIA_SUPPORT": {
+   "fns": 2,
+   "files": [
+    "drivers/media/mc/mc-device.c"
+   ]
+  },
+  "VIDEO_MEDIATEK_MDP": {
+   "fns": 2,
+   "files": [
+    "drivers/media/platform/mediatek/mdp/mtk_mdp_core.c"
+   ]
+  },
+  "GENWQE": {
+   "fns": 2,
+   "files": [
+    "drivers/misc/genwqe/card_dev.c"
+   ]
+  },
+  "CHELSIO_T4": {
+   "fns": 2,
+   "files": [
+    "drivers/net/ethernet/chelsio/cxgb4/cxgb4_main.c",
+    "drivers/net/ethernet/chelsio/cxgb4/sge.c"
+   ]
+  },
+  "BE2NET": {
+   "fns": 2,
+   "files": [
+    "drivers/net/ethernet/emulex/benet/be_cmds.c",
+    "drivers/net/ethernet/emulex/benet/be_main.c"
+   ]
+  },
+  "MVPP2": {
+   "fns": 2,
+   "files": [
+    "drivers/net/ethernet/marvell/mvpp2/mvpp2_main.c"
+   ]
+  },
+  "OCTEON_EP": {
+   "fns": 2,
+   "files": [
+    "drivers/net/ethernet/marvell/octeon_ep/octep_rx.c",
+    "drivers/net/ethernet/marvell/octeon_ep/octep_tx.c"
+   ]
+  },
+  "NXP_C45_TJA11XX_PHY": {
+   "fns": 2,
+   "files": [
+    "drivers/net/phy/nxp-c45-tja11xx-macsec.c"
+   ]
+  },
+  "ATH6KL": {
+   "fns": 2,
+   "files": [
+    "drivers/net/wireless/ath/ath6kl/htc_mbox.c"
+   ]
+  },
+  "LIBNVDIMM": {
+   "fns": 2,
+   "files": [
+    "drivers/nvdimm/badrange.c",
+    "drivers/nvdimm/region_devs.c"
+   ]
+  },
+  "SURFACE_AGGREGATOR": {
+   "fns": 2,
+   "files": [
+    "drivers/platform/surface/aggregator/controller.c"
+   ]
+  },
+  "VIDEO_MESON_VDEC": {
+   "fns": 2,
+   "files": [
+    "drivers/staging/media/meson/vdec/vdec.c"
+   ]
+  },
+  "VDPA_USER": {
+   "fns": 2,
+   "files": [
+    "drivers/vdpa/vdpa_user/vduse_dev.c"
+   ]
+  },
+  "EXFAT_FS": {
+   "fns": 2,
+   "files": [
+    "fs/exfat/misc.c"
+   ]
+  },
+  "F2FS_FS": {
+   "fns": 2,
+   "files": [
+    "fs/f2fs/shrinker.c",
+    "fs/f2fs/super.c"
+   ]
+  },
+  "OCFS2_FS_O2CB": {
+   "fns": 2,
+   "files": [
+    "fs/ocfs2/dlm/dlmdomain.c",
+    "fs/ocfs2/dlm/dlmrecovery.c"
+   ]
+  },
+  "ATM": {
+   "fns": 2,
+   "files": [
+    "net/atm/ioctl.c"
+   ]
+  },
+  "BT_BNEP": {
+   "fns": 2,
+   "files": [
+    "net/bluetooth/bnep/core.c"
+   ]
+  },
+  "SMC": {
+   "fns": 2,
+   "files": [
+    "net/smc/smc_ism.c",
+    "net/smc/smc_llc.c"
+   ]
+  },
+  "VIRTIO_VSOCKETS_COMMON": {
+   "fns": 2,
+   "files": [
+    "net/vmw_vsock/virtio_transport_common.c"
+   ]
+  },
+  "SND_SEQUENCER": {
+   "fns": 2,
+   "files": [
+    "sound/core/seq/seq_clientmgr.c"
+   ]
+  },
+  "SND_SEQ_MIDI_EVENT": {
+   "fns": 2,
+   "files": [
+    "sound/core/seq/seq_midi_event.c"
+   ]
+  },
+  "SND_HDSP": {
+   "fns": 2,
+   "files": [
+    "sound/pci/rme9652/hdsp.c"
+   ]
+  },
+  "SND_SOC_TAS2781_FMWLIB": {
+   "fns": 2,
+   "files": [
+    "sound/soc/codecs/tas2781-fmwlib.c"
+   ]
+  },
+  "SND_SST_ATOM_HIFI2_PLATFORM": {
+   "fns": 2,
+   "files": [
+    "sound/soc/intel/atom/sst-mfld-platform-pcm.c",
+    "sound/soc/intel/atom/sst/sst_loader.c"
+   ]
+  },
+  "BLK_DEV_DRBD": {
+   "fns": 1,
+   "files": [
+    "drivers/block/drbd/drbd_nl_gen.c"
+   ]
+  },
+  "ZRAM": {
+   "fns": 1,
+   "files": [
+    "drivers/block/zram/zram_drv.c"
+   ]
+  },
+  "BT_HCIUART": {
+   "fns": 1,
+   "files": [
+    "drivers/bluetooth/hci_ldisc.c"
+   ]
+  },
+  "CRYPTO_DEV_FSL_CAAM_JR": {
+   "fns": 1,
+   "files": [
+    "drivers/crypto/caam/jr.c"
+   ]
+  },
+  "CRYPTO_DEV_HISI_QM": {
+   "fns": 1,
+   "files": [
+    "drivers/crypto/hisilicon/qm.c"
+   ]
+  },
+  "CRYPTO_DEV_NX_COMPRESS_POWERNV": {
+   "fns": 1,
+   "files": [
+    "drivers/crypto/nx/nx-common-powernv.c"
+   ]
+  },
+  "CRYPTO_DEV_NX_COMPRESS_PSERIES": {
+   "fns": 1,
+   "files": [
+    "drivers/crypto/nx/nx-common-pseries.c"
+   ]
+  },
+  "CXL_BUS": {
+   "fns": 1,
+   "files": [
+    "drivers/cxl/core/cdat.c"
+   ]
+  },
+  "DCA": {
+   "fns": 1,
+   "files": [
+    "drivers/dca/dca-core.c"
+   ]
+  },
+  "EDAC_I10NM": {
+   "fns": 1,
+   "files": [
+    "drivers/edac/skx_common.c"
+   ]
+  },
+  "EDAC_IMH": {
+   "fns": 1,
+   "files": [
+    "drivers/edac/skx_common.c"
+   ]
+  },
+  "EDAC_SKX": {
+   "fns": 1,
+   "files": [
+    "drivers/edac/skx_common.c"
+   ]
+  },
+  "FPGA_DFL_FME": {
+   "fns": 1,
+   "files": [
+    "drivers/fpga/dfl-fme-perf.c"
+   ]
+  },
+  "DRM_VBOXVIDEO": {
+   "fns": 1,
+   "files": [
+    "drivers/gpu/drm/vboxvideo/vbva_base.c"
+   ]
+  },
+  "DRM_VMWGFX": {
+   "fns": 1,
+   "files": [
+    "drivers/gpu/drm/vmwgfx/vmwgfx_kms.c"
+   ]
+  },
+  "DRM_XEN_FRONTEND": {
+   "fns": 1,
+   "files": [
+    "drivers/gpu/drm/xen/xen_drm_front.c"
+   ]
+  },
+  "HYPERV_VMBUS": {
+   "fns": 1,
+   "files": [
+    "drivers/hv/vmbus_drv.c"
+   ]
+  },
+  "SENSORS_NCT6775": {
+   "fns": 1,
+   "files": [
+    "drivers/hwmon/nct6775-platform.c"
+   ]
+  },
+  "INFINIBAND": {
+   "fns": 1,
+   "files": [
+    "drivers/infiniband/core/iwcm.c"
+   ]
+  },
+  "INFINIBAND_BNG_RE": {
+   "fns": 1,
+   "files": [
+    "drivers/infiniband/hw/bng_re/bng_dev.c"
+   ]
+  },
+  "INFINIBAND_BNXT_RE": {
+   "fns": 1,
+   "files": [
+    "drivers/infiniband/hw/bnxt_re/main.c"
+   ]
+  },
+  "MLX4_INFINIBAND": {
+   "fns": 1,
+   "files": [
+    "drivers/infiniband/hw/mlx4/qp.c"
+   ]
+  },
+  "INFINIBAND_OCRDMA": {
+   "fns": 1,
+   "files": [
+    "drivers/infiniband/hw/ocrdma/ocrdma_verbs.c"
+   ]
+  },
+  "INFINIBAND_RTRS_CLIENT": {
+   "fns": 1,
+   "files": [
+    "drivers/infiniband/ulp/rtrs/rtrs-clt.c"
+   ]
+  },
+  "RMI4_CORE": {
+   "fns": 1,
+   "files": [
+    "drivers/input/rmi4/rmi_driver.c"
+   ]
+  },
+  "DM_CACHE": {
+   "fns": 1,
+   "files": [
+    "drivers/md/dm-cache-policy.c"
+   ]
+  },
+  "DM_MULTIPATH_HST": {
+   "fns": 1,
+   "files": [
+    "drivers/md/dm-ps-historical-service-time.c"
+   ]
+  },
+  "DM_MULTIPATH_QL": {
+   "fns": 1,
+   "files": [
+    "drivers/md/dm-ps-queue-length.c"
+   ]
+  },
+  "DM_MULTIPATH": {
+   "fns": 1,
+   "files": [
+    "drivers/md/dm-ps-round-robin.c"
+   ]
+  },
+  "DM_MULTIPATH_ST": {
+   "fns": 1,
+   "files": [
+    "drivers/md/dm-ps-service-time.c"
+   ]
+  },
+  "DM_SNAPSHOT": {
+   "fns": 1,
+   "files": [
+    "drivers/md/dm-snap.c"
+   ]
+  },
+  "MD_RAID456": {
+   "fns": 1,
+   "files": [
+    "drivers/md/raid5-cache.c"
+   ]
+  },
+  "DVB_CXD2820R": {
+   "fns": 1,
+   "files": [
+    "drivers/media/dvb-frontends/cxd2820r_c.c"
+   ]
+  },
+  "DVB_DRX39XYJ": {
+   "fns": 1,
+   "files": [
+    "drivers/media/dvb-frontends/drx39xyj/drxj.c"
+   ]
+  },
+  "DVB_DRXD": {
+   "fns": 1,
+   "files": [
+    "drivers/media/dvb-frontends/drxd_hard.c"
+   ]
+  },
+  "VIDEO_ALLEGRO_DVT": {
+   "fns": 1,
+   "files": [
+    "drivers/media/platform/allegro-dvt/nal-rbsp.c"
+   ]
+  },
+  "VIDEO_SAMSUNG_S5P_MFC": {
+   "fns": 1,
+   "files": [
+    "drivers/media/platform/samsung/s5p-mfc/s5p_mfc_intr.c"
+   ]
+  },
+  "DVB_USB_CINERGY_T2": {
+   "fns": 1,
+   "files": [
+    "drivers/media/usb/dvb-usb/cinergyT2-fe.c"
+   ]
+  },
+  "DVB_USB_DTT200U": {
+   "fns": 1,
+   "files": [
+    "drivers/media/usb/dvb-usb/dtt200u-fe.c"
+   ]
+  },
+  "DVB_USB_VP7045": {
+   "fns": 1,
+   "files": [
+    "drivers/media/usb/dvb-usb/vp7045-fe.c"
+   ]
+  },
+  "USB_VIDEO_CLASS": {
+   "fns": 1,
+   "files": [
+    "drivers/media/usb/uvc/uvc_video.c"
+   ]
+  },
+  "INTEL_MEI": {
+   "fns": 1,
+   "files": [
+    "drivers/misc/mei/main.c"
+   ]
+  },
+  "MMC_SDHCI_PCI": {
+   "fns": 1,
+   "files": [
+    "drivers/mmc/host/sdhci-pci-core.c"
+   ]
+  },
+  "MTD_TESTS": {
+   "fns": 1,
+   "files": [
+    "drivers/mtd/tests/oobtest.c"
+   ]
+  },
+  "BONDING": {
+   "fns": 1,
+   "files": [
+    "drivers/net/bonding/bond_alb.c"
+   ]
+  },
+  "CAN_ETAS_ES58X": {
+   "fns": 1,
+   "files": [
+    "drivers/net/can/usb/etas_es58x/es58x_fd.c"
+   ]
+  },
+  "NET_DSA_HIRSCHMANN_HELLCREEK": {
+   "fns": 1,
+   "files": [
+    "drivers/net/dsa/hirschmann/hellcreek_hwtstamp.c"
+   ]
+  },
+  "NET_DSA_SJA1105": {
+   "fns": 1,
+   "files": [
+    "drivers/net/dsa/sja1105/sja1105_vl.c"
+   ]
+  },
+  "BNX2X": {
+   "fns": 1,
+   "files": [
+    "drivers/net/ethernet/broadcom/bnx2x/bnx2x_sp.c"
+   ]
+  },
+  "BNXT": {
+   "fns": 1,
+   "files": [
+    "drivers/net/ethernet/broadcom/bnxt/bnxt.c"
+   ]
+  },
+  "CHELSIO_T4VF": {
+   "fns": 1,
+   "files": [
+    "drivers/net/ethernet/chelsio/cxgb4vf/sge.c"
+   ]
+  },
+  "IAVF": {
+   "fns": 1,
+   "files": [
+    "drivers/net/ethernet/intel/iavf/iavf_main.c"
+   ]
+  },
+  "IXGBEVF": {
+   "fns": 1,
+   "files": [
+    "drivers/net/ethernet/intel/ixgbevf/vf.c"
+   ]
+  },
+  "MLX4_EN": {
+   "fns": 1,
+   "files": [
+    "drivers/net/ethernet/mellanox/mlx4/en_ethtool.c"
+   ]
+  },
+  "VCAP": {
+   "fns": 1,
+   "files": [
+    "drivers/net/ethernet/microchip/vcap/vcap_api.c"
+   ]
+  },
+  "MICROSOFT_MANA": {
+   "fns": 1,
+   "files": [
+    "drivers/net/ethernet/microsoft/mana/mana_en.c"
+   ]
+  },
+  "ROCKER": {
+   "fns": 1,
+   "files": [
+    "drivers/net/ethernet/rocker/rocker_main.c"
+   ]
+  },
+  "TI_KEYSTONE_NETCP": {
+   "fns": 1,
+   "files": [
+    "drivers/net/ethernet/ti/netcp_core.c"
+   ]
+  },
+  "NET_TEAM": {
+   "fns": 1,
+   "files": [
+    "drivers/net/team/team_core.c"
+   ]
+  },
+  "IWLDVM": {
+   "fns": 1,
+   "files": [
+    "drivers/net/wireless/intel/iwlwifi/dvm/calib.c"
+   ]
+  },
+  "NTB_INTEL": {
+   "fns": 1,
+   "files": [
+    "drivers/ntb/hw/intel/ntb_hw_gen1.c"
+   ]
+  },
+  "BLK_DEV_NVME": {
+   "fns": 1,
+   "files": [
+    "drivers/nvme/host/pci.c"
+   ]
+  },
+  "NVME_TARGET": {
+   "fns": 1,
+   "files": [
+    "drivers/nvme/target/core.c"
+   ]
+  },
+  "NVME_TARGET_LOOP": {
+   "fns": 1,
+   "files": [
+    "drivers/nvme/target/loop.c"
+   ]
+  },
+  "NVME_TARGET_PCI_EPF": {
+   "fns": 1,
+   "files": [
+    "drivers/nvme/target/pci-epf.c"
+   ]
+  },
+  "DASD": {
+   "fns": 1,
+   "files": [
+    "drivers/s390/block/dasd.c"
+   ]
+  },
+  "QETH": {
+   "fns": 1,
+   "files": [
+    "drivers/s390/net/qeth_core_main.c"
+   ]
+  },
+  "SCSI_BNX2X_FCOE": {
+   "fns": 1,
+   "files": [
+    "drivers/scsi/bnx2fc/bnx2fc_fcoe.c"
+   ]
+  },
+  "SCSI_MPI3MR": {
+   "fns": 1,
+   "files": [
+    "drivers/scsi/mpi3mr/mpi3mr_os.c"
+   ]
+  },
+  "QEDI": {
+   "fns": 1,
+   "files": [
+    "drivers/scsi/qedi/qedi_iscsi.c"
+   ]
+  },
+  "SOUNDWIRE": {
+   "fns": 1,
+   "files": [
+    "drivers/soundwire/stream.c"
+   ]
+  },
+  "GREYBUS_LIGHT": {
+   "fns": 1,
+   "files": [
+    "drivers/staging/greybus/light.c"
+   ]
+  },
+  "GREYBUS_LOOPBACK": {
+   "fns": 1,
+   "files": [
+    "drivers/staging/greybus/loopback.c"
+   ]
+  },
+  "MOST_DIM2": {
+   "fns": 1,
+   "files": [
+    "drivers/staging/most/dim2/hal.c"
+   ]
+  },
+  "FB_SM750": {
+   "fns": 1,
+   "files": [
+    "drivers/staging/sm750fb/sm750_cursor.c"
+   ]
+  },
+  "ISCSI_TARGET": {
+   "fns": 1,
+   "files": [
+    "drivers/target/iscsi/iscsi_target_parameters.c"
+   ]
+  },
+  "USB_C67X00_HCD": {
+   "fns": 1,
+   "files": [
+    "drivers/usb/c67x00/c67x00-sched.c"
+   ]
+  },
+  "USB_LIBCOMPOSITE": {
+   "fns": 1,
+   "files": [
+    "drivers/usb/gadget/functions.c"
+   ]
+  },
+  "USB_G_HID": {
+   "fns": 1,
+   "files": [
+    "drivers/usb/gadget/legacy/hid.c"
+   ]
+  },
+  "USB_FHCI_HCD": {
+   "fns": 1,
+   "files": [
+    "drivers/usb/host/fhci-q.c"
+   ]
+  },
+  "USB_MON": {
+   "fns": 1,
+   "files": [
+    "drivers/usb/mon/mon_bin.c"
+   ]
+  },
+  "USB_RENESAS_USBHS": {
+   "fns": 1,
+   "files": [
+    "drivers/usb/renesas_usbhs/fifo.c"
+   ]
+  },
+  "TYPEC": {
+   "fns": 1,
+   "files": [
+    "drivers/usb/typec/mode_selection.c"
+   ]
+  },
+  "USBIP_HOST": {
+   "fns": 1,
+   "files": [
+    "drivers/usb/usbip/stub_main.c"
+   ]
+  },
+  "VFIO_PLATFORM_BASE": {
+   "fns": 1,
+   "files": [
+    "drivers/vfio/platform/vfio_platform_common.c"
+   ]
+  },
+  "VHOST_NET": {
+   "fns": 1,
+   "files": [
+    "drivers/vhost/net.c"
+   ]
+  },
+  "FB_RADEON": {
+   "fns": 1,
+   "files": [
+    "drivers/video/fbdev/aty/radeon_monitor.c"
+   ]
+  },
+  "FB_OMAP2": {
+   "fns": 1,
+   "files": [
+    "drivers/video/fbdev/omap2/omapfb/omapfb-main.c"
+   ]
+  },
+  "FB_SAVAGE": {
+   "fns": 1,
+   "files": [
+    "drivers/video/fbdev/savage/savagefb_driver.c"
+   ]
+  },
+  "FB_VIA": {
+   "fns": 1,
+   "files": [
+    "drivers/video/fbdev/via/hw.c"
+   ]
+  },
+  "W1": {
+   "fns": 1,
+   "files": [
+    "drivers/w1/w1_io.c"
+   ]
+  },
+  "FUSE_FS": {
+   "fns": 1,
+   "files": [
+    "fs/fuse/dev.c"
+   ]
+  },
+  "VIRTIO_FS": {
+   "fns": 1,
+   "files": [
+    "fs/fuse/virtio_fs.c"
+   ]
+  },
+  "OCFS2_FS_USERSPACE_CLUSTER": {
+   "fns": 1,
+   "files": [
+    "fs/ocfs2/stack_user.c"
+   ]
+  },
+  "FUNCTION_TRACER": {
+   "fns": 1,
+   "files": [
+    "kernel/trace/ftrace.c"
+   ]
+  },
+  "BRIDGE_NETFILTER": {
+   "fns": 1,
+   "files": [
+    "net/bridge/br_netfilter_hooks.c"
+   ]
+  },
+  "CEPH_LIB": {
+   "fns": 1,
+   "files": [
+    "net/ceph/messenger.c"
+   ]
+  },
+  "X25": {
+   "fns": 1,
+   "files": [
+    "net/x25/x25_facilities.c"
+   ]
+  },
+  "IMA": {
+   "fns": 1,
+   "files": [
+    "security/integrity/ima/ima_queue.c"
+   ]
+  },
+  "SND_CTL_LED": {
+   "fns": 1,
+   "files": [
+    "sound/core/control_led.c"
+   ]
+  },
+  "SND_SOC_CS48L32": {
+   "fns": 1,
+   "files": [
+    "sound/soc/codecs/cs48l32.c"
+   ]
+  },
+  "SND_SOC_WCD939X": {
+   "fns": 1,
+   "files": [
+    "sound/soc/codecs/wcd939x.c"
+   ]
+  },
+  "SND_SOC_WM_ADSP": {
+   "fns": 1,
+   "files": [
+    "sound/soc/codecs/wm_adsp.c"
+   ]
+  }
+ }
+}
